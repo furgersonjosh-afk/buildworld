@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#0e1630" />
+<title>BUILD WORLD</title>
+<style>
+  :root{
+    --bg:#0e1630; --bg2:#16204a; --card:#1d2a5e; --card2:#26356f;
+    --ink:#eaf0ff; --muted:#9fb0e6; --line:#33458f;
+    --coin:#ffd14d; --xp:#4ad6a0; --accent:#5b8cff; --danger:#ff6b6b;
+    --good:#5bff9b; --shadow:0 8px 24px rgba(0,0,0,.35);
+    --r:18px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; height:100%}
+  body{
+    font-family:'Segoe UI',system-ui,Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 50% -10%, #1b2a64 0%, var(--bg) 60%);
+    color:var(--ink); overflow:hidden; user-select:none;
+    display:flex; flex-direction:column; height:100dvh;
+  }
+  button{font-family:inherit; cursor:pointer; border:none; color:inherit}
+
+  /* ---------- Top bar ---------- */
+  #top{
+    display:flex; align-items:center; gap:10px; padding:10px 14px;
+    background:linear-gradient(180deg,#1a275e,#16204a); border-bottom:2px solid var(--line);
+    box-shadow:var(--shadow); z-index:5;
+  }
+  #logo{font-weight:900; letter-spacing:1px; font-size:18px; white-space:nowrap}
+  #logo small{color:var(--muted); font-weight:700; font-size:11px; display:block; letter-spacing:.5px}
+  .stat{display:flex; align-items:center; gap:6px; background:var(--card); border:1px solid var(--line);
+    padding:7px 11px; border-radius:999px; font-weight:800; font-size:14px; white-space:nowrap}
+  .stat .ico{font-size:16px}
+  .spacer{flex:1}
+  #lvlwrap{min-width:120px}
+  #xpbar{height:8px; background:#0e1630; border-radius:999px; overflow:hidden; margin-top:5px; border:1px solid var(--line)}
+  #xpfill{height:100%; width:0%; background:linear-gradient(90deg,#2fae7c,var(--xp)); transition:width .4s ease}
+
+  /* ---------- Screen area ---------- */
+  #screen{flex:1; overflow:auto; padding:14px 14px 90px; -webkit-overflow-scrolling:touch}
+  .hidden{display:none !important}
+  h2.title{margin:4px 0 12px; font-size:22px; font-weight:900}
+  .sub{color:var(--muted); font-size:13px; margin:-6px 0 14px}
+
+  /* ---------- Cards / grid ---------- */
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+    padding:14px; box-shadow:var(--shadow); margin-bottom:14px}
+  .row{display:flex; gap:10px; flex-wrap:wrap}
+  .grid{display:grid; gap:10px}
+  .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  @media(min-width:560px){ .g2{grid-template-columns:repeat(3,1fr)} }
+
+  .chip{display:inline-flex; align-items:center; gap:6px; background:var(--card2);
+    border:1px solid var(--line); border-radius:999px; padding:6px 10px; font-weight:700; font-size:13px}
+
+  /* Selectable tiles */
+  .tile{background:var(--card2); border:2px solid var(--line); border-radius:14px; padding:10px;
+    text-align:center; font-weight:800; font-size:13px; position:relative; transition:transform .08s, border-color .15s}
+  .tile:active{transform:scale(.96)}
+  .tile.sel{border-color:var(--accent); box-shadow:0 0 0 3px rgba(91,140,255,.25)}
+  .tile.locked{opacity:.55; filter:saturate(.5)}
+  .tile .emoji{font-size:30px; display:block; line-height:1.3}
+  .tile .price{font-size:12px; color:var(--coin); font-weight:800; margin-top:3px}
+  .tile .lock{position:absolute; top:6px; right:8px; font-size:13px}
+  .tile.owned::after{content:"✓"; position:absolute; top:4px; left:8px; color:var(--good); font-weight:900}
+
+  .btn{background:linear-gradient(180deg,var(--accent),#3f6ff0); color:#fff; font-weight:900;
+    padding:13px 16px; border-radius:14px; font-size:15px; box-shadow:var(--shadow); width:100%}
+  .btn:active{transform:translateY(1px)}
+  .btn.sm{padding:9px 12px; font-size:13px; width:auto}
+  .btn.gray{background:linear-gradient(180deg,#3a4794,#2c3878)}
+  .btn.green{background:linear-gradient(180deg,#36c98a,#1f9e69)}
+  .btn.gold{background:linear-gradient(180deg,#ffd14d,#f1ad22); color:#3a2b00}
+  .btn:disabled{opacity:.5}
+
+  .swatches{display:flex; gap:8px; flex-wrap:wrap}
+  .sw{width:34px; height:34px; border-radius:50%; border:3px solid #0e1630; box-shadow:0 0 0 2px var(--line)}
+  .sw.sel{box-shadow:0 0 0 3px var(--ink)}
+
+  /* Vehicle stage (3D showroom, or SVG fallback) */
+  #stage{height:240px; position:relative; border-radius:16px; border:1px solid var(--line); overflow:hidden;
+    background:radial-gradient(130% 95% at 50% 16%, #313e74 0%, #1a2142 55%, #11152e 100%)}
+  #stage svg{display:block; width:100%; height:100%}
+  #stage canvas{display:block; width:100% !important; height:100% !important; touch-action:none}
+  #stage .spinhint{position:absolute; bottom:8px; left:0; right:0; text-align:center; font-size:11px;
+    color:var(--muted); pointer-events:none}
+
+  /* Build grid */
+  #buildgrid{display:grid; gap:3px; background:#0e1630; padding:6px; border-radius:14px; border:1px solid var(--line)}
+  .cell{aspect-ratio:1; background:linear-gradient(180deg,#8fd47e,#6cbe5c); border-radius:8px;
+    display:flex; align-items:center; justify-content:center; font-size:min(7vw,30px); position:relative}
+  .cell:active{filter:brightness(1.1)}
+  .cell.empty{background:linear-gradient(180deg,#7cc36b,#5fae50)}
+  .palitem{min-width:64px}
+
+  /* Jobs */
+  .job{display:flex; align-items:center; gap:12px}
+  .job .je{font-size:34px}
+  .job .ji{flex:1}
+  .job .jt{font-weight:900; font-size:15px}
+  .job .jr{color:var(--muted); font-size:12px}
+  .progress{height:10px; background:#0e1630; border-radius:999px; overflow:hidden; border:1px solid var(--line); margin-top:6px}
+  .progress > i{display:block; height:100%; width:0%; background:linear-gradient(90deg,#ffd14d,#ffae33)}
+  .statbar{height:9px; background:#0e1630; border-radius:999px; overflow:hidden; border:1px solid var(--line)}
+  .statbar > i{display:block; height:100%; transition:width .35s ease}
+
+  /* ---------- Bottom nav ---------- */
+  #nav{position:fixed; left:0; right:0; bottom:0; display:flex; background:linear-gradient(0deg,#10193c,#16204a);
+    border-top:2px solid var(--line); padding:8px 6px calc(8px + env(safe-area-inset-bottom)); z-index:6}
+  .navb{flex:1; background:none; display:flex; flex-direction:column; align-items:center; gap:2px;
+    color:var(--muted); font-weight:800; font-size:11px; padding:6px 0; border-radius:12px}
+  .navb .ne{font-size:22px}
+  .navb.active{color:var(--ink); background:var(--card)}
+
+  /* ---------- Toast / popups ---------- */
+  #toast{position:fixed; left:50%; bottom:96px; transform:translateX(-50%) translateY(20px);
+    background:#0c1330; border:1px solid var(--line); color:var(--ink); padding:10px 16px; border-radius:999px;
+    font-weight:800; opacity:0; transition:.25s; z-index:40; pointer-events:none; box-shadow:var(--shadow); max-width:90%}
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+  .modalwrap{position:fixed; inset:0; background:rgba(6,10,28,.72); display:flex; align-items:center;
+    justify-content:center; padding:20px; z-index:50}
+  .modal{background:var(--card); border:1px solid var(--line); border-radius:20px; padding:22px;
+    max-width:420px; width:100%; box-shadow:var(--shadow); text-align:center}
+  .modal h3{margin:6px 0 8px; font-size:24px}
+  .modal p{color:var(--muted); margin:6px 0 16px}
+  .big-emoji{font-size:56px}
+  textarea{width:100%; min-height:90px; background:#0c1330; color:var(--ink); border:1px solid var(--line);
+    border-radius:12px; padding:10px; font-family:monospace; font-size:12px; resize:vertical}
+
+  /* Level-up burst */
+  .confetti{position:fixed; top:-10px; font-size:18px; z-index:60; pointer-events:none}
+  @keyframes fall{to{transform:translateY(110vh) rotate(540deg); opacity:.2}}
+
+  /* ---------- Drive mode ---------- */
+  body.driving #screen{padding:0; overflow:hidden}
+  body.driving #nav{display:none}
+  #driveroot{position:relative; width:100%; height:100%; overflow:hidden}
+  #drivecanvas{display:block; width:100%; height:100%; touch-action:none;
+    background:linear-gradient(180deg,#aee3ff 0%,#d7f0ff 50%,#e9f7ff 100%)}
+  .dhud{position:absolute; top:10px; left:10px; right:10px; display:flex; justify-content:space-between;
+    align-items:flex-start; gap:8px; pointer-events:none; z-index:3}
+  .dstatrow{display:flex; gap:8px; flex-wrap:wrap}
+  .dchip{display:inline-flex; align-items:center; gap:5px; background:rgba(8,12,30,.62); color:#fff;
+    border:1px solid rgba(255,255,255,.28); padding:7px 11px; border-radius:999px; font-weight:800; font-size:14px}
+  #dexit{pointer-events:auto; font-size:16px; line-height:1; cursor:pointer}
+  .dctrl{position:absolute; bottom:22px; width:92px; height:92px; border-radius:50%;
+    background:rgba(20,30,70,.6); border:2px solid rgba(255,255,255,.32); color:#fff; font-size:38px;
+    display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow); touch-action:none;
+    user-select:none; z-index:3}
+  .dctrl:active{background:rgba(70,110,210,.85); transform:scale(.96)}
+  #dgas{right:20px} #dbrake{left:20px}
+  .flipmsg{position:absolute; top:32%; left:50%; transform:translateX(-50%) scale(.8); font-size:40px;
+    font-weight:900; color:#ffd14d; text-shadow:0 3px 10px rgba(0,0,0,.6); pointer-events:none; opacity:0;
+    transition:.18s; z-index:4; white-space:nowrap}
+  .flipmsg.show{opacity:1; transform:translateX(-50%) scale(1)}
+  .dstart{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:8px; background:rgba(6,10,28,.5); color:#fff; text-align:center; padding:20px; z-index:2}
+</style>
+</head>
+<body>
+
+<div id="top">
+  <div id="logo">BUILD WORLD<small id="worldname">My World</small></div>
+  <div class="spacer"></div>
+  <div class="stat"><span class="ico">🪙</span><span id="coins">0</span></div>
+  <div class="stat" id="lvlwrap">
+    <span class="ico">⭐</span><span>Lvl <b id="lvl">1</b></span>
+    <div id="xpbar" style="flex:1"><div id="xpfill"></div></div>
+  </div>
+</div>
+
+<div id="screen"><!-- screens render here --></div>
+
+<div id="nav">
+  <button class="navb active" data-screen="garage"><span class="ne">🔧</span>Garage</button>
+  <button class="navb" data-screen="drive"><span class="ne">🏁</span>Drive</button>
+  <button class="navb" data-screen="build"><span class="ne">🏗️</span>Build</button>
+  <button class="navb" data-screen="jobs"><span class="ne">💼</span>Jobs</button>
+  <button class="navb" data-screen="share"><span class="ne">📤</span>Share</button>
+</div>
+
+<div id="toast"></div>
+<div id="modalroot"></div>
+
+<!-- 3D engine (local copies so it works offline on vacation) -->
+<script src="lib/three.min.js"></script>
+<script src="lib/RoundedBoxGeometry.js"></script>
+<script src="lib/OrbitControls.js"></script>
+<script src="lib/RoomEnvironment.js"></script>
+
+<script>
+"use strict";
+/* ============================================================================
+   BUILD WORLD — a growable kids' building/customizing game.
+   Single file on purpose: runs anywhere, no build step, easy to share.
+   Architecture notes (for when this grows toward multiplayer):
+     - All player progress lives in ONE `state` object.
+     - serialize()/deserialize() turn that object into a shareable code.
+       Today that powers "share your creation". Later the same code is what
+       a server (or peer) syncs — so we won't have to rewrite the data model.
+     - DATA tables (VEHICLES, PARTS, BUILD_ITEMS, JOBS) are pure config:
+       add content by adding rows, no new code.
+   ============================================================================ */
+
+/* ---------------------------- DATA (content) ----------------------------- */
+
+// Bodies/chassis you build on. `level`=level to unlock, `cost` in coins.
+// weight + grip feed the build's stats (see carStats).
+const VEHICLES = {
+  car:     {name:"Hot Hatch",  emoji:"🚗", level:1, cost:0,   weight:100, grip:55, parts:["spoiler","roofrack","lights"]},
+  supercar:{name:"Apex GT",    emoji:"🏎️", level:2, cost:240, weight:88,  grip:64, parts:["spoiler","lights"]},
+  muscle:  {name:"Brawler V8", emoji:"🚙", level:3, cost:300, weight:124, grip:58, parts:["spoiler","lights"]},
+  truck:   {name:"Pickup HD",  emoji:"🛻", level:2, cost:160, weight:155, grip:54, parts:["flatbed","tank","crane","lights"]},
+  tractor: {name:"Tractor",    emoji:"🚜", level:4, cost:340, weight:210, grip:72, parts:["plow","trailer","lights"]},
+  moto:    {name:"Motorcycle", emoji:"🏍️", level:4, cost:250, weight:60,  grip:45, parts:["saddlebags","windshield"]},
+  bigrig:  {name:"Big Rig",    emoji:"🚛", level:6, cost:800, weight:260, grip:50, parts:["tank","crane","flatbed","lights"]},
+};
+
+// Engines you can build into your car. power feeds stats + how it drives.
+const ENGINES = {
+  stock:   {name:"Stock 4-Cyl", emoji:"🔧", power:40,  level:1, cost:0},
+  v6:      {name:"V6",          emoji:"⚙️", power:62,  level:2, cost:150},
+  v8:      {name:"V8",          emoji:"🔩", power:82,  level:3, cost:380},
+  electric:{name:"Electric",    emoji:"⚡", power:95,  level:4, cost:600},
+  turbo:   {name:"Turbo V8",    emoji:"🌀", power:106, level:5, cost:750},
+};
+
+// Add-on parts the player can toggle onto a vehicle.
+const PARTS = {
+  spoiler:  {name:"Spoiler",     emoji:"🪽", level:1, cost:40},
+  roofrack: {name:"Roof Rack",   emoji:"🧳", level:2, cost:35},
+  lights:   {name:"Light Bar",   emoji:"💡", level:2, cost:55},
+  flatbed:  {name:"Flatbed",     emoji:"🟫", level:2, cost:60},
+  tank:     {name:"Tank",        emoji:"🛢️", level:3, cost:90},
+  crane:    {name:"Crane",       emoji:"🏗️", level:5, cost:140},
+  plow:     {name:"Plow",        emoji:"⛏️", level:3, cost:70},
+  trailer:  {name:"Trailer",     emoji:"🚃", level:3, cost:85},
+  saddlebags:{name:"Saddlebags", emoji:"🎒", level:4, cost:30},
+  windshield:{name:"Windshield", emoji:"🛡️", level:4, cost:25},
+};
+
+// Paint colors (wheels reuse a darker palette).
+const PAINTS = ["#e23b3b","#ff8c1a","#ffd14d","#37c46a","#2f8fff","#9b5bff","#ff5fa2","#2b2f3a","#f2f2f2","#0fb9b1"];
+
+// Build-mode items the player places on the grid. value = "world value" added.
+const BUILD_ITEMS = {
+  road:  {name:"Road",   emoji:"🛣️", level:1, cost:5,   value:2},
+  fence: {name:"Fence",  emoji:"🚧", level:1, cost:8,   value:3},
+  tree:  {name:"Tree",   emoji:"🌳", level:1, cost:10,  value:5},
+  crops: {name:"Crops",  emoji:"🌾", level:1, cost:15,  value:8},
+  house: {name:"House",  emoji:"🏠", level:2, cost:60,  value:30},
+  barn:  {name:"Barn",   emoji:"🛖", level:2, cost:90,  value:45},
+  silo:  {name:"Silo",   emoji:"🏯", level:3, cost:120, value:60},
+  garage:{name:"Garage", emoji:"🏚️", level:3, cost:150, value:75},
+  shop:  {name:"Shop",   emoji:"🏬", level:4, cost:240, value:120},
+  pond:  {name:"Pond",   emoji:"🟦", level:4, cost:80,  value:40},
+  windmill:{name:"Windmill",emoji:"🌬️",level:5, cost:300, value:160},
+  factory:{name:"Factory",emoji:"🏭",level:6, cost:600, value:320},
+};
+
+// Jobs: earn coins + XP. Some need a vehicle type. cooldown in seconds.
+const JOBS = [
+  {id:"plow",  name:"Plow the field",   emoji:"🚜", need:"tractor", coins:35, xp:18, secs:2, cd:6},
+  {id:"hay",   name:"Deliver hay",      emoji:"🛻", need:"truck",   coins:30, xp:15, secs:2, cd:6},
+  {id:"race",  name:"Win a race",       emoji:"🏁", need:"car",     coins:28, xp:14, secs:2, cd:6},
+  {id:"mail",  name:"Mail run",         emoji:"📬", need:"moto",    coins:26, xp:13, secs:2, cd:6},
+  {id:"haul",  name:"Haul cargo",       emoji:"📦", need:"bigrig",  coins:70, xp:34, secs:3, cd:8},
+  {id:"chores",name:"Farm chores",      emoji:"🧹", need:null,      coins:14, xp:8,  secs:2, cd:5},
+];
+
+// XP needed to reach the NEXT level (index = current level). Grows over time.
+function xpForLevel(lvl){ return 60 + (lvl-1)*55; }
+
+/* ------------------------------- STATE ----------------------------------- */
+
+const DEFAULT_STATE = {
+  v:1,                       // save format version
+  world:"My World",
+  coins:80,
+  xp:0,
+  level:1,
+  owned:["car"],             // vehicle types owned
+  current:"car",             // vehicle in the garage
+  configs:{                  // per-vehicle customization
+    car:{paint:"#e23b3b", wheel:"#c9ccd6", parts:[], rim:"sport", lift:false, tint:false, engine:"stock"}
+  },
+  ownedParts:[],             // parts purchased (across all vehicles)
+  ownedEngines:["stock"],    // engines purchased
+  build:{},                  // "r,c" -> build item id
+  gridW:6, gridH:5,
+  seenWelcome:false,
+};
+
+let state = load();
+
+function load(){
+  try{
+    const raw = localStorage.getItem("buildworld");
+    if(raw){ return Object.assign(structuredClone(DEFAULT_STATE), JSON.parse(raw)); }
+  }catch(e){}
+  return structuredClone(DEFAULT_STATE);
+}
+function save(){ try{ localStorage.setItem("buildworld", JSON.stringify(state)); }catch(e){} }
+
+function cfg(type){
+  if(!state.configs[type]) state.configs[type] = {paint:"#2f8fff", wheel:"#c9ccd6", parts:[]};
+  const c = state.configs[type];
+  if(!c.parts) c.parts=[];
+  if(!c.rim) c.rim="sport";
+  if(c.lift===undefined) c.lift=false;
+  if(c.tint===undefined) c.tint=false;
+  if(!c.wheel) c.wheel="#c9ccd6";
+  if(!c.engine) c.engine="stock";
+  if(!state.ownedEngines) state.ownedEngines=["stock"];
+  return c;
+}
+
+// Build stats from body + engine + wheels + extras. Drives the stat bars AND
+// how the car performs in Test Drive (see startDrive).
+function carStats(type, c){
+  const v=VEHICLES[type], e=ENGINES[c.engine||"stock"];
+  const w=v.weight||120;
+  let power=e.power;
+  let speed=Math.round(46 + power*1.05 - w*0.12);
+  let grip=(v.grip||50);
+  if(c.rim==="offroad"){ grip+=12; } else if(c.rim==="sport"){ grip+=4; speed+=6; } else if(c.rim==="steel"){ grip+=6; }
+  if(c.lift){ grip+=6; speed-=6; }
+  if((c.parts||[]).includes("spoiler")){ grip+=8; speed+=2; }
+  let style=28 + (c.parts||[]).length*8 + (c.rim==="sport"?10:0) + (c.tint?6:0) + (c.lift?6:0);
+  return {
+    power:Math.min(120,power),
+    speed:Math.max(20,Math.min(140,speed)),
+    grip:Math.max(20,Math.min(100,grip)),
+    style:Math.min(100,style)
+  };
+}
+
+/* ------------------------------ HELPERS ---------------------------------- */
+const $ = s => document.querySelector(s);
+const el = (tag, attrs={}, html="") => { const e=document.createElement(tag);
+  for(const k in attrs) e.setAttribute(k, attrs[k]); if(html) e.innerHTML=html; return e; };
+
+function toast(msg){
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove("show"), 1600);
+}
+
+function addCoins(n){ state.coins = Math.max(0, state.coins + n); save(); refreshTop(); }
+
+function addXP(n){
+  state.xp += n;
+  let leveled = false;
+  while(state.xp >= xpForLevel(state.level)){
+    state.xp -= xpForLevel(state.level);
+    state.level++;
+    leveled = true;
+  }
+  save(); refreshTop();
+  if(leveled) onLevelUp();
+}
+
+function onLevelUp(){
+  confettiBurst();
+  const unlocks = whatUnlocksAt(state.level);
+  showModal(`
+    <div class="big-emoji">🎉</div>
+    <h3>Level ${state.level}!</h3>
+    <p>${unlocks.length ? "You just unlocked:<br><b>"+unlocks.join(" · ")+"</b>" : "Keep building to unlock more!"}</p>
+    <button class="btn green" onclick="closeModal()">Awesome!</button>
+  `);
+}
+
+function whatUnlocksAt(lvl){
+  const out = [];
+  for(const k in VEHICLES) if(VEHICLES[k].level===lvl) out.push(VEHICLES[k].emoji+" "+VEHICLES[k].name);
+  for(const k in PARTS)    if(PARTS[k].level===lvl)    out.push(PARTS[k].name);
+  for(const k in BUILD_ITEMS) if(BUILD_ITEMS[k].level===lvl) out.push(BUILD_ITEMS[k].emoji+" "+BUILD_ITEMS[k].name);
+  return out;
+}
+
+function refreshTop(){
+  $("#coins").textContent = state.coins;
+  $("#lvl").textContent = state.level;
+  $("#worldname").textContent = state.world;
+  const need = xpForLevel(state.level);
+  $("#xpfill").style.width = Math.min(100, (state.xp/need)*100) + "%";
+}
+
+/* --------------------------- VEHICLE DRAWING ----------------------------- */
+/* Detailed, shaded side-view SVGs (viewBox 360x210). Customization supported:
+   paint (gradient + finish), rim style, lift kit, window tint, add-on parts. */
+
+function hex2rgb(h){ h=(h||"#888888").replace("#",""); if(h.length===3) h=h.split("").map(c=>c+c).join("");
+  return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+function clamp255(v){ return Math.max(0,Math.min(255,Math.round(v))); }
+function rgb2hex(r,g,b){ const c=v=>("0"+clamp255(v).toString(16)).slice(-2); return "#"+c(r)+c(g)+c(b); }
+// amt>0 lightens toward white, amt<0 darkens toward black
+function shade(hex,amt){ const [r,g,b]=hex2rgb(hex); const f=amt<0?0:255; const t=Math.abs(amt);
+  return rgb2hex(r+(f-r)*t, g+(f-g)*t, b+(f-b)*t); }
+function hashStr(s){ let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0; return Math.abs(h); }
+
+// Detailed wheel: tire + styled rim. rim: 'sport' | 'steel' | 'offroad'
+function wheelSVG(cx,cy,r,rim,wcol){
+  const f=(n)=>(+n).toFixed(1);
+  let s=`<circle cx="${cx}" cy="${cy}" r="${f(r)}" fill="#15151b"/>
+         <circle cx="${cx}" cy="${cy}" r="${f(r)}" fill="none" stroke="#000" stroke-width="2" opacity=".45"/>`;
+  if(rim==="offroad"){
+    for(let i=0;i<18;i++){ const a=i/18*6.2832;
+      s+=`<line x1="${f(cx+Math.cos(a)*r)}" y1="${f(cy+Math.sin(a)*r)}" x2="${f(cx+Math.cos(a)*(r-5))}" y2="${f(cy+Math.sin(a)*(r-5))}" stroke="#0a0a0a" stroke-width="4"/>`; }
+  }
+  const rr=r*0.6;
+  s+=`<circle cx="${cx}" cy="${cy}" r="${f(rr)}" fill="${shade(wcol,0.18)}" stroke="${shade(wcol,-0.35)}" stroke-width="2"/>`;
+  const spokes = rim==="offroad"?6:(rim==="steel"?0:7);
+  for(let i=0;i<spokes;i++){ const a=i/spokes*6.2832;
+    s+=`<line x1="${cx}" y1="${cy}" x2="${f(cx+Math.cos(a)*rr*0.92)}" y2="${f(cy+Math.sin(a)*rr*0.92)}" stroke="${shade(wcol,-0.4)}" stroke-width="${rim==="offroad"?5:3}" stroke-linecap="round"/>`; }
+  if(rim==="steel"){ for(let i=0;i<5;i++){ const a=i/5*6.2832;
+    s+=`<circle cx="${f(cx+Math.cos(a)*rr*0.55)}" cy="${f(cy+Math.sin(a)*rr*0.55)}" r="${f(rr*0.17)}" fill="${shade(wcol,-0.45)}"/>`; } }
+  s+=`<circle cx="${cx}" cy="${cy}" r="${f(rr*0.3)}" fill="${shade(wcol,0.32)}" stroke="#222" stroke-width="1.5"/>`;
+  s+=`<circle cx="${f(cx-r*0.3)}" cy="${f(cy-r*0.35)}" r="${f(r*0.16)}" fill="#fff" opacity=".12"/>`;
+  return s;
+}
+
+function vehicleSVG(type, c){
+  const W=360, H=210, ground=156;
+  const paint=c.paint, wheel=c.wheel, parts=c.parts||[];
+  const rim=c.rim||"sport", lift=!!c.lift, tint=!!c.tint;
+  const has = p => parts.includes(p);
+  const pid="pg"+hashStr(paint+type), lid="lg"+hashStr(paint+type+"glass");
+  const glass = tint ? "#33414f" : "#cce9ff";
+  const glassEdge = tint ? "#1d2733" : "#8fc4e6";
+  const tscale = lift ? 1.16 : 1;
+  const by = lift ? -14 : 0;                 // body lift offset
+  const fill = `url(#${pid})`;
+
+  const defs = `<defs>
+    <linearGradient id="${pid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${shade(paint,0.30)}"/>
+      <stop offset=".5" stop-color="${paint}"/>
+      <stop offset="1" stop-color="${shade(paint,-0.30)}"/>
+    </linearGradient>
+    <linearGradient id="${lid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${shade(glass,0.25)}"/>
+      <stop offset="1" stop-color="${glassEdge}"/>
+    </linearGradient>
+  </defs>`;
+  const G = `url(#${lid})`;                   // glass fill
+  const dk = shade(paint,-0.4);
+  let body="", extras="", wheels="";
+
+  if(type==="car"){
+    const wr=24*tscale;
+    wheels=wheelSVG(112,ground,wr,rim,wheel)+wheelSVG(272,ground,wr,rim,wheel);
+    body=`<g transform="translate(0,${by})">
+      <path d="M64 ${ground} Q62 116 96 110 L132 82 Q152 70 188 70 L250 72 Q288 76 304 110 L320 116 Q326 124 318 ${ground} Z" fill="${fill}" stroke="${dk}" stroke-width="2"/>
+      <circle cx="112" cy="${ground}" r="${(wr+5).toFixed(0)}" fill="none" stroke="${dk}" stroke-width="4"/>
+      <circle cx="272" cy="${ground}" r="${(wr+5).toFixed(0)}" fill="none" stroke="${dk}" stroke-width="4"/>
+      <path d="M142 83 Q156 75 186 75 L206 76 L206 103 L150 103 Z" fill="${G}"/>
+      <path d="M214 77 L246 79 Q274 83 282 103 L214 103 Z" fill="${G}"/>
+      <line x1="210" y1="76" x2="210" y2="103" stroke="${dk}" stroke-width="4"/>
+      <path d="M100 106 Q190 98 300 110" stroke="#fff" stroke-width="3" fill="none" opacity=".25"/>
+      <ellipse cx="316" cy="118" rx="6" ry="8" fill="#fff3b0" stroke="#d9b94a"/>
+      <rect x="62" y="114" width="8" height="12" rx="3" fill="#e23b3b"/>
+      <rect x="178" y="116" width="13" height="4" rx="2" fill="${dk}"/>
+    </g>`;
+    if(has("spoiler")) extras+=`<g transform="translate(0,${by})"><rect x="300" y="92" width="30" height="7" rx="3" fill="#222"/><rect x="324" y="92" width="6" height="26" fill="#222"/></g>`;
+    if(has("roofrack")) extras+=`<g transform="translate(0,${by})"><rect x="165" y="64" width="80" height="6" rx="3" fill="#3a3a3a"/></g>`;
+    if(has("lights")) extras+=`<g transform="translate(0,${by})"><rect x="158" y="55" width="66" height="9" rx="4" fill="#ffe27a" stroke="#caa12a"/></g>`;
+  }
+  else if(type==="truck"){
+    const wr=26*tscale;
+    wheels=wheelSVG(106,ground,wr,rim,wheel)+wheelSVG(272,ground,wr,rim,wheel);
+    body=`<g transform="translate(0,${by})">
+      <path d="M52 ${ground} L52 118 L92 118 L120 80 L188 80 L198 118 L324 118 L324 ${ground} Z" fill="${fill}" stroke="${dk}" stroke-width="2"/>
+      <rect x="200" y="100" width="124" height="18" fill="${shade(paint,-0.4)}"/>
+      <path d="M126 84 L184 84 L192 112 L126 112 Z" fill="${G}"/>
+      <circle cx="106" cy="${ground}" r="${(wr+5).toFixed(0)}" fill="none" stroke="${dk}" stroke-width="4"/>
+      <circle cx="272" cy="${ground}" r="${(wr+5).toFixed(0)}" fill="none" stroke="${dk}" stroke-width="4"/>
+      <rect x="50" y="112" width="7" height="11" rx="2" fill="#fff3b0"/>
+      <path d="M60 110 Q190 102 320 110" stroke="#fff" stroke-width="3" fill="none" opacity=".2"/>
+    </g>`;
+    if(has("flatbed")) extras+=`<g transform="translate(0,${by})"><rect x="200" y="92" width="124" height="10" fill="#7a5230"/></g>`;
+    if(has("tank")) extras+=`<g transform="translate(0,${by})"><rect x="206" y="66" width="112" height="34" rx="17" fill="#d3dae8" stroke="#8a93a6" stroke-width="2"/></g>`;
+    if(has("crane")) extras+=`<g transform="translate(0,${by})"><rect x="212" y="38" width="8" height="62" fill="#3a3a3a"/><rect x="212" y="38" width="74" height="8" fill="#ffae33"/></g>`;
+    if(has("lights")) extras+=`<g transform="translate(0,${by})"><rect x="120" y="68" width="60" height="9" rx="4" fill="#ffe27a" stroke="#caa12a"/></g>`;
+  }
+  else if(type==="tractor"){
+    const fr=15*tscale, rr=34*tscale;
+    wheels=wheelSVG(100,ground+2,fr,"offroad",wheel)+wheelSVG(238,ground-12,rr,"offroad",wheel);
+    body=`<g>
+      <rect x="180" y="${ground-18}" width="70" height="12" fill="${shade(paint,-0.4)}"/>
+      <path d="M118 ${ground} L118 68 L176 68 L176 104 L256 104 L256 ${ground} Z" fill="${fill}" stroke="${dk}" stroke-width="2"/>
+      <rect x="126" y="76" width="44" height="26" rx="3" fill="${G}"/>
+      <rect x="248" y="60" width="6" height="20" fill="#333"/>
+      <ellipse cx="258" cy="116" rx="6" ry="7" fill="#fff3b0" stroke="#d9b94a"/>
+    </g>`;
+    if(has("plow")) extras+=`<path d="M58 ${ground} L100 ${ground} L96 ${ground-30} L58 ${ground-18} Z" fill="#9aa3b2" stroke="#5a6270" stroke-width="2"/>`;
+    if(has("trailer")) extras+=`<rect x="264" y="${ground-16}" width="84" height="26" rx="4" fill="#7a5230" stroke="#5a3d22"/>${wheelSVG(312,ground+4,15,"steel",wheel)}`;
+    if(has("lights")) extras+=`<circle cx="256" cy="100" r="5" fill="#ffe27a"/>`;
+  }
+  else if(type==="moto"){
+    const wr=30*tscale;
+    wheels=wheelSVG(118,ground,wr,rim,wheel)+wheelSVG(244,ground,wr,rim,wheel);
+    const fr=ground-46;
+    body=`<g>
+      <path d="M118 ${ground} L150 ${fr} L210 ${fr} L244 ${ground}" stroke="${dk}" stroke-width="12" fill="none" stroke-linecap="round"/>
+      <path d="M118 ${ground} L150 ${fr} L210 ${fr} L244 ${ground}" stroke="${fill}" stroke-width="8" fill="none" stroke-linecap="round"/>
+      <path d="M150 ${fr} L166 ${fr-18} L202 ${fr-18} L210 ${fr} Z" fill="${fill}" stroke="${dk}" stroke-width="2"/>
+      <rect x="160" y="${fr-26} " width="42" height="12" rx="6" fill="#222"/>
+      <line x1="210" y1="${fr}" x2="248" y2="${fr-24}" stroke="#444" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="250" cy="${fr-24}" r="6" fill="#fff3b0" stroke="#d9b94a"/>
+    </g>`;
+    if(has("saddlebags")) extras+=`<rect x="196" y="${ground-30}" width="36" height="26" rx="6" fill="#5a3b22" stroke="#3e2815"/>`;
+    if(has("windshield")) extras+=`<path d="M250 ${fr-26} Q268 ${fr-44} 258 ${fr-6}" stroke="${G}" stroke-width="6" fill="none"/>`;
+  }
+  else if(type==="bigrig"){
+    const wr=24*tscale;
+    wheels=wheelSVG(78,ground,wr,rim,wheel)+wheelSVG(196,ground,wr-2,rim,wheel)+wheelSVG(238,ground,wr-2,rim,wheel)+wheelSVG(304,ground,wr-2,rim,wheel);
+    body=`<g transform="translate(0,${by})">
+      <rect x="152" y="58" width="186" height="96" rx="6" fill="#eef2f9" stroke="#aab2c4" stroke-width="2"/>
+      <path d="M38 ${ground} L38 68 L96 68 L112 104 L150 104 L150 ${ground} Z" fill="${fill}" stroke="${dk}" stroke-width="2"/>
+      <path d="M52 76 L92 76 L104 100 L52 100 Z" fill="${G}"/>
+      <rect x="36" y="110" width="7" height="12" rx="2" fill="#fff3b0"/>
+      <rect x="150" y="120" width="6" height="${ground-120}" fill="#333"/>
+    </g>`;
+    if(has("tank")) extras+=`<g transform="translate(0,${by})"><rect x="156" y="64" width="178" height="84" rx="42" fill="#d3dae8" stroke="#8a93a6" stroke-width="2"/></g>`;
+    if(has("flatbed")) extras+=`<g transform="translate(0,${by})"><rect x="152" y="120" width="186" height="14" fill="#7a5230"/></g>`;
+    if(has("crane")) extras+=`<g transform="translate(0,${by})"><rect x="160" y="30" width="8" height="40" fill="#3a3a3a"/><rect x="160" y="30" width="94" height="8" fill="#ffae33"/></g>`;
+    if(has("lights")) extras+=`<g transform="translate(0,${by})"><rect x="40" y="60" width="52" height="8" rx="3" fill="#ffe27a" stroke="#caa12a"/></g>`;
+  }
+
+  else if(type==="supercar"){
+    const wr=25*tscale;
+    wheels=wheelSVG(96,ground,wr,rim,wheel)+wheelSVG(288,ground,wr,rim,wheel);
+    body=`<g transform="translate(0,${by})">
+      <path d="M40 ${ground} L40 138 Q40 131 60 129 L92 125 L122 110 Q152 95 186 95 L210 97 Q252 101 288 119 L322 131 Q332 136 330 ${ground} Z" fill="${fill}" stroke="${dk}" stroke-width="2"/>
+      <path d="M128 110 Q152 98 184 98 L205 100 L197 120 L140 120 Z" fill="${G}"/>
+      <path d="M214 122 L252 124 L248 134 L214 132 Z" fill="${shade(paint,-0.5)}"/>
+      <rect x="58" y="148" width="244" height="6" rx="2" fill="${shade(paint,-0.5)}"/>
+      <circle cx="96" cy="${ground}" r="${(wr+4).toFixed(0)}" fill="none" stroke="${dk}" stroke-width="4"/>
+      <circle cx="288" cy="${ground}" r="${(wr+4).toFixed(0)}" fill="none" stroke="${dk}" stroke-width="4"/>
+      <path d="M44 132 L68 127 L68 134 L44 138 Z" fill="#fff3b0"/>
+      <rect x="320" y="125" width="9" height="5" rx="2" fill="#e23b3b"/>
+      <path d="M70 127 Q190 110 320 129" stroke="#fff" stroke-width="3" fill="none" opacity=".28"/>
+    </g>`;
+    if(has("spoiler")) extras+=`<g transform="translate(0,${by})"><rect x="298" y="106" width="36" height="6" rx="3" fill="#1c1c1c"/><rect x="300" y="106" width="6" height="22" fill="#1c1c1c"/><rect x="328" y="106" width="6" height="22" fill="#1c1c1c"/></g>`;
+    if(has("lights")) extras+=`<g transform="translate(0,${by})"><rect x="150" y="90" width="52" height="7" rx="3" fill="#ffe27a" stroke="#caa12a"/></g>`;
+  }
+  else if(type==="muscle"){
+    const wr=24*tscale;
+    wheels=wheelSVG(104,ground,wr,rim,wheel)+wheelSVG(278,ground,wr,rim,wheel);
+    body=`<g transform="translate(0,${by})">
+      <path d="M46 ${ground} L46 122 L150 117 Q170 94 210 94 L246 98 Q282 102 302 119 L320 125 Q328 130 320 ${ground} Z" fill="${fill}" stroke="${dk}" stroke-width="2"/>
+      <path d="M156 115 Q176 98 208 98 L242 102 L250 117 L162 119 Z" fill="${G}"/>
+      <line x1="207" y1="98" x2="208" y2="118" stroke="${dk}" stroke-width="3"/>
+      <circle cx="104" cy="${ground}" r="${(wr+5).toFixed(0)}" fill="none" stroke="${dk}" stroke-width="4"/>
+      <circle cx="278" cy="${ground}" r="${(wr+5).toFixed(0)}" fill="none" stroke="${dk}" stroke-width="4"/>
+      <rect x="42" y="120" width="9" height="11" rx="2" fill="#fff3b0"/>
+      <rect x="318" y="121" width="7" height="11" rx="2" fill="#e23b3b"/>
+      <path d="M58 117 Q190 105 316 121" stroke="#fff" stroke-width="3" fill="none" opacity=".24"/>
+    </g>`;
+    if(has("spoiler")) extras+=`<g transform="translate(0,${by})"><rect x="296" y="106" width="32" height="6" rx="3" fill="#1c1c1c"/><rect x="298" y="106" width="6" height="18" fill="#1c1c1c"/><rect x="322" y="106" width="6" height="18" fill="#1c1c1c"/></g>`;
+    if(has("lights")) extras+=`<g transform="translate(0,${by})"><rect x="150" y="92" width="52" height="8" rx="3" fill="#ffe27a" stroke="#caa12a"/></g>`;
+  }
+
+  // lift kit: little suspension shocks between lifted body and the wheels
+  let shocks="";
+  const shockXs = {car:[112,272], truck:[106,272], bigrig:[78,304], supercar:[96,288], muscle:[104,278]};
+  if(lift && shockXs[type]){
+    shockXs[type].forEach(x=> shocks+=`<line x1="${x}" y1="${ground-6}" x2="${x}" y2="${ground-22}" stroke="#777" stroke-width="4"/>`);
+  }
+
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    ${defs}
+    <ellipse cx="190" cy="${ground+28}" rx="152" ry="11" fill="rgba(0,0,0,.15)"/>
+    ${wheels}${shocks}${body}${extras}
+  </svg>`;
+}
+
+/* ============================ 3D SHOWROOM =============================== */
+/* Real 3D car in the Build Shop (three.js, loaded locally for offline use).
+   Falls back to the 2D SVG automatically if WebGL/three fails. */
+
+let SR=null, SRenv=null;
+function showroomReady(){ return !!(window.THREE && THREE.OrbitControls && THREE.RoundedBoxGeometry); }
+
+// proportions per body type, in metres-ish world units
+function carSpec3D(type){
+  switch(type){
+    case "supercar":return {len:4.0,wid:1.86,bodyH:0.46,cabinH:0.34,cabinLen:1.35,cabinX:-0.1,wheelR:0.46,axleF:1.34,axleR:-1.3};
+    case "muscle":  return {len:4.1,wid:1.80,bodyH:0.56,cabinH:0.46,cabinLen:1.55,cabinX:-0.15,wheelR:0.48,axleF:1.32,axleR:-1.3};
+    case "truck":   return {len:4.2,wid:1.92,bodyH:0.70,cabinH:0.62,cabinLen:1.30,cabinX:0.55,wheelR:0.52,axleF:1.36,axleR:-1.34,bed:true};
+    case "bigrig":  return {len:4.6,wid:2.00,bodyH:0.95,cabinH:0.80,cabinLen:1.20,cabinX:1.30,wheelR:0.52,axleF:1.55,axleR:-1.4,bed:true};
+    case "tractor": return {len:3.0,wid:1.66,bodyH:0.72,cabinH:0.62,cabinLen:1.10,cabinX:-0.3,wheelR:0.42,axleF:1.0,axleR:-1.0,bigRear:true};
+    case "moto":    return {len:2.6,wid:0.7,bodyH:0.42,cabinH:0,cabinLen:0,cabinX:0,wheelR:0.5,axleF:1.0,axleR:-1.0,moto:true};
+    default:        return {len:3.7,wid:1.72,bodyH:0.55,cabinH:0.50,cabinLen:1.7,cabinX:-0.05,wheelR:0.46,axleF:1.18,axleR:-1.18};
+  }
+}
+
+function showroomInit(){
+  if(SR) return SR;
+  const renderer=new THREE.WebGLRenderer({antialias:true, alpha:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  if("outputEncoding" in renderer) renderer.outputEncoding=THREE.sRGBEncoding;
+  const scene=new THREE.Scene();
+  const camera=new THREE.PerspectiveCamera(40,1,0.1,100);
+  camera.position.set(5.4,2.5,6.0);
+  scene.add(new THREE.HemisphereLight(0xffffff,0x39406a,0.9));
+  const dir=new THREE.DirectionalLight(0xffffff,1.15);
+  dir.position.set(5,9,6); dir.castShadow=true;
+  dir.shadow.mapSize.set(1024,1024);
+  dir.shadow.camera.near=1; dir.shadow.camera.far=40;
+  dir.shadow.camera.left=-8; dir.shadow.camera.right=8; dir.shadow.camera.top=8; dir.shadow.camera.bottom=-8;
+  scene.add(dir);
+  try{
+    const pmrem=new THREE.PMREMGenerator(renderer);
+    SRenv=pmrem.fromScene(new THREE.RoomEnvironment(renderer),0.04).texture;
+    scene.environment=SRenv;
+  }catch(e){}
+  const ground=new THREE.Mesh(new THREE.CircleGeometry(10,48),
+    new THREE.MeshStandardMaterial({color:0x171c3a, roughness:0.92, metalness:0.0}));
+  ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
+  const controls=new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping=true; controls.dampingFactor=0.08;
+  controls.autoRotate=true; controls.autoRotateSpeed=1.5;
+  controls.enablePan=false; controls.minDistance=4.2; controls.maxDistance=12;
+  controls.minPolarAngle=0.45; controls.maxPolarAngle=Math.PI/2-0.04;
+  controls.target.set(0,0.55,0);
+  SR={renderer,scene,camera,controls,carGroup:null,raf:null};
+  return SR;
+}
+
+function disposeGroup(g){
+  g.traverse(o=>{ if(o.geometry) o.geometry.dispose();
+    if(o.material){ (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose()); } });
+}
+
+function makeWheel3D(x,z,r,c){
+  const grp=new THREE.Group();
+  const tireW=(c.rim==="offroad")?0.42:0.32;
+  const tireMat=new THREE.MeshStandardMaterial({color:0x101013, roughness:0.85, metalness:0.1});
+  const rimMat=new THREE.MeshStandardMaterial({color:new THREE.Color(c.wheel||"#c9ccd6"), metalness:0.85, roughness:0.28});
+  const tire=new THREE.Mesh(new THREE.CylinderGeometry(r,r,tireW,28), tireMat);
+  tire.rotation.x=Math.PI/2; tire.castShadow=true; grp.add(tire);
+  const rim=new THREE.Mesh(new THREE.CylinderGeometry(r*0.62,r*0.62,tireW*1.04,24), rimMat);
+  rim.rotation.x=Math.PI/2; grp.add(rim);
+  if(c.rim!=="steel"){
+    const n=(c.rim==="offroad")?6:7;
+    for(let i=0;i<n;i++){
+      const sp=new THREE.Mesh(new THREE.BoxGeometry(r*1.15,0.07,0.07), rimMat);
+      sp.rotation.z=i/n*Math.PI*2; grp.add(sp);
+    }
+  }
+  grp.position.set(x,r,z);
+  return grp;
+}
+
+function showroomBuildCar(type,c){
+  const sr=SR; if(!sr) return;
+  if(sr.carGroup){ sr.scene.remove(sr.carGroup); disposeGroup(sr.carGroup); }
+  const g=new THREE.Group();
+  const s=carSpec3D(type);
+  const lift=c.lift?0.20:0;
+  const paint=new THREE.MeshPhysicalMaterial({color:new THREE.Color(c.paint||"#e23b3b"),
+    metalness:0.5, roughness:0.3, clearcoat:0.85, clearcoatRoughness:0.22});
+  const glass=new THREE.MeshPhysicalMaterial({color:new THREE.Color(c.tint?0x0f141d:0x9fcdff),
+    metalness:0.1, roughness:0.08, transparent:true, opacity:0.78});
+  const wr=s.wheelR*(c.lift?1.12:1);
+
+  if(s.moto){
+    const frame=new THREE.Mesh(new THREE.RoundedBoxGeometry(1.6,0.4,0.4,4,0.16), paint);
+    frame.position.y=wr+0.25+lift; frame.castShadow=true; g.add(frame);
+    g.add(makeWheel3D(s.axleF,0,wr,c)); g.add(makeWheel3D(s.axleR,0,wr,c));
+  } else {
+    const body=new THREE.Mesh(new THREE.RoundedBoxGeometry(s.len,s.bodyH,s.wid,5,0.18), paint);
+    body.position.y=wr+s.bodyH/2+lift; body.castShadow=true; g.add(body);
+    if(s.cabinH>0){
+      const cab=new THREE.Mesh(new THREE.RoundedBoxGeometry(s.cabinLen,s.cabinH,s.wid*0.92,5,0.14), paint);
+      cab.position.set(s.cabinX, wr+s.bodyH+s.cabinH/2+lift, 0); cab.castShadow=true; g.add(cab);
+      const gl=new THREE.Mesh(new THREE.BoxGeometry(s.cabinLen*0.92,s.cabinH*0.62,s.wid*0.95), glass);
+      gl.position.copy(cab.position); g.add(gl);
+    }
+    if(s.bed){
+      const bedY=wr+s.bodyH*0.55+lift;
+      const bed=new THREE.Mesh(new THREE.BoxGeometry(s.len*0.42,s.bodyH*0.5,s.wid*0.96),
+        new THREE.MeshStandardMaterial({color:0x2a2f3a, roughness:0.8}));
+      bed.position.set(s.cabinX - s.cabinLen*0.6 - s.len*0.18, bedY, 0); g.add(bed);
+    }
+    // four wheels
+    [[s.axleF, s.wid/2],[s.axleF,-s.wid/2],[s.axleR,s.wid/2],[s.axleR,-s.wid/2]]
+      .forEach(p=> g.add(makeWheel3D(p[0],p[1],wr,c)));
+    // simple headlights
+    const hl=new THREE.MeshStandardMaterial({color:0xfff3b0, emissive:0xffe27a, emissiveIntensity:0.4});
+    [-1,1].forEach(z=>{ const l=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.14,0.2), hl);
+      l.position.set(s.len/2-0.04, wr+s.bodyH*0.6+lift, z*s.wid*0.32); g.add(l); });
+  }
+  sr.carGroup=g; sr.scene.add(g);
+}
+
+function showroomResize(){
+  const sr=SR, stage=$("#stage"); if(!sr||!stage) return;
+  const w=stage.clientWidth||320, h=stage.clientHeight||240;
+  sr.renderer.setSize(w,h,false);
+  sr.camera.aspect=w/h; sr.camera.updateProjectionMatrix();
+}
+
+function showroomLoop(){
+  const sr=SR; if(!sr) return;
+  sr.raf=requestAnimationFrame(showroomLoop);
+  sr.controls.update();
+  sr.renderer.render(sr.scene,sr.camera);
+}
+
+// returns true if the 3D showroom mounted, false to trigger SVG fallback
+function showroomMount(){
+  if(!showroomReady()) return false;
+  try{
+    const stage=$("#stage"); if(!stage) return false;
+    const sr=showroomInit();
+    const cv=sr.renderer.domElement;
+    if(cv.parentNode!==stage){
+      // keep the spinhint, drop any old canvas
+      stage.querySelectorAll("canvas").forEach(n=>n.remove());
+      stage.appendChild(cv);
+    }
+    showroomResize();
+    showroomBuildCar(state.current, cfg(state.current));
+    if(!sr.raf) showroomLoop();
+    return true;
+  }catch(e){ console.warn("showroom failed, using 2D:", e); return false; }
+}
+function showroomUnmount(){ if(SR&&SR.raf){ cancelAnimationFrame(SR.raf); SR.raf=null; } }
+
+/* ------------------------------ SCREENS ---------------------------------- */
+
+let activeScreen = "garage";
+let palSelected = null;        // currently selected build palette item
+let jobCooldowns = {};         // id -> timestamp when usable again
+
+function setScreen(name){
+  if(activeScreen==="drive" && name!=="drive") stopDrive();
+  if(activeScreen==="garage" && name!=="garage") showroomUnmount();
+  activeScreen = name;
+  document.querySelectorAll(".navb").forEach(b=>b.classList.toggle("active", b.dataset.screen===name));
+  render();
+}
+
+function render(){
+  refreshTop();
+  document.body.classList.toggle("driving", activeScreen==="drive");
+  const s = $("#screen"); s.scrollTop = 0;
+  if(activeScreen==="garage") s.innerHTML = garageScreen();
+  else if(activeScreen==="drive") { s.innerHTML = driveScreen(); startDrive(); }
+  else if(activeScreen==="jobs") s.innerHTML = jobsScreen();
+  else if(activeScreen==="build") { s.innerHTML = buildScreen(); wireBuild(); }
+  else if(activeScreen==="share") { s.innerHTML = shareScreen(); }
+  if(activeScreen==="garage"){
+    wireGarage();
+    // 3D showroom if available, else fall back to the 2D SVG
+    if(!showroomMount()){
+      const st=$("#stage"); if(st) st.innerHTML = vehicleSVG(state.current, cfg(state.current));
+    }
+  }
+  if(activeScreen==="jobs") wireJobs();
+}
+
+/* ---- GARAGE ---- */
+function garageScreen(){
+  const type = state.current, c = cfg(type), v = VEHICLES[type];
+  // vehicle picker tiles
+  const vtiles = Object.keys(VEHICLES).map(k=>{
+    const vv=VEHICLES[k], owned=state.owned.includes(k), locked=state.level<vv.level;
+    const cls = "tile "+(k===type?"sel ":"")+(owned?"owned ":"")+(locked?"locked":"");
+    const foot = owned ? "" : (locked ? `<div class="lock">🔒 Lv${vv.level}</div>` : `<div class="price">🪙${vv.cost}</div>`);
+    return `<button class="${cls}" data-vehicle="${k}"><span class="emoji">${vv.emoji}</span>${vv.name}${foot}</button>`;
+  }).join("");
+
+  // paint swatches
+  const paintSw = PAINTS.map(p=>`<button class="sw ${p===c.paint?'sel':''}" data-paint="${p}" style="background:${p}"></button>`).join("");
+  const wheelSw = ["#c9ccd6","#7d828f","#2b2f3a","#ffd14d","#d9a441","#e23b3b"]
+    .map(p=>`<button class="sw ${p===c.wheel?'sel':''}" data-wheel="${p}" style="background:${p}"></button>`).join("");
+
+  // parts for this vehicle
+  const ptiles = (v.parts||[]).map(pk=>{
+    const p=PARTS[pk], owned=state.ownedParts.includes(pk), on=(c.parts||[]).includes(pk);
+    const locked=state.level<p.level;
+    const cls="tile palitem "+(on?"sel ":"")+(locked?"locked":"");
+    const foot = owned||state.level>=p.level ? (owned?(on?'<div class="price" style="color:var(--good)">ON</div>':'<div class="price">tap</div>'):`<div class="price">🪙${p.cost}</div>`) : `<div class="lock">🔒 Lv${p.level}</div>`;
+    return `<button class="${cls}" data-part="${pk}"><span class="emoji">${p.emoji}</span>${p.name}${foot}</button>`;
+  }).join("") || `<div class="sub">No add-ons for this one yet.</div>`;
+
+  // rim styles + feature toggles
+  const RIMS=[{k:"sport",n:"Sport",e:"🛞"},{k:"steel",n:"Steel",e:"⚙️"},{k:"offroad",n:"Off-road",e:"🟤"}];
+  const rimTiles = RIMS.map(r=>`<button class="tile palitem ${c.rim===r.k?'sel':''}" data-rim="${r.k}">
+    <span class="emoji">${r.e}</span>${r.n}</button>`).join("");
+  const toggle = (key,name,emoji)=>`<button class="tile palitem ${c[key]?'sel':''}" data-toggle="${key}">
+    <span class="emoji">${emoji}</span>${name}<div class="price" style="color:${c[key]?'var(--good)':'var(--muted)'}">${c[key]?'ON':'OFF'}</div></button>`;
+
+  // engine tiles
+  const etiles = Object.keys(ENGINES).map(k=>{
+    const en=ENGINES[k], owned=(state.ownedEngines||[]).includes(k), sel=c.engine===k, locked=state.level<en.level;
+    const cls="tile "+(sel?"sel ":"")+(owned&&!sel?"owned ":"")+(locked?"locked":"");
+    const foot = sel?'<div class="price" style="color:var(--good)">IN</div>'
+      : (locked?`<div class="lock">🔒 Lv${en.level}</div>`
+      : (owned?'<div class="price">tap</div>':`<div class="price">🪙${en.cost}</div>`));
+    return `<button class="${cls}" data-engine="${k}"><span class="emoji">${en.emoji}</span>${en.name}<div class="sub" style="font-size:10px;margin:2px 0 0">⚡${en.power}</div>${foot}</button>`;
+  }).join("");
+
+  // stat bars + computed stats
+  const st = carStats(type, c);
+  const bar=(label,val,max,col)=>`<div style="margin:7px 0">
+    <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800"><span>${label}</span><span>${val}</span></div>
+    <div class="statbar"><i style="width:${Math.min(100,val/max*100)}%;background:${col}"></i></div></div>`;
+
+  return `
+    <h2 class="title">🔧 Build Shop</h2>
+    <div id="stage"><div class="spinhint">drag to spin • pinch/scroll to zoom</div></div>
+    <div class="card" style="margin-top:14px">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div class="chip">${v.emoji} ${v.name}</div>
+        <div class="chip">${ENGINES[c.engine].emoji} ${ENGINES[c.engine].name}</div>
+      </div>
+      ${bar("🏎️ Power", st.power,120,"#ff8c1a")}
+      ${bar("💨 Top Speed", st.speed,140,"#2f8fff")}
+      ${bar("🛞 Grip", st.grip,100,"#37c46a")}
+      ${bar("✨ Style", st.style,100,"#9b5bff")}
+      <button class="btn gold" id="testdrive" style="margin-top:10px">🏁 Test Drive your build</button>
+    </div>
+    <div class="card">
+      <b>① Body / Chassis</b><div class="sub">What you're building on. 🔒 unlocks by leveling up.</div>
+      <div class="grid g3" id="vehicles">${vtiles}</div>
+    </div>
+    <div class="card">
+      <b>② Engine</b><div class="sub">More power = faster, quicker builds. Tap to install.</div>
+      <div class="grid g3" id="engines">${etiles}</div>
+    </div>
+    <div class="card">
+      <b>③ Wheels &amp; Tires</b><div class="sub">Off-road = most grip, Sport = faster. Then pick a rim color.</div>
+      <div class="grid g3" style="margin-bottom:10px">${rimTiles}</div>
+      <b style="font-size:13px">Rim color</b><div class="swatches" id="wheels">${wheelSw}</div>
+    </div>
+    <div class="card">
+      <b>④ Paint &amp; Style</b>
+      <div class="swatches" id="paints" style="margin:8px 0 12px">${paintSw}</div>
+      <div class="grid g2">
+        ${toggle("lift","Lift Kit","⬆️")}
+        ${toggle("tint","Window Tint","🕶️")}
+      </div>
+    </div>
+    <div class="card">
+      <b>⑤ Add-ons</b><div class="sub">Tap to buy, then tap to turn on/off.</div>
+      <div class="grid g3" id="parts">${ptiles}</div>
+    </div>`;
+}
+
+function wireGarage(){
+  document.querySelectorAll("[data-vehicle]").forEach(b=>b.onclick=()=>selectVehicle(b.dataset.vehicle));
+  document.querySelectorAll("[data-engine]").forEach(b=>b.onclick=()=>selectEngine(b.dataset.engine));
+  document.querySelectorAll("[data-paint]").forEach(b=>b.onclick=()=>{ cfg(state.current).paint=b.dataset.paint; save(); render(); });
+  document.querySelectorAll("[data-wheel]").forEach(b=>b.onclick=()=>{ cfg(state.current).wheel=b.dataset.wheel; save(); render(); });
+  document.querySelectorAll("[data-rim]").forEach(b=>b.onclick=()=>{ cfg(state.current).rim=b.dataset.rim; save(); render(); });
+  document.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{ const k=b.dataset.toggle, c=cfg(state.current); c[k]=!c[k]; save(); render(); });
+  document.querySelectorAll("[data-part]").forEach(b=>b.onclick=()=>togglePart(b.dataset.part));
+  const td=$("#testdrive"); if(td) td.onclick=()=>setScreen("drive");
+}
+
+function selectEngine(k){
+  const en=ENGINES[k], c=cfg(state.current);
+  if(state.level < en.level){ toast(`🔒 Reach level ${en.level} for the ${en.name}`); return; }
+  if(!state.ownedEngines.includes(k)){
+    if(state.coins < en.cost){ toast(`Need 🪙${en.cost} for the ${en.name}`); return; }
+    addCoins(-en.cost); state.ownedEngines.push(k); toast(`🔧 Installed the ${en.name}!`);
+  }
+  c.engine=k; save(); render();
+}
+
+function selectVehicle(k){
+  const v=VEHICLES[k];
+  if(state.owned.includes(k)){ state.current=k; save(); render(); return; }
+  if(state.level < v.level){ toast(`🔒 Reach level ${v.level} to unlock the ${v.name}`); return; }
+  if(state.coins < v.cost){ toast(`Need 🪙${v.cost} — do some jobs!`); return; }
+  addCoins(-v.cost);
+  state.owned.push(k); state.current=k; cfg(k); save();
+  toast(`🎉 Bought the ${v.name}!`); render();
+}
+
+function togglePart(pk){
+  const p=PARTS[pk], c=cfg(state.current);
+  if(state.level < p.level){ toast(`🔒 Reach level ${p.level} first`); return; }
+  if(!state.ownedParts.includes(pk)){
+    if(state.coins < p.cost){ toast(`Need 🪙${p.cost} for ${p.name}`); return; }
+    addCoins(-p.cost); state.ownedParts.push(pk); toast(`Bought ${p.name}!`);
+  }
+  c.parts = c.parts||[];
+  const i=c.parts.indexOf(pk);
+  if(i>=0) c.parts.splice(i,1); else c.parts.push(pk);
+  save(); render();
+}
+
+/* ---- JOBS ---- */
+function jobsScreen(){
+  const cards = JOBS.map(j=>{
+    const needTxt = j.need ? `Needs ${VEHICLES[j.need].emoji} ${VEHICLES[j.need].name}` : "Any vehicle";
+    const hasV = !j.need || state.owned.includes(j.need);
+    const onCd = (jobCooldowns[j.id]||0) > Date.now();
+    return `<div class="card job-card" data-job="${j.id}">
+      <div class="job">
+        <div class="je">${j.emoji}</div>
+        <div class="ji">
+          <div class="jt">${j.name}</div>
+          <div class="jr">${needTxt} · 🪙${j.coins} · ⭐${j.xp} XP</div>
+          <div class="progress"><i></i></div>
+        </div>
+        <button class="btn sm ${hasV?'green':'gray'}" data-do="${j.id}" ${(!hasV||onCd)?'disabled':''}>
+          ${hasV ? (onCd?'…':'Go!') : '🔒'}
+        </button>
+      </div>
+    </div>`;
+  }).join("");
+  return `<h2 class="title">💼 Jobs</h2>
+    <div class="sub">Do jobs to earn 🪙 coins and ⭐ XP. Level up to unlock new rides &amp; parts.</div>
+    ${cards}`;
+}
+
+function wireJobs(){
+  document.querySelectorAll("[data-do]").forEach(btn=>{
+    btn.onclick=()=>doJob(btn.dataset.do, btn);
+  });
+}
+
+function doJob(id, btn){
+  const j = JOBS.find(x=>x.id===id);
+  if(j.need && !state.owned.includes(j.need)){ toast(`Get a ${VEHICLES[j.need].name} first!`); return; }
+  if((jobCooldowns[id]||0) > Date.now()) return;
+  btn.disabled=true; btn.textContent="…";
+  const card = btn.closest(".job-card");
+  const bar = card.querySelector(".progress > i");
+  const start = Date.now(), dur = j.secs*1000;
+  bar.style.transition = `width ${j.secs}s linear`;
+  requestAnimationFrame(()=> bar.style.width="100%");
+  setTimeout(()=>{
+    addCoins(j.coins); addXP(j.xp);
+    toast(`+🪙${j.coins}  +⭐${j.xp} XP`);
+    bar.style.transition="none"; bar.style.width="0%";
+    jobCooldowns[id] = Date.now() + j.cd*1000;
+    // light cooldown then re-render to reset button
+    setTimeout(()=>{ if(activeScreen==="jobs") render(); }, j.cd*1000);
+    if(activeScreen==="jobs") render();
+  }, dur);
+}
+
+/* ---- BUILD ---- */
+function buildScreen(){
+  const items = Object.keys(BUILD_ITEMS).map(k=>{
+    const it=BUILD_ITEMS[k], locked=state.level<it.level;
+    const cls="tile palitem "+(palSelected===k?"sel ":"")+(locked?"locked":"");
+    const foot = locked ? `<div class="lock">🔒 Lv${it.level}</div>` : `<div class="price">🪙${it.cost}</div>`;
+    return `<button class="${cls}" data-pal="${k}"><span class="emoji">${it.emoji}</span>${it.name}${foot}</button>`;
+  }).join("");
+
+  let cells="";
+  for(let r=0;r<state.gridH;r++) for(let c=0;c<state.gridW;c++){
+    const key=r+","+c, id=state.build[key];
+    cells += `<div class="cell ${id?'':'empty'}" data-cell="${key}">${id?BUILD_ITEMS[id].emoji:''}</div>`;
+  }
+  const worldVal = computeWorldValue();
+  return `<h2 class="title">🏗️ Build</h2>
+    <div class="sub">Pick something below, then tap a square to place it. Tap a placed item to remove (50% refund).</div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div class="chip">🏆 World value: <b style="color:var(--coin)">${worldVal}</b></div>
+        <button class="btn sm gray" id="biggrid">Expand land 🪙200</button>
+      </div>
+    </div>
+    <div id="buildgrid" style="grid-template-columns:repeat(${state.gridW},1fr)">${cells}</div>
+    <div class="card" style="margin-top:14px">
+      <b>Building pieces</b>
+      <div class="grid g4" id="palette">${items}</div>
+    </div>`;
+}
+
+function computeWorldValue(){
+  let v=0; for(const k in state.build){ const id=state.build[k]; if(BUILD_ITEMS[id]) v+=BUILD_ITEMS[id].value; }
+  return v;
+}
+
+function wireBuild(){
+  document.querySelectorAll("[data-pal]").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.pal;
+    if(state.level<BUILD_ITEMS[k].level){ toast(`🔒 Reach level ${BUILD_ITEMS[k].level}`); return; }
+    palSelected = (palSelected===k)?null:k; render();
+  });
+  document.querySelectorAll("[data-cell]").forEach(c=>c.onclick=()=>placeCell(c.dataset.cell));
+  const bg=$("#biggrid"); if(bg) bg.onclick=expandLand;
+}
+
+function placeCell(key){
+  const existing = state.build[key];
+  if(existing){
+    // remove + refund half
+    const refund = Math.round(BUILD_ITEMS[existing].cost*0.5);
+    delete state.build[key]; addCoins(refund); addXP(1);
+    toast(`Removed · +🪙${refund}`); save(); render(); return;
+  }
+  if(!palSelected){ toast("Pick a piece below first 👇"); return; }
+  const it=BUILD_ITEMS[palSelected];
+  if(state.coins<it.cost){ toast(`Need 🪙${it.cost}`); return; }
+  addCoins(-it.cost); state.build[key]=palSelected; addXP(3);
+  save(); render();
+}
+
+function expandLand(){
+  const cost=200;
+  if(state.gridW>=9){ toast("Land is maxed for now — more coming soon!"); return; }
+  if(state.coins<cost){ toast(`Need 🪙${cost} to expand`); return; }
+  addCoins(-cost); state.gridW++; state.gridH++; save(); toast("🌳 Bigger land!"); render();
+}
+
+/* ---- SHARE ---- */
+function shareScreen(){
+  return `<h2 class="title">📤 Share</h2>
+    <div class="card">
+      <b>Share your world with a friend</b>
+      <div class="sub">Copy your world code and send it to a friend. They paste it here to see &amp; load your world. (Live play-together is coming later!)</div>
+      <textarea id="mycode" readonly>${serialize()}</textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="btn sm gold" id="copycode">📋 Copy my code</button>
+        <button class="btn sm gray" id="rename">✏️ Rename world</button>
+      </div>
+    </div>
+    <div class="card">
+      <b>Load a friend's world</b>
+      <div class="sub">Paste a code below to load it. (This replaces your current world — copy yours first!)</div>
+      <textarea id="incode" placeholder="Paste a friend's code here…"></textarea>
+      <button class="btn sm green" id="loadcode" style="margin-top:10px">📥 Load this world</button>
+    </div>
+    <div class="card">
+      <b>Share the app</b>
+      <div class="sub">Send your friends this same web page (the link or the file). Everyone gets their own world to build. Their progress saves on their own device.</div>
+    </div>
+    <div class="card">
+      <button class="btn sm gray" id="reset" style="background:linear-gradient(180deg,#5a2740,#43203a)">🗑️ Start over (reset my world)</button>
+    </div>`;
+}
+
+// wired in global click handler below (share screen)
+
+/* --------------------------- SHARE CODEC --------------------------------- */
+function serialize(){
+  const payload = {w:state.world, c:state.coins, x:state.xp, l:state.level,
+    o:state.owned, cur:state.current, cf:state.configs, p:state.ownedParts,
+    en:state.ownedEngines, b:state.build, gw:state.gridW, gh:state.gridH};
+  try{ return "BW1." + btoa(unescape(encodeURIComponent(JSON.stringify(payload)))); }
+  catch(e){ return "BW1."+JSON.stringify(payload); }
+}
+function deserialize(code){
+  try{
+    const raw = code.trim().replace(/^BW1\./,"");
+    let json; try{ json = decodeURIComponent(escape(atob(raw))); }catch(e){ json = raw; }
+    const p = JSON.parse(json);
+    state.world=p.w??"My World"; state.coins=p.c??80; state.xp=p.x??0; state.level=p.l??1;
+    state.owned=p.o??["car"]; state.current=p.cur??"car"; state.configs=p.cf??{};
+    state.ownedParts=p.p??[]; state.ownedEngines=p.en??["stock"];
+    state.build=p.b??{}; state.gridW=p.gw??6; state.gridH=p.gh??5;
+    cfg(state.current); save(); return true;
+  }catch(e){ return false; }
+}
+
+/* ----------------------------- MODALS ------------------------------------ */
+function showModal(html){
+  const r=$("#modalroot");
+  r.innerHTML=`<div class="modalwrap" id="mw"><div class="modal">${html}</div></div>`;
+}
+function closeModal(){ $("#modalroot").innerHTML=""; }
+window.closeModal = closeModal;
+
+function confettiBurst(){
+  const chars=["🎉","⭐","🪙","🚜","🏗️","🎊","🚗"];
+  for(let i=0;i<28;i++){
+    const c=el("div",{class:"confetti"}, chars[i%chars.length]);
+    c.style.left=(Math.random()*100)+"%";
+    c.style.animation=`fall ${1.2+Math.random()*1.4}s ease-in forwards`;
+    c.style.animationDelay=(Math.random()*0.3)+"s";
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(), 3000);
+  }
+}
+
+/* ------------------------- GLOBAL CLICK WIRING ---------------------------- */
+$("#nav").addEventListener("click", e=>{
+  const b=e.target.closest(".navb"); if(b) setScreen(b.dataset.screen);
+});
+
+// Share-screen buttons (delegated, since that screen re-renders)
+$("#screen").addEventListener("click", e=>{
+  if(e.target.id==="copycode"){
+    const ta=$("#mycode"); ta.select();
+    navigator.clipboard?.writeText(ta.value).then(()=>toast("📋 Copied! Send it to a friend"),()=>toast("Select all & copy"));
+  }
+  if(e.target.id==="loadcode"){
+    const code=$("#incode").value;
+    if(!code.trim()){ toast("Paste a code first"); return; }
+    if(deserialize(code)){ toast("📥 World loaded!"); setScreen("garage"); }
+    else toast("Hmm, that code didn't work");
+  }
+  if(e.target.id==="rename"){
+    showModal(`<h3>Name your world</h3>
+      <input id="wn" value="${state.world.replace(/"/g,'')}" maxlength="20"
+        style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:#0c1330;color:var(--ink);font-size:16px;font-weight:800;text-align:center"/>
+      <div class="row" style="margin-top:14px"><button class="btn green" onclick="saveName()">Save</button>
+      <button class="btn gray sm" onclick="closeModal()">Cancel</button></div>`);
+    setTimeout(()=>$("#wn")?.focus(),50);
+  }
+  if(e.target.id==="reset"){
+    showModal(`<div class="big-emoji">🗑️</div><h3>Start over?</h3>
+      <p>This erases your world and starts fresh. Copy your code first if you want to keep it!</p>
+      <div class="row"><button class="btn" style="background:linear-gradient(180deg,#ff6b6b,#d83f3f)" onclick="doReset()">Yes, reset</button>
+      <button class="btn gray sm" onclick="closeModal()">Cancel</button></div>`);
+  }
+});
+window.saveName=function(){ const v=$("#wn").value.trim()||"My World"; state.world=v; save(); closeModal(); render(); toast("Renamed!"); };
+window.doReset=function(){ state=structuredClone(DEFAULT_STATE); save(); closeModal(); setScreen("garage"); toast("Fresh start!"); };
+
+/* =============================== DRIVE MODE ==============================
+   Off-road stunt driving with the player's customized vehicle.
+   Model: car is "on rails" hugging terrain when grounded, becomes a
+   projectile with free rotation when launched off a crest/ramp. Land on
+   your wheels = keep going; land upside-down = crash. Flips earn bonuses.
+   ======================================================================== */
+
+const DRV = {G:1700, ACCEL:780, BRAKEF:680, MAXS:580, FRICT:0.5, GSLOPE:780,
+             AIRT:20, LAND:1.30, LIP_SP:900, LIP_OFF:520, RAMP_W:170, RAMP_H:120};
+
+let dcv=null, dctx=null, draf=null, dlast=0, dacc=0;
+let car=null, coinsRun=0, flipsRun=0, startX=0, airRot=0;
+let crashed=false, started=false, ended=false;
+let camX=0, camY=0, camInit=false;
+let driveCoins=new Set();
+const drive={gas:false, brake:false};
+let driveTune={accel:DRV.ACCEL, maxs:DRV.MAXS, land:DRV.LAND};
+let _dkd=null, _dku=null;
+
+// Infinite, smooth, deterministic off-road terrain. Returns ground Y (y-down).
+// Gentle rolling hills + visible jump ramps. Ramp *lips* sit at known x
+// positions; crossing one at speed launches the car (see stepPhysics), so air
+// is reliable and scales with speed instead of depending on terrain micro-shape.
+function lipX(n){ return DRV.LIP_OFF + n*DRV.LIP_SP; }
+function nearestLip(x){ return lipX(Math.round((x-DRV.LIP_OFF)/DRV.LIP_SP)); }
+function rampApproach(x){
+  const RW=DRV.RAMP_W, RH=DRV.RAMP_H, BW=70;
+  const d=x-nearestLip(x);
+  if(d<=0 && d>-RW) return -RH*Math.pow((d+RW)/RW, 1.8);   // climb up to the lip
+  if(d>0 && d<BW)   return -RH*(1-d/BW);                    // gentle back side
+  return 0;
+}
+function terrainY(x){
+  return 60*Math.sin(x*0.0040) + 30*Math.sin(x*0.0110+1.3)
+       + 15*Math.sin(x*0.0210+0.7) + rampApproach(x);
+}
+// Is there a ramp lip in (x0, x1]? Returns its x, else null.
+function lipBetween(x0,x1){
+  const n=Math.ceil((x0-DRV.LIP_OFF)/DRV.LIP_SP);
+  const lx=lipX(n);
+  return (lx>x0 && lx<=x1) ? lx : null;
+}
+function slopeAt(x){ return Math.atan((terrainY(x+3)-terrainY(x-3))/6); }
+function coinX(i){ return startX + 280 + i*150; }
+function coinY(i){ return terrainY(coinX(i)) - 30; }
+
+function carDims(type){
+  switch(type){
+    case "supercar":return {bw:90, bh:16, fr:16, rr:16, dx:32};
+    case "muscle":  return {bw:84, bh:24, fr:16, rr:16, dx:28};
+    case "truck":   return {bw:84, bh:30, fr:16, rr:16, dx:28};
+    case "tractor": return {bw:58, bh:30, fr:12, rr:24, dx:24};
+    case "moto":    return {bw:54, bh:11, fr:16, rr:16, dx:26};
+    case "bigrig":  return {bw:108,bh:34, fr:17, rr:17, dx:40};
+    default:        return {bw:72, bh:26, fr:15, rr:15, dx:24};
+  }
+}
+
+function driveScreen(){
+  return `<div id="driveroot">
+    <canvas id="drivecanvas"></canvas>
+    <div class="dhud">
+      <div class="dstatrow">
+        <span class="dchip">📏 <b id="ddist">0</b>m</span>
+        <span class="dchip">🪙 <b id="dcoins">0</b></span>
+        <span class="dchip">🤸 <b id="dflips">0</b></span>
+      </div>
+      <button class="dchip" id="dexit">✕</button>
+    </div>
+    <div class="flipmsg" id="flipmsg"></div>
+    <button class="dctrl" id="dbrake">◀</button>
+    <button class="dctrl" id="dgas">▶</button>
+    <div class="dstart" id="dstarthint">
+      <div style="font-size:46px">🏁</div>
+      <div style="font-weight:900;font-size:21px">Hold ▶ to drive!</div>
+      <div style="color:#dbeaff;font-size:13px;max-width:260px">Hit ramps, flip in the air (▶ leans back, ◀ leans forward), grab coins — and land on your wheels!</div>
+    </div>
+  </div>`;
+}
+
+function startDrive(){
+  ended=false; crashed=false; started=false;
+  coinsRun=0; flipsRun=0; airRot=0; camInit=false;
+  driveCoins=new Set();
+  drive.gas=false; drive.brake=false;
+  const c=cfg(state.current);
+  startX=0;
+  car={x:0, y:terrainY(0), vx:0, vy:0, angle:slopeAt(0), angVel:0, speed:0,
+       grounded:true, type:state.current, paint:c.paint, wheel:c.wheel,
+       rim:c.rim, lift:c.lift, tint:c.tint};
+  const st=carStats(state.current,c);                 // build stats -> performance
+  driveTune={ accel: 540 + st.power*3.0, maxs: 380 + st.speed*2.2, land: 1.02 + st.grip*0.006 };
+  bindDriveInput();
+  dlast=0; dacc=0;
+  cancelAnimationFrame(draf);
+  // wait one frame so the canvas has layout dimensions, then measure + run
+  draf=requestAnimationFrame(()=>{
+    resizeDriveCanvas();
+    const ex=$("#dexit"); if(ex) ex.onclick=()=>setScreen("garage");
+    draf=requestAnimationFrame(driveFrame);
+  });
+}
+
+function stopDrive(){
+  if(draf){ cancelAnimationFrame(draf); draf=null; }
+  unbindDriveInput();
+  drive.gas=false; drive.brake=false;
+}
+
+function resizeDriveCanvas(){
+  dcv=$("#drivecanvas"); if(!dcv) return;
+  const r=dcv.getBoundingClientRect();
+  const dpr=Math.min(window.devicePixelRatio||1, 2);
+  dcv._w=r.width; dcv._h=r.height;
+  dcv.width=Math.max(1,Math.round(r.width*dpr));
+  dcv.height=Math.max(1,Math.round(r.height*dpr));
+  dctx=dcv.getContext("2d");
+  dctx.setTransform(dpr,0,0,dpr,0,0);
+}
+
+function bindDriveInput(){
+  const gas=$("#dgas"), brake=$("#dbrake");
+  if(gas){ gas.onpointerdown=e=>{e.preventDefault();drive.gas=true;};
+           gas.onpointerup=gas.onpointerleave=gas.onpointercancel=()=>drive.gas=false; }
+  if(brake){ brake.onpointerdown=e=>{e.preventDefault();drive.brake=true;};
+             brake.onpointerup=brake.onpointerleave=brake.onpointercancel=()=>drive.brake=false; }
+  _dkd=e=>{ if(["ArrowRight","ArrowUp"," "].includes(e.key)){drive.gas=true;e.preventDefault();}
+            if(["ArrowLeft","ArrowDown"].includes(e.key)){drive.brake=true;e.preventDefault();} };
+  _dku=e=>{ if(["ArrowRight","ArrowUp"," "].includes(e.key))drive.gas=false;
+            if(["ArrowLeft","ArrowDown"].includes(e.key))drive.brake=false; };
+  document.addEventListener("keydown",_dkd);
+  document.addEventListener("keyup",_dku);
+}
+function unbindDriveInput(){
+  if(_dkd) document.removeEventListener("keydown",_dkd);
+  if(_dku) document.removeEventListener("keyup",_dku);
+  _dkd=_dku=null;
+}
+
+function driveFrame(t){
+  if(crashed){ drawDrive(); stopDrive(); endRun(); return; }
+  if(!dlast) dlast=t;
+  let dt=(t-dlast)/1000; dlast=t; dt=Math.min(dt,0.05);
+  dacc+=dt;
+  const STEP=1/120;
+  let guard=0;
+  while(dacc>=STEP && guard++<8){ stepPhysics(STEP); dacc-=STEP; }
+  drawDrive();
+  if(!crashed) draf=requestAnimationFrame(driveFrame);
+  else { drawDrive(); stopDrive(); endRun(); }
+}
+
+function stepPhysics(dt){
+  if(!started){ if(drive.gas) started=true; else { collectCoins(); return; } }
+  if(car.grounded){
+    const a=slopeAt(car.x);
+    car.speed += (drive.gas?driveTune.accel:0)*dt;
+    car.speed -= (drive.brake?DRV.BRAKEF:0)*dt;
+    car.speed += DRV.GSLOPE*Math.sin(a)*dt;       // downhill speeds up, uphill slows
+    car.speed -= car.speed*DRV.FRICT*dt;          // rolling resistance
+    if(car.speed>driveTune.maxs) car.speed=driveTune.maxs;
+    if(car.speed<-150) car.speed=-150;
+    const vx=car.speed*Math.cos(a), vy=car.speed*Math.sin(a);
+    const nx=car.x+vx*dt;
+    const lip=lipBetween(car.x,nx);
+    if(lip!==null && car.speed>180){               // hit a ramp lip -> launch!
+      const la=slopeAt(lip);
+      car.grounded=false;
+      car.vx=car.speed*Math.cos(la);
+      car.vy=-(200 + car.speed*0.9);               // upward kick scales with speed
+      car.angVel=0; airRot=0;
+      car.x=lip; car.y=terrainY(lip); car.angle=la;
+    } else {
+      car.x=nx; car.y=terrainY(nx); car.angle=a;
+    }
+  } else {
+    car.vy += DRV.G*dt;
+    car.x += car.vx*dt; car.y += car.vy*dt;
+    if(drive.gas)   car.angVel -= DRV.AIRT*dt;     // lean back (backflip)
+    if(drive.brake) car.angVel += DRV.AIRT*dt;     // lean forward (frontflip)
+    car.angVel *= (1-0.05*dt);
+    car.angle += car.angVel*dt;
+    airRot += car.angVel*dt;
+    const g=terrainY(car.x);
+    if(car.y>=g){                                  // landed
+      const ga=slopeAt(car.x);
+      let diff=car.angle-ga;
+      while(diff>Math.PI) diff-=2*Math.PI;
+      while(diff<-Math.PI) diff+=2*Math.PI;
+      const f=Math.floor(Math.abs(airRot)/(2*Math.PI));
+      if(Math.abs(diff)<driveTune.land){            // landed roughly upright (grip = forgiveness)
+        car.grounded=true; car.y=g; car.angle=ga;
+        car.speed=Math.max(0,car.vx);
+        if(f>0){ flipsRun+=f; showFlip(f); }
+        car.angVel=0; airRot=0;
+      } else {
+        crashed=true;
+      }
+    }
+  }
+  collectCoins();
+}
+
+function collectCoins(){
+  const base=Math.floor((car.x-startX-280)/150);
+  for(let i=Math.max(0,base-1); i<base+14; i++){
+    if(driveCoins.has(i)) continue;
+    const dx=coinX(i)-car.x, dy=coinY(i)-car.y;
+    if(dx*dx+dy*dy < 42*42){ driveCoins.add(i); coinsRun++; }
+  }
+}
+
+function showFlip(f){
+  const m=$("#flipmsg"); if(!m) return;
+  m.textContent = "FLIP"+(f>1?" x"+f:"")+"! 🤸";
+  m.classList.add("show");
+  clearTimeout(showFlip._t);
+  showFlip._t=setTimeout(()=>m.classList.remove("show"), 800);
+}
+
+function drawDrive(){
+  if(!dctx || !dcv._w) return;
+  const W=dcv._w, H=dcv._h;
+  const tx=car.x - W*0.32, ty=car.y - H*0.56;
+  if(!camInit){ camX=tx; camY=ty; camInit=true; }
+  camX += (tx-camX)*0.12; camY += (ty-camY)*0.12;
+
+  // sky
+  const sky=dctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"#aee3ff"); sky.addColorStop(.55,"#d7f0ff"); sky.addColorStop(1,"#eef9ff");
+  dctx.fillStyle=sky; dctx.fillRect(0,0,W,H);
+
+  // terrain fill + grass top
+  dctx.beginPath();
+  dctx.moveTo(-2,H+60);
+  let topPts=[];
+  for(let sx=-2; sx<=W+2; sx+=6){
+    const gy=terrainY(camX+sx)-camY;
+    dctx.lineTo(sx,gy); topPts.push([sx,gy]);
+  }
+  dctx.lineTo(W+2,H+60); dctx.closePath();
+  const dirt=dctx.createLinearGradient(0,H*0.3,0,H);
+  dirt.addColorStop(0,"#7a5a36"); dirt.addColorStop(1,"#5a3f24");
+  dctx.fillStyle=dirt; dctx.fill();
+  dctx.beginPath();
+  topPts.forEach((p,i)=> i?dctx.lineTo(p[0],p[1]):dctx.moveTo(p[0],p[1]));
+  dctx.lineWidth=7; dctx.strokeStyle="#5fbf4f"; dctx.stroke();
+
+  // coins
+  const base=Math.floor((camX+ -0 -startX-280)/150);
+  for(let i=Math.max(0,base-2); i<base+16; i++){
+    if(driveCoins.has(i)) continue;
+    const cx=coinX(i)-camX, cy=coinY(i)-camY;
+    if(cx<-20||cx>W+20) continue;
+    dctx.beginPath(); dctx.arc(cx,cy,11,0,7); dctx.fillStyle="#ffd14d"; dctx.fill();
+    dctx.lineWidth=3; dctx.strokeStyle="#e3a81f"; dctx.stroke();
+    dctx.beginPath(); dctx.arc(cx,cy,5,0,7); dctx.fillStyle="#fff0bf"; dctx.fill();
+  }
+
+  // car
+  drawCar(car.x-camX, car.y-camY);
+
+  // HUD live
+  const dd=$("#ddist"), dc=$("#dcoins"), df=$("#dflips"), hint=$("#dstarthint");
+  if(dd) dd.textContent=Math.max(0,Math.round((car.x-startX)/18));
+  if(dc) dc.textContent=coinsRun;
+  if(df) df.textContent=flipsRun;
+  if(hint) hint.style.display = started?"none":"flex";
+}
+
+function drawWheelC(ctx,wx,wy,r,rim,wcol){
+  ctx.beginPath(); ctx.arc(wx,wy,r,0,7); ctx.fillStyle="#15151b"; ctx.fill();
+  if(rim==="offroad"){ ctx.lineWidth=3; ctx.strokeStyle="#0a0a0a"; ctx.beginPath(); ctx.arc(wx,wy,r-2,0,7); ctx.stroke(); }
+  ctx.beginPath(); ctx.arc(wx,wy,r*0.6,0,7); ctx.fillStyle=shade(wcol,0.14); ctx.fill();
+  ctx.lineWidth=2; ctx.strokeStyle=shade(wcol,-0.35); ctx.stroke();
+  const spokes = rim==="steel"?0:(rim==="offroad"?6:7);
+  ctx.strokeStyle=shade(wcol,-0.4); ctx.lineWidth=rim==="offroad"?4:2.5; ctx.lineCap="round";
+  for(let i=0;i<spokes;i++){ const a=i/spokes*6.2832;
+    ctx.beginPath(); ctx.moveTo(wx,wy); ctx.lineTo(wx+Math.cos(a)*r*0.55, wy+Math.sin(a)*r*0.55); ctx.stroke(); }
+  ctx.beginPath(); ctx.arc(wx,wy,r*0.18,0,7); ctx.fillStyle=shade(wcol,0.32); ctx.fill();
+}
+
+function drawCar(sx, sy){
+  const ctx=dctx, d=carDims(car.type);
+  const sc=car.lift?1.18:1, liftY=car.lift?-8:0;
+  const fr=d.fr*sc, rr=d.rr*sc, maxR=Math.max(fr,rr);
+  ctx.save(); ctx.translate(sx,sy); ctx.rotate(car.angle);
+  ctx.save(); ctx.rotate(-car.angle);
+  ctx.beginPath(); ctx.ellipse(0,5,d.bw*0.72,7,0,0,7); ctx.fillStyle="rgba(0,0,0,.18)"; ctx.fill();
+  ctx.restore();
+  drawWheelC(ctx,-d.dx,-rr,rr,car.rim,car.wheel);
+  drawWheelC(ctx, d.dx,-fr,fr,car.rim,car.wheel);
+  const by=-(maxR + d.bh*0.5 + 2) + liftY;
+  const top=by-d.bh/2;
+  const grad=ctx.createLinearGradient(0,top,0,by+d.bh/2);
+  grad.addColorStop(0,shade(car.paint,0.28)); grad.addColorStop(.5,car.paint); grad.addColorStop(1,shade(car.paint,-0.28));
+  roundRectPath(-d.bw/2, top, d.bw, d.bh, 8);
+  ctx.fillStyle=grad; ctx.fill();
+  ctx.lineWidth=2; ctx.strokeStyle=shade(car.paint,-0.4); ctx.stroke();
+  if(car.type!=="moto"){
+    roundRectPath(-d.bw*0.16, top-12, d.bw*0.5, 13, 4);
+    ctx.fillStyle=car.tint?"#33414f":"#bfe6ff"; ctx.fill();
+  }
+  ctx.beginPath(); ctx.arc(d.bw*0.5-3, by, 3, 0, 7); ctx.fillStyle="#fff3b0"; ctx.fill();
+  ctx.beginPath(); ctx.arc(-d.bw*0.5+3, by, 2.5, 0, 7); ctx.fillStyle="#e23b3b"; ctx.fill();
+  ctx.beginPath(); ctx.arc(-d.bw*0.08, top-16, 6.5, 0, 7); ctx.fillStyle="#f1c8a0"; ctx.fill();
+  ctx.beginPath(); ctx.arc(-d.bw*0.08, top-18, 7.5, Math.PI, 2*Math.PI); ctx.fillStyle=shade(car.paint,-0.1); ctx.fill();
+  ctx.restore();
+}
+
+function roundRectPath(x,y,w,h,r){
+  const ctx=dctx;
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+function endRun(){
+  if(ended) return; ended=true;
+  const distM=Math.max(0,Math.round((car.x-startX)/18));
+  const bonus=flipsRun*5 + Math.floor(distM/4);
+  const totalCoins=coinsRun+bonus;
+  const xp=Math.floor(distM/2)+flipsRun*10+coinsRun;
+  addCoins(totalCoins); addXP(xp);
+  showModal(`
+    <div class="big-emoji">🏁</div>
+    <h3>Run complete!</h3>
+    <p style="text-align:left">
+      📏 Distance: <b>${distM} m</b><br>
+      🤸 Flips: <b>${flipsRun}</b><br>
+      🪙 Coins grabbed: <b>${coinsRun}</b><br>
+      🎁 Distance + flip bonus: <b>${bonus}</b><br>
+      <span style="color:var(--coin)">Total earned: 🪙${totalCoins} · ⭐${xp} XP</span>
+    </p>
+    <button class="btn green" onclick="reDrive()">🏁 Drive again</button>
+    <button class="btn gray sm" style="margin-top:8px" onclick="exitDrive()">🔧 Back to Garage</button>
+  `);
+}
+window.reDrive=function(){ closeModal(); render(); };
+window.exitDrive=function(){ closeModal(); setScreen("garage"); };
+
+/* ------------------------------- BOOT ------------------------------------ */
+function boot(){
+  refreshTop();
+  setScreen("garage");
+  if(!state.seenWelcome){
+    state.seenWelcome=true; save();
+    showModal(`
+      <div class="big-emoji">🚜🏗️🛻</div>
+      <h3>Welcome to BUILD WORLD!</h3>
+      <p style="text-align:left">
+        🔧 <b>Garage</b> — pimp out cars, trucks, tractors &amp; bikes.<br>
+        🏁 <b>Drive</b> — take your ride off-road, hit ramps &amp; do flips!<br>
+        🏗️ <b>Build</b> — design your own farm &amp; town.<br>
+        💼 <b>Jobs</b> — earn coins &amp; XP.<br>
+        ⭐ <b>Level up</b> to unlock new rides, parts &amp; buildings.<br>
+        📤 <b>Share</b> your world with friends!
+      </p>
+      <button class="btn green" onclick="closeModal()">Let's build! 🚀</button>`);
+  }
+}
+boot();
+</script>
+</body>
+</html>
