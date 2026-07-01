@@ -202,6 +202,7 @@
 <script src="lib/RoomEnvironment.js"></script>
 <script src="lib/RGBELoader.js"></script>
 <script src="lib/GLTFLoader.js"></script>
+<script src="lib/peerjs.min.js"></script>
 
 <script>
 "use strict";
@@ -911,7 +912,7 @@ let palSelected = null;        // currently selected build palette item
 let jobCooldowns = {};         // id -> timestamp when usable again
 
 function setScreen(name){
-  if(activeScreen==="drive" && name!=="drive") stopDrive();
+  if(activeScreen==="drive" && name!=="drive"){ stopDrive(); if(MP.active){ mpReset(); toast("Left the race"); } }
   if(activeScreen==="garage" && name!=="garage") showroomUnmount();
   activeScreen = name;
   document.querySelectorAll(".navb").forEach(b=>b.classList.toggle("active", b.dataset.screen===name));
@@ -1204,6 +1205,16 @@ function expandLand(){
 /* ---- SHARE ---- */
 function shareScreen(){
   return `<h2 class="title">📤 Share</h2>
+    <div class="card" style="border-color:var(--accent)">
+      <b>🌐 Play with friends <span style="color:var(--coin)">(Beta)</span></b>
+      <div class="sub">Race on the SAME track, live! One person hosts, friends join with the code. Needs internet on both devices.</div>
+      <button class="btn sm green" id="mpcreate" style="margin-top:6px">🏁 Create a room</button>
+      <div class="row" style="margin-top:10px;align-items:center;gap:8px">
+        <input id="mpjoincode" placeholder="CODE" maxlength="4"
+          style="text-transform:uppercase;width:96px;padding:11px;border-radius:12px;border:1px solid var(--line);background:#0c1330;color:var(--ink);font-weight:900;text-align:center;letter-spacing:3px;font-size:16px"/>
+        <button class="btn sm gold" id="mpjoin">Join a friend</button>
+      </div>
+    </div>
     <div class="card">
       <b>Share your world with a friend</b>
       <div class="sub">Copy your world code and send it to a friend. They paste it here to see &amp; load your world. (Live play-together is coming later!)</div>
@@ -1287,6 +1298,23 @@ $("#mute").addEventListener("click", ()=>{
 
 // Share-screen buttons (delegated, since that screen re-renders)
 $("#screen").addEventListener("click", e=>{
+  if(e.target.id==="mpcreate"){
+    SFX.tap(); toast("Creating room…");
+    mpCreate(code=>{
+      showModal(`<div class="big-emoji">🌐</div><h3>Your room code</h3>
+        <div style="font-size:46px;font-weight:900;letter-spacing:8px;color:var(--coin);margin:6px 0">${code}</div>
+        <p style="text-align:left">Tell your friends: open the game → <b>Share</b> → type <b>${code}</b> in “Join a friend”. Keep this open. Needs internet.</p>
+        <button class="btn green" onclick="mpGo()">🏁 Start driving</button>
+        <button class="btn gray sm" style="margin-top:8px" onclick="mpCancel()">Cancel</button>`);
+    }, err=> showModal(`<div class="big-emoji">📶</div><h3>Couldn’t start</h3><p>${err}</p><button class="btn green" onclick="closeModal()">OK</button>`));
+  }
+  if(e.target.id==="mpjoin"){
+    const code=($("#mpjoincode").value||"").trim().toUpperCase();
+    if(code.length<4){ toast("Type the 4-letter code"); return; }
+    SFX.tap(); toast("Joining "+code+"…");
+    mpJoin(code, ()=>{ closeModal(); toast("🌐 Connected! Racing together"); MP.active=true; setScreen("drive"); },
+      err=> showModal(`<div class="big-emoji">🔌</div><h3>Couldn’t join</h3><p>${err}</p><button class="btn green" onclick="closeModal()">OK</button>`));
+  }
   if(e.target.id==="copycode"){
     const ta=$("#mycode"); ta.select();
     navigator.clipboard?.writeText(ta.value).then(()=>toast("📋 Copied! Send it to a friend"),()=>toast("Select all & copy"));
@@ -1314,6 +1342,62 @@ $("#screen").addEventListener("click", e=>{
 });
 window.saveName=function(){ const v=$("#wn").value.trim()||"My World"; state.world=v; save(); closeModal(); render(); toast("Renamed!"); };
 window.doReset=function(){ state=structuredClone(DEFAULT_STATE); save(); closeModal(); setScreen("garage"); toast("Fresh start!"); };
+
+/* ========================= MULTIPLAYER (BETA) ==========================
+   Peer-to-peer via PeerJS (free cloud signaling). A host creates a room code;
+   friends join with it. During a shared drive each player broadcasts their car
+   position; everyone renders the others as ghost cars. Needs internet. The
+   host relays so 3+ players work. Nothing here runs unless MP.active. */
+const MP = { peer:null, conns:[], remotes:{}, active:false, host:false, code:null, myId:null };
+function mpCode(){ const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s="";
+  for(let i=0;i<4;i++) s+=A[Math.floor(Math.random()*A.length)]; return s; }
+function mpPeerId(code){ return "buildworld-room-"+code; }
+function mpReset(){
+  try{ MP.conns.forEach(c=>c.close && c.close()); }catch(e){}
+  try{ if(MP.peer) MP.peer.destroy(); }catch(e){}
+  MP.peer=null; MP.conns=[]; MP.remotes={}; MP.active=false; MP.host=false; MP.code=null;
+}
+function mpWireConn(conn){
+  conn.on("data", d=>mpOnData(conn,d));
+  conn.on("close", ()=>{ MP.conns=MP.conns.filter(c=>c!==conn); if(conn._pid) delete MP.remotes[conn._pid]; });
+}
+function mpCreate(onReady,onErr){
+  if(!window.Peer){ onErr&&onErr("No internet — multiplayer needs a connection."); return; }
+  mpReset(); MP.host=true; MP.code=mpCode();
+  try{ MP.peer=new Peer(mpPeerId(MP.code)); }catch(e){ onErr&&onErr("Could not start."); return; }
+  MP.peer.on("open", id=>{ MP.myId=id; onReady&&onReady(MP.code); });
+  MP.peer.on("error", e=>{ onErr&&onErr((e&&e.type)||"error"); });
+  MP.peer.on("connection", conn=>{ conn.on("open", ()=>{
+    MP.conns.push(conn); mpWireConn(conn);
+    toast("🌐 "+((conn.metadata&&conn.metadata.name)||"A friend")+" joined!");
+    if(activeScreen!=="drive"){ MP.active=true; setScreen("drive"); } else MP.active=true;
+  }); });
+}
+function mpJoin(code,onReady,onErr){
+  if(!window.Peer){ onErr&&onErr("No internet — multiplayer needs a connection."); return; }
+  mpReset(); MP.host=false; MP.code=code;
+  try{ MP.peer=new Peer(); }catch(e){ onErr&&onErr("Could not start."); return; }
+  MP.peer.on("open", ()=>{ MP.myId=MP.peer.id;
+    const conn=MP.peer.connect(mpPeerId(code), {metadata:{name:state.world}});
+    let ok=false;
+    conn.on("open", ()=>{ ok=true; MP.conns.push(conn); mpWireConn(conn); MP.active=true; onReady&&onReady(); });
+    setTimeout(()=>{ if(!ok) onErr&&onErr("Couldn't find that room. Check the code."); }, 9000);
+  });
+  MP.peer.on("error", e=>{ onErr&&onErr((e&&e.type)||"error"); });
+}
+function mpOnData(conn,d){
+  if(!d||d.t!=="pos") return;
+  conn._pid=d.id;
+  MP.remotes[d.id]={x:d.x,y:d.y,angle:d.a,paint:d.p,type:d.ty,name:d.n,seen:performance.now()};
+  if(MP.host){ MP.conns.forEach(c=>{ if(c!==conn && c.open){ try{c.send(d);}catch(e){} } }); }
+}
+function mpSend(){
+  if(!MP.active||!MP.peer||!car) return;
+  const c=cfg(state.current);
+  const msg={t:"pos", id:MP.myId||"me", x:Math.round(car.x), y:Math.round(car.y),
+    a:+car.angle.toFixed(2), p:c.paint, ty:car.type, n:state.world};
+  MP.conns.forEach(cn=>{ if(cn.open){ try{cn.send(msg);}catch(e){} } });
+}
 
 /* =============================== DRIVE MODE ==============================
    Off-road stunt driving with the player's customized vehicle.
@@ -1462,6 +1546,7 @@ function driveFrame(t){
   const STEP=1/120;
   let guard=0;
   while(dacc>=STEP && guard++<8){ stepPhysics(STEP); dacc-=STEP; }
+  if(MP.active && t-(driveFrame._mp||0) > 50){ mpSend(); driveFrame._mp=t; }  // broadcast ~20x/s
   drawDrive();
   if(!crashed) draf=requestAnimationFrame(driveFrame);
   else { drawDrive(); stopDrive(); endRun(); }
@@ -1574,6 +1659,18 @@ function drawDrive(){
     dctx.beginPath(); dctx.arc(cx,cy,5,0,7); dctx.fillStyle="#fff0bf"; dctx.fill();
   }
 
+  // other players (ghost cars with name labels)
+  if(MP.active){
+    const now=performance.now();
+    for(const id in MP.remotes){
+      const rp=MP.remotes[id];
+      if(now-rp.seen>4000){ delete MP.remotes[id]; continue; }   // dropped
+      const rx=rp.x-camX, ry=rp.y-camY;
+      if(rx<-120||rx>W+120) continue;                            // off-screen
+      drawRemoteCar(rx,ry,rp.angle||0,rp.paint||"#39c46a",rp.type||"car",rp.name||"Friend");
+    }
+  }
+
   // car
   drawCar(car.x-camX, car.y-camY);
 
@@ -1583,6 +1680,23 @@ function drawDrive(){
   if(dc) dc.textContent=coinsRun;
   if(df) df.textContent=flipsRun;
   if(hint) hint.style.display = started?"none":"flex";
+}
+
+function drawRemoteCar(sx,sy,angle,paint,type,name){
+  const ctx=dctx, d=carDims(type||"car");
+  ctx.save(); ctx.translate(sx,sy); ctx.rotate(angle); ctx.globalAlpha=0.92;
+  ctx.beginPath(); ctx.arc(-d.dx,-d.rr,d.rr,0,7); ctx.fillStyle="#15151b"; ctx.fill();
+  ctx.beginPath(); ctx.arc( d.dx,-d.fr,d.fr,0,7); ctx.fillStyle="#15151b"; ctx.fill();
+  const by=-(Math.max(d.fr,d.rr)+d.bh*0.5+2);
+  roundRectPath(-d.bw/2, by-d.bh/2, d.bw, d.bh, 8);
+  ctx.fillStyle=paint; ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle="rgba(0,0,0,.3)"; ctx.stroke();
+  ctx.globalAlpha=1; ctx.restore();
+  // name tag above (screen-aligned)
+  ctx.save(); ctx.font="700 12px Segoe UI, sans-serif"; ctx.textAlign="center";
+  const label=(name||"Friend").slice(0,12), tw=ctx.measureText(label).width+14;
+  roundRectPath(sx-tw/2, sy-60, tw, 19, 9); ctx.fillStyle="rgba(8,12,30,.72)"; ctx.fill();
+  ctx.fillStyle="#fff"; ctx.fillText(label, sx, sy-47);
+  ctx.restore();
 }
 
 function drawWheelC(ctx,wx,wy,r,rim,wcol){
@@ -1659,6 +1773,8 @@ function endRun(){
 }
 window.reDrive=function(){ closeModal(); render(); };
 window.exitDrive=function(){ closeModal(); setScreen("garage"); };
+window.mpGo=function(){ closeModal(); MP.active=true; setScreen("drive"); };
+window.mpCancel=function(){ closeModal(); mpReset(); toast("Room closed"); };
 
 /* ------------------------------- BOOT ------------------------------------ */
 function boot(){
