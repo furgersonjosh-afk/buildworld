@@ -192,6 +192,7 @@
 <script src="lib/RoundedBoxGeometry.js"></script>
 <script src="lib/OrbitControls.js"></script>
 <script src="lib/RoomEnvironment.js"></script>
+<script src="lib/RGBELoader.js"></script>
 
 <script>
 "use strict";
@@ -607,6 +608,7 @@ function showroomInit(){
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
   renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   if("outputEncoding" in renderer) renderer.outputEncoding=THREE.sRGBEncoding;
+  if("toneMapping" in renderer){ renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.05; }
   const scene=new THREE.Scene();
   const camera=new THREE.PerspectiveCamera(40,1,0.1,100);
   camera.position.set(5.4,2.5,6.0);
@@ -619,11 +621,18 @@ function showroomInit(){
   scene.add(dir);
   try{
     const pmrem=new THREE.PMREMGenerator(renderer);
+    // procedural env shows reflections instantly...
     SRenv=pmrem.fromScene(new THREE.RoomEnvironment(renderer),0.04).texture;
     scene.environment=SRenv;
+    // ...then upgrade to a real studio HDRI for richer, realistic reflections
+    if(THREE.RGBELoader){
+      new THREE.RGBELoader().load("lib/studio.hdr", function(hdr){
+        try{ scene.environment=pmrem.fromEquirectangular(hdr).texture; hdr.dispose(); }catch(e){}
+      }, undefined, function(){/* offline/failed: keep procedural env */});
+    }
   }catch(e){}
-  const ground=new THREE.Mesh(new THREE.CircleGeometry(10,48),
-    new THREE.MeshStandardMaterial({color:0x171c3a, roughness:0.92, metalness:0.0}));
+  const ground=new THREE.Mesh(new THREE.CircleGeometry(11,64),
+    new THREE.MeshStandardMaterial({color:0x0e1330, roughness:0.38, metalness:0.25, envMapIntensity:0.7}));
   ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
   const controls=new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableDamping=true; controls.dampingFactor=0.08;
@@ -647,6 +656,9 @@ function makeWheel3D(x,z,r,c){
   const rimMat=new THREE.MeshStandardMaterial({color:new THREE.Color(c.wheel||"#c9ccd6"), metalness:0.85, roughness:0.28});
   const tire=new THREE.Mesh(new THREE.CylinderGeometry(r,r,tireW,28), tireMat);
   tire.rotation.x=Math.PI/2; tire.castShadow=true; grp.add(tire);
+  const disc=new THREE.Mesh(new THREE.CylinderGeometry(r*0.5,r*0.5,tireW*0.5,20),
+    new THREE.MeshStandardMaterial({color:0x2c3037, metalness:0.7, roughness:0.4}));
+  disc.rotation.x=Math.PI/2; grp.add(disc);
   const rim=new THREE.Mesh(new THREE.CylinderGeometry(r*0.62,r*0.62,tireW*1.04,24), rimMat);
   rim.rotation.x=Math.PI/2; grp.add(rim);
   if(c.rim!=="steel"){
@@ -667,9 +679,9 @@ function showroomBuildCar(type,c){
   const s=carSpec3D(type);
   const lift=c.lift?0.20:0;
   const paint=new THREE.MeshPhysicalMaterial({color:new THREE.Color(c.paint||"#e23b3b"),
-    metalness:0.5, roughness:0.3, clearcoat:0.85, clearcoatRoughness:0.22});
-  const glass=new THREE.MeshPhysicalMaterial({color:new THREE.Color(c.tint?0x0f141d:0x9fcdff),
-    metalness:0.1, roughness:0.08, transparent:true, opacity:0.78});
+    metalness:0.6, roughness:0.22, clearcoat:1.0, clearcoatRoughness:0.10, envMapIntensity:1.3});
+  const glass=new THREE.MeshPhysicalMaterial({color:new THREE.Color(c.tint?0x0b0f16:0x86bde6),
+    metalness:0.2, roughness:0.05, envMapIntensity:1.5, transparent:true, opacity:c.tint?0.72:0.55});
   const wr=s.wheelR*(c.lift?1.12:1);
 
   if(s.moto){
@@ -694,10 +706,27 @@ function showroomBuildCar(type,c){
     // four wheels
     [[s.axleF, s.wid/2],[s.axleF,-s.wid/2],[s.axleR,s.wid/2],[s.axleR,-s.wid/2]]
       .forEach(p=> g.add(makeWheel3D(p[0],p[1],wr,c)));
-    // simple headlights
-    const hl=new THREE.MeshStandardMaterial({color:0xfff3b0, emissive:0xffe27a, emissiveIntensity:0.4});
-    [-1,1].forEach(z=>{ const l=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.14,0.2), hl);
-      l.position.set(s.len/2-0.04, wr+s.bodyH*0.6+lift, z*s.wid*0.32); g.add(l); });
+    // dark trim: grille + front/rear bumpers
+    const trim=new THREE.MeshStandardMaterial({color:0x15181f, roughness:0.5, metalness:0.5, envMapIntensity:0.8});
+    const grille=new THREE.Mesh(new THREE.BoxGeometry(0.07, s.bodyH*0.46, s.wid*0.66), trim);
+    grille.position.set(s.len/2-0.015, wr+s.bodyH*0.42+lift, 0); g.add(grille);
+    [1,-1].forEach(sx=>{ const bump=new THREE.Mesh(new THREE.BoxGeometry(0.13, s.bodyH*0.3, s.wid*1.01), trim);
+      bump.position.set(sx*(s.len/2-0.02), wr+s.bodyH*0.22+lift, 0); g.add(bump); });
+    // headlights (front) + taillights (rear)
+    const hl=new THREE.MeshStandardMaterial({color:0xfff3b0, emissive:0xffe27a, emissiveIntensity:0.5});
+    const tl=new THREE.MeshStandardMaterial({color:0xff2b2b, emissive:0x8a0000, emissiveIntensity:0.6, roughness:0.4});
+    [-1,1].forEach(z=>{
+      const l=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.13,0.19), hl);
+      l.position.set(s.len/2-0.03, wr+s.bodyH*0.58+lift, z*s.wid*0.32); g.add(l);
+      const t=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.11,0.17), tl);
+      t.position.set(-(s.len/2-0.03), wr+s.bodyH*0.6+lift, z*s.wid*0.32); g.add(t);
+    });
+    // side mirrors
+    if(s.cabinH>0){
+      const mm=new THREE.MeshStandardMaterial({color:0x22262e, roughness:0.5, metalness:0.4, envMapIntensity:0.8});
+      [-1,1].forEach(z=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(0.13,0.09,0.05), mm);
+        m.position.set(s.cabinX+s.cabinLen*0.34, wr+s.bodyH+s.cabinH*0.38+lift, z*(s.wid*0.5+0.05)); g.add(m); });
+    }
   }
   sr.carGroup=g; sr.scene.add(g);
 }
