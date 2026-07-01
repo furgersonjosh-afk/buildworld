@@ -699,8 +699,8 @@ function showroomBuildCar(type,c){
   const lift=c.lift?0.20:0;
   const paint=new THREE.MeshPhysicalMaterial({color:new THREE.Color(c.paint||"#e23b3b"),
     metalness:0.6, roughness:0.22, clearcoat:1.0, clearcoatRoughness:0.10, envMapIntensity:1.3});
-  const glass=new THREE.MeshPhysicalMaterial({color:new THREE.Color(c.tint?0x0b0f16:0x86bde6),
-    metalness:0.2, roughness:0.05, envMapIntensity:1.5, transparent:true, opacity:c.tint?0.72:0.55});
+  const glass=new THREE.MeshPhysicalMaterial({color:new THREE.Color(c.tint?0x080b10:0x223243),
+    metalness:0.3, roughness:0.06, envMapIntensity:1.6, transparent:true, opacity:c.tint?0.88:0.78});
   const wr=s.wheelR*(c.lift?1.12:1);
 
   if(s.moto){
@@ -722,9 +722,9 @@ function showroomBuildCar(type,c){
         geo.translate(0,0,-s.wid/2);
         const body=new THREE.Mesh(geo, paint);
         body.position.y=lift; body.castShadow=true; g.add(body);
-        // greenhouse glass band
-        const gl=new THREE.Mesh(new THREE.BoxGeometry(L*0.32,H*0.24,s.wid*0.9), glass);
-        gl.position.set(s.cabinX*0.5, H*0.66+lift, 0); g.add(gl);
+        // greenhouse glass — narrower than body so pillars frame it, set into cabin
+        const gl=new THREE.Mesh(new THREE.BoxGeometry(L*0.30,H*0.17,s.wid*0.84), glass);
+        gl.position.set(s.cabinX*0.6, H*0.58+lift, 0); g.add(gl);
         built=true;
       }catch(e){ built=false; }
     }
