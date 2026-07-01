@@ -657,7 +657,7 @@ function showroomInit(){
 }
 
 function disposeGroup(g){
-  g.traverse(o=>{ if(o.geometry) o.geometry.dispose();
+  g.traverse(o=>{ if(o.geometry && !o.userData.keepGeo) o.geometry.dispose();
     if(o.material){ (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose()); } });
 }
 
@@ -716,24 +716,42 @@ function showroomBuildCar(type,c){
   buildProceduralCar(g,type,c);
 }
 
-// Load a real .glb model: fit it to size, sit it on the ground, recolor the
-// paint material to the chosen color. Falls back to the built car on error.
+// Load a real .glb model (cached after first load so paint changes are instant),
+// fit to size, sit on ground, and REPAINT the body to the chosen color.
+const gltfCache={};
+function placeModel(g,type,c,scene){
+  const s=carSpec3D(type);
+  const m=scene.clone(true);
+  const paintCol=new THREE.Color(c.paint||"#e23b3b");
+  const tintCol=new THREE.Color(c.tint?0x0a0e14:0x2a3b4d);
+  m.traverse(o=>{ if(o.isMesh){
+    o.castShadow=true; o.userData.keepGeo=true;               // geometry is shared with cache — don't dispose it
+    const arr=Array.isArray(o.material)?o.material:[o.material];
+    const cloned=arr.map(mat=>{
+      const nm=mat.clone();
+      const col=nm.color, lum=col?(0.299*col.r+0.587*col.g+0.114*col.b):1;
+      const dark=lum<0.11;                                     // tires / dark trim -> leave black
+      const glassy=nm.transparent && nm.opacity<0.6;           // windows -> tint instead
+      if(glassy) nm.color=tintCol;
+      else if(!dark) nm.color=paintCol;                        // body & panels -> chosen paint
+      return nm;
+    });
+    o.material=Array.isArray(o.material)?cloned:cloned[0];
+  }});
+  let box=new THREE.Box3().setFromObject(m), size=box.getSize(new THREE.Vector3());
+  const scale=(s.len)/(Math.max(size.x,size.z)||1);
+  m.scale.setScalar(scale);
+  box=new THREE.Box3().setFromObject(m);
+  const ctr=box.getCenter(new THREE.Vector3());
+  m.position.x-=ctr.x; m.position.z-=ctr.z; m.position.y-=box.min.y;
+  g.add(m);
+}
 function loadCarModel(g,type,c,url){
   try{
+    if(gltfCache[url]){ placeModel(g,type,c,gltfCache[url]); return; }
     new THREE.GLTFLoader().load(url, function(gltf){
-      const m=gltf.scene, s=carSpec3D(type);
-      let box=new THREE.Box3().setFromObject(m), size=box.getSize(new THREE.Vector3());
-      const scale=(s.len)/(Math.max(size.x,size.z)||1);
-      m.scale.setScalar(scale);
-      box=new THREE.Box3().setFromObject(m);
-      const ctr=box.getCenter(new THREE.Vector3());
-      m.position.x-=ctr.x; m.position.z-=ctr.z; m.position.y-=box.min.y;
-      m.traverse(o=>{ if(o.isMesh){ o.castShadow=true;
-        if(o.material && o.material.name && /body|paint|car|carpaint/i.test(o.material.name)){
-          o.material=o.material.clone(); o.material.color=new THREE.Color(c.paint);
-        }
-      }});
-      g.add(m);
+      gltfCache[url]=gltf.scene;
+      placeModel(g,type,c,gltf.scene);
     }, undefined, function(){ buildProceduralCar(g,type,c); });
   }catch(e){ buildProceduralCar(g,type,c); }
 }
