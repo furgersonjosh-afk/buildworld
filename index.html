@@ -1352,6 +1352,15 @@ const MP = { peer:null, conns:[], remotes:{}, active:false, host:false, code:nul
 function mpCode(){ const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s="";
   for(let i=0;i<4;i++) s+=A[Math.floor(Math.random()*A.length)]; return s; }
 function mpPeerId(code){ return "buildworld-room-"+code; }
+// STUN + free TURN relays — TURN lets two devices connect even through strict
+// home firewalls/NAT (falls back to relay when a direct link fails).
+const MP_ICE = { iceServers: [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:global.stun.twilio.com:3478" },
+  { urls: "turn:openrelay.metered.ca:80",  username:"openrelayproject", credential:"openrelayproject" },
+  { urls: "turn:openrelay.metered.ca:443", username:"openrelayproject", credential:"openrelayproject" },
+  { urls: "turn:openrelay.metered.ca:443?transport=tcp", username:"openrelayproject", credential:"openrelayproject" }
+]};
 function mpReset(){
   try{ MP.conns.forEach(c=>c.close && c.close()); }catch(e){}
   try{ if(MP.peer) MP.peer.destroy(); }catch(e){}
@@ -1364,7 +1373,7 @@ function mpWireConn(conn){
 function mpCreate(onReady,onErr){
   if(!window.Peer){ onErr&&onErr("No internet — multiplayer needs a connection."); return; }
   mpReset(); MP.host=true; MP.code=mpCode();
-  try{ MP.peer=new Peer(mpPeerId(MP.code)); }catch(e){ onErr&&onErr("Could not start."); return; }
+  try{ MP.peer=new Peer(mpPeerId(MP.code), {config:MP_ICE}); }catch(e){ onErr&&onErr("Could not start."); return; }
   MP.peer.on("open", id=>{ MP.myId=id; onReady&&onReady(MP.code); });
   MP.peer.on("error", e=>{ onErr&&onErr((e&&e.type)||"error"); });
   MP.peer.on("connection", conn=>{ conn.on("open", ()=>{
@@ -1376,7 +1385,7 @@ function mpCreate(onReady,onErr){
 function mpJoin(code,onReady,onErr){
   if(!window.Peer){ onErr&&onErr("No internet — multiplayer needs a connection."); return; }
   mpReset(); MP.host=false; MP.code=code;
-  try{ MP.peer=new Peer(); }catch(e){ onErr&&onErr("Could not start."); return; }
+  try{ MP.peer=new Peer({config:MP_ICE}); }catch(e){ onErr&&onErr("Could not start."); return; }
   MP.peer.on("open", ()=>{ MP.myId=MP.peer.id;
     const conn=MP.peer.connect(mpPeerId(code), {metadata:{name:state.world}});
     let ok=false;
@@ -1465,6 +1474,7 @@ function driveScreen(){
         <span class="dchip">📏 <b id="ddist">0</b>m</span>
         <span class="dchip">🪙 <b id="dcoins">0</b></span>
         <span class="dchip">🤸 <b id="dflips">0</b></span>
+        <span class="dchip" id="dmp" style="display:none;background:rgba(47,123,239,.6)">🌐 <b id="dmpn">0</b></span>
       </div>
       <button class="dchip" id="dexit">✕</button>
     </div>
@@ -1680,6 +1690,13 @@ function drawDrive(){
   if(dc) dc.textContent=coinsRun;
   if(df) df.textContent=flipsRun;
   if(hint) hint.style.display = started?"none":"flex";
+  const mpc=$("#dmp"), mpn=$("#dmpn");
+  if(mpc){
+    if(MP.active){ mpc.style.display="inline-flex";
+      const others=Object.keys(MP.remotes).length;
+      if(mpn) mpn.textContent=(others+1)+(MP.code?"  "+MP.code:"");
+    } else mpc.style.display="none";
+  }
 }
 
 function drawRemoteCar(sx,sy,angle,paint,type,name){
