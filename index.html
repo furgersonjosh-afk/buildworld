@@ -225,9 +225,11 @@ const VEHICLES = {
   supercar:{name:"Apex GT",    emoji:"🏎️", level:2, cost:240, weight:88,  grip:64, parts:["spoiler","lights"]},
   muscle:  {name:"Brawler V8", emoji:"🚙", level:3, cost:300, weight:124, grip:58, parts:["spoiler","lights"]},
   truck:   {name:"Pickup HD",  emoji:"🛻", level:2, cost:160, weight:155, grip:54, parts:["flatbed","tank","crane","lights"]},
+  armored: {name:"Armored Pickup", emoji:"🚙", level:3, cost:280, weight:180, grip:60, parts:["lights"]},
+  dump:    {name:"Dump Truck", emoji:"🚚", level:3, cost:320, weight:230, grip:56, parts:["lights"]},
   tractor: {name:"Tractor",    emoji:"🚜", level:4, cost:340, weight:210, grip:72, parts:["plow","trailer","lights"]},
   moto:    {name:"Motorcycle", emoji:"🏍️", level:4, cost:250, weight:60,  grip:45, parts:["saddlebags","windshield"]},
-  bigrig:  {name:"Big Rig",    emoji:"🚛", level:6, cost:800, weight:260, grip:50, parts:["tank","crane","flatbed","lights"]},
+  bigrig:  {name:"Hauler",     emoji:"🚛", level:6, cost:800, weight:260, grip:50, parts:["tank","crane","flatbed","lights"]},
 };
 
 // Engines you can build into your car. power feeds stats + how it drives.
@@ -603,6 +605,8 @@ function carSpec3D(type){
     case "supercar":return {len:4.0,wid:1.86,bodyH:0.46,cabinH:0.34,cabinLen:1.35,cabinX:-0.1,wheelR:0.46,axleF:1.34,axleR:-1.3};
     case "muscle":  return {len:4.1,wid:1.80,bodyH:0.56,cabinH:0.46,cabinLen:1.55,cabinX:-0.15,wheelR:0.48,axleF:1.32,axleR:-1.3};
     case "truck":   return {len:4.2,wid:1.92,bodyH:0.70,cabinH:0.62,cabinLen:1.30,cabinX:0.55,wheelR:0.52,axleF:1.36,axleR:-1.34,bed:true};
+    case "armored": return {len:4.3,wid:1.95,bodyH:0.75,cabinH:0.64,cabinLen:1.30,cabinX:0.55,wheelR:0.54,axleF:1.36,axleR:-1.34,bed:true};
+    case "dump":    return {len:4.6,wid:2.00,bodyH:0.85,cabinH:0.70,cabinLen:1.10,cabinX:1.30,wheelR:0.54,axleF:1.55,axleR:-1.4,bed:true};
     case "bigrig":  return {len:4.6,wid:2.00,bodyH:0.95,cabinH:0.80,cabinLen:1.20,cabinX:1.30,wheelR:0.52,axleF:1.55,axleR:-1.4,bed:true};
     case "tractor": return {len:3.0,wid:1.66,bodyH:0.72,cabinH:0.62,cabinLen:1.10,cabinX:-0.3,wheelR:0.42,axleF:1.0,axleR:-1.0,bigRear:true};
     case "moto":    return {len:2.6,wid:0.7,bodyH:0.42,cabinH:0,cabinLen:0,cabinX:0,wheelR:0.5,axleF:1.0,axleR:-1.0,moto:true};
@@ -697,7 +701,10 @@ const CAR_PROFILE = {
 //   supercar: "assets/models/apex-gt.glb"
 // (get one free from Meshy.ai, or buy from Sketchfab — see docs/PROJECT-MAP.md)
 const CAR_MODELS = {
-  truck: "assets/models/pickup-quaternius.glb"   // free CC0 Quaternius pickup (real 3D model)
+  truck:   "assets/models/pickup-quaternius.glb", // CC0 Quaternius pickup
+  armored: "assets/models/pickup-armored.glb",    // CC0 Quaternius armored pickup
+  dump:    "assets/models/dump-truck.glb",        // CC-BY "jeremy"
+  bigrig:  "assets/models/truck-hauler.glb"       // CC-BY "Poly by Google"
 };
 
 function showroomBuildCar(type,c){
@@ -1154,6 +1161,10 @@ function shareScreen(){
     <div class="card">
       <b>Share the app</b>
       <div class="sub">Send your friends this same web page (the link or the file). Everyone gets their own world to build. Their progress saves on their own device.</div>
+    </div>
+    <div class="card">
+      <b>Model credits</b>
+      <div class="sub">3D trucks by Quaternius (CC0), “jeremy” &amp; “Poly by Google” (CC-BY) via poly.pizza. Studio lighting: Poly Haven (CC0).</div>
     </div>
     <div class="card">
       <button class="btn sm gray" id="reset" style="background:linear-gradient(180deg,#5a2740,#43203a)">🗑️ Start over (reset my world)</button>
