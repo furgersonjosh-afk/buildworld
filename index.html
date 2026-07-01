@@ -696,7 +696,9 @@ const CAR_PROFILE = {
 // shapes. To use a realistic model: drop a .glb in assets/models/ and add e.g.
 //   supercar: "assets/models/apex-gt.glb"
 // (get one free from Meshy.ai, or buy from Sketchfab — see docs/PROJECT-MAP.md)
-const CAR_MODELS = {};
+const CAR_MODELS = {
+  truck: "assets/models/pickup-quaternius.glb"   // free CC0 Quaternius pickup (real 3D model)
+};
 
 function showroomBuildCar(type,c){
   const sr=SR; if(!sr) return;
