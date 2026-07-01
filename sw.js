@@ -1,10 +1,11 @@
 /* BUILD WORLD service worker — makes the app installable and work offline.
    Bump CACHE when you change the cached library assets. */
-const CACHE = "buildworld-v2";
+const CACHE = "buildworld-v3";
 const ASSETS = [
   "./", "./index.html", "./manifest.json",
   "./lib/three.min.js", "./lib/RoundedBoxGeometry.js", "./lib/OrbitControls.js",
   "./lib/RoomEnvironment.js", "./lib/RGBELoader.js", "./lib/studio.hdr",
+  "./lib/GLTFLoader.js",
   "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"
 ];
 
