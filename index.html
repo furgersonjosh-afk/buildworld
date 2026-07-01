@@ -668,6 +668,8 @@ function makeWheel3D(x,z,r,c){
   disc.rotation.x=Math.PI/2; grp.add(disc);
   const rim=new THREE.Mesh(new THREE.CylinderGeometry(r*0.62,r*0.62,tireW*1.04,24), rimMat);
   rim.rotation.x=Math.PI/2; grp.add(rim);
+  const lip=new THREE.Mesh(new THREE.TorusGeometry(r*0.6, r*0.055, 8, 24), rimMat);
+  grp.add(lip);
   if(c.rim!=="steel"){
     const n=(c.rim==="offroad")?6:7;
     for(let i=0;i<n;i++){
@@ -678,6 +680,16 @@ function makeWheel3D(x,z,r,c){
   grp.position.set(x,r,z);
   return grp;
 }
+
+// side-view silhouettes: [fraction of length, fraction of height]. Extruded
+// across the width to make a real car body shape instead of a plain box.
+const CAR_PROFILE = {
+  car:     {h:1.18, p:[[.5,.14],[.5,.44],[.33,.5],[.13,.53],[.02,.84],[-.16,.88],[-.25,.83],[-.35,.56],[-.46,.52],[-.5,.46],[-.5,.14]]},
+  supercar:{h:0.98, p:[[.5,.12],[.52,.34],[.3,.42],[.06,.52],[-.02,.74],[-.2,.78],[-.34,.6],[-.5,.5],[-.5,.14]]},
+  muscle:  {h:1.22, p:[[.5,.14],[.5,.48],[.28,.54],[.1,.57],[0,.82],[-.18,.85],[-.28,.8],[-.4,.58],[-.5,.54],[-.5,.15]]},
+  truck:   {h:1.50, p:[[.5,.10],[.5,.44],[.4,.48],[.27,.52],[.2,.9],[.02,.94],[-.02,.6],[-.5,.6],[-.5,.10]]},
+  bigrig:  {h:1.70, p:[[.5,.10],[.5,.9],[.32,.94],[.2,.62],[-.5,.62],[-.5,.10]]},
+};
 
 function showroomBuildCar(type,c){
   const sr=SR; if(!sr) return;
@@ -696,13 +708,35 @@ function showroomBuildCar(type,c){
     frame.position.y=wr+0.25+lift; frame.castShadow=true; g.add(frame);
     g.add(makeWheel3D(s.axleF,0,wr,c)); g.add(makeWheel3D(s.axleR,0,wr,c));
   } else {
-    const body=new THREE.Mesh(new THREE.RoundedBoxGeometry(s.len,s.bodyH,s.wid,5,0.18), paint);
-    body.position.y=wr+s.bodyH/2+lift; body.castShadow=true; g.add(body);
-    if(s.cabinH>0){
-      const cab=new THREE.Mesh(new THREE.RoundedBoxGeometry(s.cabinLen,s.cabinH,s.wid*0.92,5,0.14), paint);
-      cab.position.set(s.cabinX, wr+s.bodyH+s.cabinH/2+lift, 0); cab.castShadow=true; g.add(cab);
-      const gl=new THREE.Mesh(new THREE.BoxGeometry(s.cabinLen*0.92,s.cabinH*0.62,s.wid*0.95), glass);
-      gl.position.copy(cab.position); g.add(gl);
+    // shaped body: extrude a real car side-profile (falls back to a box)
+    paint.side=THREE.DoubleSide;
+    const prof=CAR_PROFILE[type];
+    let built=false;
+    if(prof){
+      try{
+        const L=s.len, H=prof.h;
+        const shape=new THREE.Shape();
+        prof.p.forEach((pt,i)=>{ const x=pt[0]*L, y=pt[1]*H; i?shape.lineTo(x,y):shape.moveTo(x,y); });
+        shape.closePath();
+        const geo=new THREE.ExtrudeGeometry(shape,{depth:s.wid, bevelEnabled:true, bevelThickness:0.05, bevelSize:0.05, bevelSegments:2, steps:1});
+        geo.translate(0,0,-s.wid/2);
+        const body=new THREE.Mesh(geo, paint);
+        body.position.y=lift; body.castShadow=true; g.add(body);
+        // greenhouse glass band
+        const gl=new THREE.Mesh(new THREE.BoxGeometry(L*0.32,H*0.24,s.wid*0.9), glass);
+        gl.position.set(s.cabinX*0.5, H*0.66+lift, 0); g.add(gl);
+        built=true;
+      }catch(e){ built=false; }
+    }
+    if(!built){
+      const body=new THREE.Mesh(new THREE.RoundedBoxGeometry(s.len,s.bodyH,s.wid,5,0.18), paint);
+      body.position.y=wr+s.bodyH/2+lift; body.castShadow=true; g.add(body);
+      if(s.cabinH>0){
+        const cab=new THREE.Mesh(new THREE.RoundedBoxGeometry(s.cabinLen,s.cabinH,s.wid*0.92,5,0.14), paint);
+        cab.position.set(s.cabinX, wr+s.bodyH+s.cabinH/2+lift, 0); cab.castShadow=true; g.add(cab);
+        const gl=new THREE.Mesh(new THREE.BoxGeometry(s.cabinLen*0.92,s.cabinH*0.62,s.wid*0.95), glass);
+        gl.position.copy(cab.position); g.add(gl);
+      }
     }
     if(s.bed){
       const bedY=wr+s.bodyH*0.55+lift;
@@ -710,9 +744,15 @@ function showroomBuildCar(type,c){
         new THREE.MeshStandardMaterial({color:0x2a2f3a, roughness:0.8}));
       bed.position.set(s.cabinX - s.cabinLen*0.6 - s.len*0.18, bedY, 0); g.add(bed);
     }
-    // four wheels
+    // four wheels + fender flares (arch over each wheel)
+    const flareMat=new THREE.MeshStandardMaterial({color:0x1a1d24, roughness:0.7, metalness:0.35, envMapIntensity:0.6});
     [[s.axleF, s.wid/2],[s.axleF,-s.wid/2],[s.axleR,s.wid/2],[s.axleR,-s.wid/2]]
-      .forEach(p=> g.add(makeWheel3D(p[0],p[1],wr,c)));
+      .forEach(p=>{
+        g.add(makeWheel3D(p[0],p[1],wr,c));
+        const flare=new THREE.Mesh(new THREE.TorusGeometry(wr*1.15, wr*0.16, 6, 16, Math.PI), flareMat);
+        flare.position.set(p[0], wr+lift, p[1]+(p[1]>0?0.02:-0.02));
+        g.add(flare);
+      });
     // dark trim: grille + front/rear bumpers
     const trim=new THREE.MeshStandardMaterial({color:0x15181f, roughness:0.5, metalness:0.5, envMapIntensity:0.8});
     const grille=new THREE.Mesh(new THREE.BoxGeometry(0.07, s.bodyH*0.46, s.wid*0.66), trim);
