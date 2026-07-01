@@ -174,6 +174,7 @@
 <div id="top">
   <div id="logo">BUILD WORLD<small id="worldname">My World</small></div>
   <div class="spacer"></div>
+  <button class="stat" id="mute" title="Sound on/off" style="cursor:pointer">🔊</button>
   <div class="stat"><span class="ico">🪙</span><span id="coins">0</span></div>
   <div class="stat" id="lvlwrap">
     <span class="ico">⭐</span><span>Lvl <b id="lvl">1</b></span>
@@ -256,7 +257,8 @@ const PARTS = {
 };
 
 // Paint colors (wheels reuse a darker palette).
-const PAINTS = ["#e23b3b","#ff8c1a","#ffd14d","#37c46a","#2f8fff","#9b5bff","#ff5fa2","#2b2f3a","#f2f2f2","#0fb9b1"];
+const PAINTS = ["#e23b3b","#ff8c1a","#ffd14d","#37c46a","#2f8fff","#9b5bff","#ff5fa2","#2b2f3a","#f2f2f2","#0fb9b1",
+  "#00e5ff","#7cff00","#ff2d95","#8b5a2b","#c0c0c0","#ffcf40","#1b3a6b","#111111","#ff6b00","#00c07f"];
 
 // Build-mode items the player places on the grid. value = "world value" added.
 const BUILD_ITEMS = {
@@ -305,6 +307,7 @@ const DEFAULT_STATE = {
   build:{},                  // "r,c" -> build item id
   gridW:6, gridH:5,
   seenWelcome:false,
+  sound:true,                // sound effects on/off
 };
 
 let state = load();
@@ -361,7 +364,34 @@ function toast(msg){
   clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove("show"), 1600);
 }
 
-function addCoins(n){ state.coins = Math.max(0, state.coins + n); save(); refreshTop(); }
+/* ------------------------------ SOUND ------------------------------------ */
+/* Synthesized with Web Audio — no files, works offline. Toggle with 🔊 button. */
+const SFX = {
+  ctx:null,
+  ac(){ if(!this.ctx){ try{ this.ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+        if(this.ctx && this.ctx.state==="suspended") this.ctx.resume(); return this.ctx; },
+  beep(freq,dur,type,vol){
+    if(!state.sound) return; const ac=this.ac(); if(!ac) return;
+    const o=ac.createOscillator(), g=ac.createGain();
+    o.type=type||"square"; o.frequency.value=freq;
+    const t=ac.currentTime; g.gain.setValueAtTime(Math.max(0.0001,vol||0.05),t);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+dur+0.02);
+  },
+  tap(){ this.beep(200,0.05,"sine",0.03); },
+  coin(){ this.beep(880,0.07,"square",0.05); this.beep(1320,0.10,"square",0.04); },
+  buy(){ this.beep(500,0.08,"triangle",0.06); setTimeout(()=>this.beep(760,0.12,"triangle",0.05),70); },
+  level(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>this.beep(f,0.18,"triangle",0.06),i*95)); },
+  flip(){ this.beep(300,0.18,"sawtooth",0.05); setTimeout(()=>this.beep(520,0.12,"sawtooth",0.04),80); },
+  crash(){ this.beep(150,0.28,"sawtooth",0.08); this.beep(90,0.34,"square",0.06); },
+  rev(){ if(!state.sound) return; const ac=this.ac(); if(!ac) return;
+    const o=ac.createOscillator(), g=ac.createGain(); o.type="sawtooth";
+    const t=ac.currentTime; o.frequency.setValueAtTime(90,t); o.frequency.exponentialRampToValueAtTime(180,t+0.25);
+    g.gain.setValueAtTime(0.05,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.3);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+0.32); }
+};
+
+function addCoins(n){ state.coins = Math.max(0, state.coins + n); if(n>0) SFX.coin(); save(); refreshTop(); }
 
 function addXP(n){
   state.xp += n;
@@ -376,7 +406,7 @@ function addXP(n){
 }
 
 function onLevelUp(){
-  confettiBurst();
+  confettiBurst(); SFX.level();
   const unlocks = whatUnlocksAt(state.level);
   showModal(`
     <div class="big-emoji">🎉</div>
@@ -400,6 +430,7 @@ function refreshTop(){
   $("#worldname").textContent = state.world;
   const need = xpForLevel(state.level);
   $("#xpfill").style.width = Math.min(100, (state.xp/need)*100) + "%";
+  const mb=$("#mute"); if(mb) mb.textContent = state.sound ? "🔊" : "🔇";
 }
 
 /* --------------------------- VEHICLE DRAWING ----------------------------- */
@@ -983,7 +1014,14 @@ function garageScreen(){
     </div>
     <div class="card">
       <b>④ Paint &amp; Style</b>
-      <div class="swatches" id="paints" style="margin:8px 0 12px">${paintSw}</div>
+      <div class="swatches" id="paints" style="margin:8px 0 10px">${paintSw}</div>
+      <div class="row" style="align-items:center;gap:10px;margin-bottom:12px">
+        <label class="btn sm gray" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
+          🎨 Any color
+          <input type="color" id="paintpick" value="${/^#/.test(c.paint)?c.paint:'#e23b3b'}" style="width:30px;height:26px;border:none;background:none;padding:0;cursor:pointer"/>
+        </label>
+        <button class="btn sm gold" id="paintrand">🎲 Surprise</button>
+      </div>
       <div class="grid g2">
         ${toggle("lift","Lift Kit","⬆️")}
         ${toggle("tint","Window Tint","🕶️")}
@@ -1004,6 +1042,11 @@ function wireGarage(){
   document.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{ const k=b.dataset.toggle, c=cfg(state.current); c[k]=!c[k]; save(); render(); });
   document.querySelectorAll("[data-part]").forEach(b=>b.onclick=()=>togglePart(b.dataset.part));
   const td=$("#testdrive"); if(td) td.onclick=()=>setScreen("drive");
+  const pp=$("#paintpick"); if(pp) pp.onchange=()=>{ cfg(state.current).paint=pp.value; SFX.tap(); save(); render(); };
+  const pr=$("#paintrand"); if(pr) pr.onclick=()=>{
+    const h="#"+Math.floor(Math.random()*0xffffff).toString(16).padStart(6,"0");
+    cfg(state.current).paint=h; SFX.buy(); save(); render();
+  };
 }
 
 function selectEngine(k){
@@ -1011,7 +1054,7 @@ function selectEngine(k){
   if(state.level < en.level){ toast(`🔒 Reach level ${en.level} for the ${en.name}`); return; }
   if(!state.ownedEngines.includes(k)){
     if(state.coins < en.cost){ toast(`Need 🪙${en.cost} for the ${en.name}`); return; }
-    addCoins(-en.cost); state.ownedEngines.push(k); toast(`🔧 Installed the ${en.name}!`);
+    addCoins(-en.cost); state.ownedEngines.push(k); SFX.buy(); toast(`🔧 Installed the ${en.name}!`);
   }
   c.engine=k; save(); render();
 }
@@ -1022,7 +1065,7 @@ function selectVehicle(k){
   if(state.level < v.level){ toast(`🔒 Reach level ${v.level} to unlock the ${v.name}`); return; }
   if(state.coins < v.cost){ toast(`Need 🪙${v.cost} — do some jobs!`); return; }
   addCoins(-v.cost);
-  state.owned.push(k); state.current=k; cfg(k); save();
+  state.owned.push(k); state.current=k; cfg(k); save(); SFX.buy();
   toast(`🎉 Bought the ${v.name}!`); render();
 }
 
@@ -1234,7 +1277,12 @@ function confettiBurst(){
 
 /* ------------------------- GLOBAL CLICK WIRING ---------------------------- */
 $("#nav").addEventListener("click", e=>{
-  const b=e.target.closest(".navb"); if(b) setScreen(b.dataset.screen);
+  const b=e.target.closest(".navb"); if(b){ SFX.tap(); setScreen(b.dataset.screen); }
+});
+$("#mute").addEventListener("click", ()=>{
+  state.sound=!state.sound; save();
+  $("#mute").textContent = state.sound ? "🔊" : "🔇";
+  if(state.sound) SFX.coin();
 });
 
 // Share-screen buttons (delegated, since that screen re-renders)
@@ -1420,7 +1468,7 @@ function driveFrame(t){
 }
 
 function stepPhysics(dt){
-  if(!started){ if(drive.gas) started=true; else { collectCoins(); return; } }
+  if(!started){ if(drive.gas){ started=true; SFX.rev(); } else { collectCoins(); return; } }
   if(car.grounded){
     const a=slopeAt(car.x);
     car.speed += (drive.gas?driveTune.accel:0)*dt;
@@ -1460,10 +1508,10 @@ function stepPhysics(dt){
       if(Math.abs(diff)<driveTune.land){            // landed roughly upright (grip = forgiveness)
         car.grounded=true; car.y=g; car.angle=ga;
         car.speed=Math.max(0,car.vx);
-        if(f>0){ flipsRun+=f; showFlip(f); }
+        if(f>0){ flipsRun+=f; showFlip(f); SFX.flip(); }
         car.angVel=0; airRot=0;
       } else {
-        crashed=true;
+        crashed=true; SFX.crash();
       }
     }
   }
