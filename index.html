@@ -1369,7 +1369,7 @@ window.doReset=function(){ state=structuredClone(DEFAULT_STATE); save(); closeMo
    friends join with it. During a shared drive each player broadcasts their car
    position; everyone renders the others as ghost cars. Needs internet. The
    host relays so 3+ players work. Nothing here runs unless MP.active. */
-const MP = { peer:null, conns:[], remotes:{}, active:false, host:false, code:null, myId:null };
+const MP = { peer:null, conns:[], remotes:{}, results:{}, active:false, host:false, code:null, myId:null };
 function mpCode(){ const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s="";
   for(let i=0;i<4;i++) s+=A[Math.floor(Math.random()*A.length)]; return s; }
 function mpPeerId(code){ return "buildworld-room-"+code; }
@@ -1385,7 +1385,7 @@ const MP_ICE = { iceServers: [
 function mpReset(){
   try{ MP.conns.forEach(c=>c.close && c.close()); }catch(e){}
   try{ if(MP.peer) MP.peer.destroy(); }catch(e){}
-  MP.peer=null; MP.conns=[]; MP.remotes={}; MP.active=false; MP.host=false; MP.code=null;
+  MP.peer=null; MP.conns=[]; MP.remotes={}; MP.results={}; MP.active=false; MP.host=false; MP.code=null;
 }
 function mpWireConn(conn){
   conn.on("data", d=>mpOnData(conn,d));
@@ -1416,16 +1416,33 @@ function mpJoin(code,onReady,onErr){
   MP.peer.on("error", e=>{ onErr&&onErr((e&&e.type)||"error"); });
 }
 function mpOnData(conn,d){
-  if(!d||d.t!=="pos") return;
-  conn._pid=d.id;
-  MP.remotes[d.id]={x:d.x,y:d.y,angle:d.a,paint:d.p,type:d.ty,name:d.n,seen:performance.now()};
-  if(MP.host){ MP.conns.forEach(c=>{ if(c!==conn && c.open){ try{c.send(d);}catch(e){} } }); }
+  if(!d) return;
+  if(d.t==="pos"){
+    conn._pid=d.id;
+    MP.remotes[d.id]={x:d.x,y:d.y,angle:d.a,paint:d.p,type:d.ty,name:d.n,seen:performance.now()};
+    if(MP.host){ MP.conns.forEach(c=>{ if(c!==conn && c.open){ try{c.send(d);}catch(e){} } }); }
+  } else if(d.t==="done"){
+    if(!MP.results[d.id]){
+      MP.results[d.id]={name:d.n, time:d.time};
+      const first=Object.keys(MP.results).length===1;
+      toast("🏁 "+(d.n||"A friend")+" finished in "+d.time.toFixed(1)+"s"+(first?" — first!":""));
+      SFX.coin();
+    }
+    if(MP.host){ MP.conns.forEach(c=>{ if(c!==conn && c.open){ try{c.send(d);}catch(e){} } }); }
+  }
 }
 function mpSend(){
   if(!MP.active||!MP.peer||!car) return;
   const c=cfg(state.current);
   const msg={t:"pos", id:MP.myId||"me", x:Math.round(car.x), y:Math.round(car.y),
     a:+car.angle.toFixed(2), p:c.paint, ty:car.type, n:state.world};
+  MP.conns.forEach(cn=>{ if(cn.open){ try{cn.send(msg);}catch(e){} } });
+}
+function mpSendDone(time){
+  if(!MP.active) return;
+  const id=MP.myId||"me";
+  MP.results[id]={name:state.world, time:time};                 // record self
+  const msg={t:"done", id:id, n:state.world, time:time};
   MP.conns.forEach(cn=>{ if(cn.open){ try{cn.send(msg);}catch(e){} } });
 }
 
@@ -1528,6 +1545,7 @@ function driveScreen(){
 function startDrive(){
   ended=false; crashed=false; started=false; finished=false; runStart=0;
   coinsRun=0; flipsRun=0; airRot=0; camInit=false;
+  if(MP.active) driveTrack="race";      // multiplayer is a race on the same course
   driveCoins=new Set();
   drive.gas=false; drive.brake=false;
   const c=cfg(state.current);
@@ -1840,11 +1858,30 @@ function endRun(){
   const totalCoins=coinsRun+bonus;
   const xp=Math.floor(distM/2)+flipsRun*10+coinsRun+(finished?50:0);
   addCoins(totalCoins); addXP(xp);
-  const title = finished ? "🏆 Finished the race!" : "Run complete!";
-  const timeLine = finished ? `⏱️ Time: <b>${timeS.toFixed(1)}s</b><br>` : "";
+
+  // Multiplayer race: broadcast your finish + show a live leaderboard
+  let mpBoard="";
+  const mpRace = MP.active && finished;
+  if(mpRace) mpSendDone(timeS);
+  if(mpRace){
+    const rows=Object.keys(MP.results).map(id=>({me:id===(MP.myId||"me"), name:MP.results[id].name, time:MP.results[id].time}))
+      .sort((a,b)=>a.time-b.time);
+    mpBoard = `<div style="margin:6px 0 12px;text-align:left">
+      <b>🏁 Race results</b>${rows.length<2?' <span class="sub">(waiting for friends…)</span>':''}
+      ${rows.map((r,i)=>`<div style="display:flex;justify-content:space-between;padding:4px 0;${r.me?'color:var(--coin);font-weight:800':''}">
+        <span>${i===0?"🏆":(i+1)+".&nbsp;"} ${(r.name||"Player")}${r.me?" (you)":""}</span><span>${r.time.toFixed(1)}s</span></div>`).join("")}
+    </div>`;
+  }
+  let title = finished ? "🏆 Finished the race!" : "Run complete!";
+  if(mpRace){
+    const best=Object.values(MP.results).sort((a,b)=>a.time-b.time)[0];
+    title = (best && best.time===timeS) ? "🏆 You’re in the lead!" : "🏁 You finished!";
+  }
+  const timeLine = finished ? `⏱️ Your time: <b>${timeS.toFixed(1)}s</b><br>` : "";
   showModal(`
     <div class="big-emoji">${finished?"🏆":"🏁"}</div>
     <h3>${title}</h3>
+    ${mpBoard}
     <p style="text-align:left">
       ${timeLine}📏 Distance: <b>${distM} m</b><br>
       🤸 Flips: <b>${flipsRun}</b><br>
@@ -1852,7 +1889,7 @@ function endRun(){
       🎁 Bonus${finished?" (+100 finish!)":""}: <b>${bonus}</b><br>
       <span style="color:var(--coin)">Total earned: 🪙${totalCoins} · ⭐${xp} XP</span>
     </p>
-    <button class="btn green" onclick="reDrive()">🏁 Drive again</button>
+    <button class="btn green" onclick="reDrive()">🏁 ${MP.active?"Race again":"Drive again"}</button>
     <button class="btn gray sm" style="margin-top:8px" onclick="exitDrive()">🔧 Back to Garage</button>
   `);
 }
