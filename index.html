@@ -229,6 +229,7 @@ const VEHICLES = {
   truck:   {name:"Pickup HD",  emoji:"🛻", level:2, cost:160, weight:155, grip:54, parts:["flatbed","tank","crane","lights"]},
   armored: {name:"Armored Pickup", emoji:"🚙", level:3, cost:280, weight:180, grip:60, parts:["lights"]},
   dump:    {name:"Dump Truck", emoji:"🚚", level:3, cost:320, weight:230, grip:56, parts:["lights"]},
+  monster: {name:"Monster Truck", emoji:"🛻", level:5, cost:600, weight:200, grip:68, parts:["spoiler","lights"]},
   tractor: {name:"Tractor",    emoji:"🚜", level:4, cost:340, weight:210, grip:72, parts:["plow","trailer","lights"]},
   moto:    {name:"Motorcycle", emoji:"🏍️", level:4, cost:250, weight:60,  grip:45, parts:["saddlebags","windshield"]},
   bigrig:  {name:"Hauler",     emoji:"🚛", level:6, cost:800, weight:260, grip:50, parts:["tank","crane","flatbed","lights"]},
@@ -326,7 +327,7 @@ function cfg(type){
   if(!state.configs[type]) state.configs[type] = {paint:"#2f8fff", wheel:"#c9ccd6", parts:[]};
   const c = state.configs[type];
   if(!c.parts) c.parts=[];
-  if(!c.rim) c.rim="sport";
+  if(!c.rim) c.rim=(type==="monster"||type==="tractor")?"offroad":"sport";
   if(c.lift===undefined) c.lift=false;
   if(c.tint===undefined) c.tint=false;
   if(!c.wheel) c.wheel="#c9ccd6";
@@ -638,6 +639,7 @@ function carSpec3D(type){
     case "supercar":return {len:4.0,wid:1.86,bodyH:0.46,cabinH:0.34,cabinLen:1.35,cabinX:-0.1,wheelR:0.46,axleF:1.34,axleR:-1.3};
     case "muscle":  return {len:4.1,wid:1.80,bodyH:0.56,cabinH:0.46,cabinLen:1.55,cabinX:-0.15,wheelR:0.48,axleF:1.32,axleR:-1.3};
     case "truck":   return {len:4.2,wid:1.92,bodyH:0.70,cabinH:0.62,cabinLen:1.30,cabinX:0.55,wheelR:0.52,axleF:1.36,axleR:-1.34,bed:true};
+    case "monster": return {len:4.3,wid:2.05,bodyH:0.80,cabinH:0.66,cabinLen:1.35,cabinX:0.30,wheelR:0.92,axleF:1.45,axleR:-1.45,bed:true};
     case "armored": return {len:4.3,wid:1.95,bodyH:0.75,cabinH:0.64,cabinLen:1.30,cabinX:0.55,wheelR:0.54,axleF:1.36,axleR:-1.34,bed:true};
     case "dump":    return {len:4.6,wid:2.00,bodyH:0.85,cabinH:0.70,cabinLen:1.10,cabinX:1.30,wheelR:0.54,axleF:1.55,axleR:-1.4,bed:true};
     case "bigrig":  return {len:4.6,wid:2.00,bodyH:0.95,cabinH:0.80,cabinLen:1.20,cabinX:1.30,wheelR:0.52,axleF:1.55,axleR:-1.4,bed:true};
@@ -726,6 +728,7 @@ const CAR_PROFILE = {
   supercar:{h:0.98, p:[[.5,.12],[.52,.34],[.3,.42],[.06,.52],[-.02,.74],[-.2,.78],[-.34,.6],[-.5,.5],[-.5,.14]]},
   muscle:  {h:1.22, p:[[.5,.14],[.5,.48],[.28,.54],[.1,.57],[0,.82],[-.18,.85],[-.28,.8],[-.4,.58],[-.5,.54],[-.5,.15]]},
   truck:   {h:1.50, p:[[.5,.10],[.5,.44],[.4,.48],[.27,.52],[.2,.9],[.02,.94],[-.02,.6],[-.5,.6],[-.5,.10]]},
+  monster: {h:1.55, p:[[.5,.22],[.5,.5],[.34,.56],[.22,.6],[.16,.94],[-.04,.98],[-.1,.64],[-.5,.64],[-.5,.22]]},
   bigrig:  {h:1.70, p:[[.5,.10],[.5,.9],[.32,.94],[.2,.62],[-.5,.62],[-.5,.10]]},
 };
 
@@ -1477,6 +1480,7 @@ function carDims(type){
     case "supercar":return {bw:90, bh:16, fr:16, rr:16, dx:32};
     case "muscle":  return {bw:84, bh:24, fr:16, rr:16, dx:28};
     case "truck":   return {bw:84, bh:30, fr:16, rr:16, dx:28};
+    case "monster": return {bw:80, bh:30, fr:26, rr:26, dx:30};
     case "tractor": return {bw:58, bh:30, fr:12, rr:24, dx:24};
     case "moto":    return {bw:54, bh:11, fr:16, rr:16, dx:26};
     case "bigrig":  return {bw:108,bh:34, fr:17, rr:17, dx:40};
