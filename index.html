@@ -310,6 +310,7 @@ const DEFAULT_STATE = {
   gridW:6, gridH:5,
   seenWelcome:false,
   sound:true,                // sound effects on/off
+  records:{},                // best finish time per track (seconds)
 };
 
 let state = load();
@@ -1270,7 +1271,7 @@ function shareScreen(){
 function serialize(){
   const payload = {w:state.world, c:state.coins, x:state.xp, l:state.level,
     o:state.owned, cur:state.current, cf:state.configs, p:state.ownedParts,
-    en:state.ownedEngines, b:state.build, gw:state.gridW, gh:state.gridH};
+    en:state.ownedEngines, b:state.build, gw:state.gridW, gh:state.gridH, rec:state.records};
   try{ return "BW1." + btoa(unescape(encodeURIComponent(JSON.stringify(payload)))); }
   catch(e){ return "BW1."+JSON.stringify(payload); }
 }
@@ -1282,7 +1283,7 @@ function deserialize(code){
     state.world=p.w??"My World"; state.coins=p.c??80; state.xp=p.x??0; state.level=p.l??1;
     state.owned=p.o??["car"]; state.current=p.cur??"car"; state.configs=p.cf??{};
     state.ownedParts=p.p??[]; state.ownedEngines=p.en??["stock"];
-    state.build=p.b??{}; state.gridW=p.gw??6; state.gridH=p.gh??5;
+    state.build=p.b??{}; state.gridW=p.gw??6; state.gridH=p.gh??5; state.records=p.rec??{};
     cfg(state.current); save(); return true;
   }catch(e){ return false; }
 }
@@ -1459,6 +1460,7 @@ const DRV = {G:1700, ACCEL:780, BRAKEF:680, MAXS:580, FRICT:0.5, GSLOPE:780,
 let dcv=null, dctx=null, draf=null, dlast=0, dacc=0;
 let car=null, coinsRun=0, flipsRun=0, startX=0, airRot=0;
 let crashed=false, started=false, ended=false, finished=false, runStart=0;
+let counting=false, countStart=0, countTick=-1;
 let camX=0, camY=0, camInit=false;
 let driveCoins=new Set();
 const drive={gas:false, brake:false};
@@ -1552,6 +1554,7 @@ function driveScreen(){
 
 function startDrive(){
   ended=false; crashed=false; started=false; finished=false; runStart=0; lap=1;
+  counting=false; countStart=0; countTick=-1;
   coinsRun=0; flipsRun=0; airRot=0; camInit=false;
   if(MP.active) driveTrack="race";      // multiplayer is a race on the same course
   driveCoins=new Set();
@@ -1570,12 +1573,13 @@ function startDrive(){
   draf=requestAnimationFrame(()=>{
     resizeDriveCanvas();
     const ex=$("#dexit"); if(ex) ex.onclick=()=>setScreen("garage");
-    const tn=$("#trkname"); if(tn) tn.textContent=TRACKS[driveTrack].name;
+    const trkLabel=t=>{ const r=(state.records||{})[t]; return TRACKS[t].name+(r!=null?" · 🏅 best "+r.toFixed(1)+"s":""); };
+    const tn=$("#trkname"); if(tn) tn.textContent=trkLabel(driveTrack);
     document.querySelectorAll("[data-track]").forEach(b=>b.onclick=()=>{
-      if(started) return;                              // only before you start
+      if(started||counting) return;                    // only before you start
       driveTrack=b.dataset.track; SFX.tap();
       car.x=0; startX=0; car.y=terrainY(0); car.angle=slopeAt(0); car.speed=0; camInit=false;
-      const t=$("#trkname"); if(t) t.textContent=TRACKS[driveTrack].name;
+      const t=$("#trkname"); if(t) t.textContent=trkLabel(driveTrack);
     });
     draf=requestAnimationFrame(driveFrame);
   });
@@ -1632,7 +1636,17 @@ function driveFrame(t){
 }
 
 function stepPhysics(dt){
-  if(!started){ if(drive.gas){ started=true; runStart=performance.now(); SFX.rev(); } else { collectCoins(); return; } }
+  if(!started){
+    if(counting){                                   // 3..2..1..GO before a race
+      const el=performance.now()-countStart, idx=Math.min(3, Math.floor(el/800));
+      if(idx!==countTick){ countTick=idx; if(idx<3) SFX.tap(); else SFX.rev(); }
+      if(el>=2400){ counting=false; started=true; runStart=performance.now(); }
+      else { collectCoins(); return; }
+    } else if(drive.gas){
+      if(TRACKS[driveTrack].race){ counting=true; countStart=performance.now(); countTick=-1; collectCoins(); return; }
+      started=true; runStart=performance.now(); SFX.rev();
+    } else { collectCoins(); return; }
+  }
   const T=TRACKS[driveTrack], fin=trackFinish(driveTrack);
   if(T.race){
     const dist=car.x-startX;
@@ -1786,7 +1800,16 @@ function drawDrive(){
   if(dd) dd.textContent=Math.max(0,Math.round((car.x-startX)/18));
   if(dc) dc.textContent=coinsRun;
   if(df) df.textContent=flipsRun;
-  if(hint) hint.style.display = started?"none":"flex";
+  if(hint) hint.style.display = (started||counting)?"none":"flex";
+  // race countdown: 3..2..1..GO
+  if(counting){
+    const el=performance.now()-countStart;
+    const n = el<800?"3":el<1600?"2":el<2400?"1":"GO!";
+    dctx.save(); dctx.textAlign="center"; dctx.font="900 68px Segoe UI, sans-serif";
+    dctx.lineWidth=5; dctx.strokeStyle="rgba(0,0,0,.55)"; dctx.fillStyle=(n==="GO!")?"#5bff9b":"#ffd14d";
+    dctx.strokeText(n, W/2, H*0.44); dctx.fillText(n, W/2, H*0.44);
+    dctx.restore();
+  }
   const mpc=$("#dmp"), mpn=$("#dmpn");
   if(mpc){
     if(MP.active){ mpc.style.display="inline-flex";
@@ -1880,6 +1903,20 @@ function endRun(){
   const xp=Math.floor(distM/2)+flipsRun*10+coinsRun+(finished?50:0);
   addCoins(totalCoins); addXP(xp);
 
+  // Best-time record for this track (only counts a full finish)
+  let recordLine="";
+  if(finished){
+    if(!state.records) state.records={};
+    const prev=state.records[driveTrack];
+    if(prev==null || timeS<prev){
+      state.records[driveTrack]=+timeS.toFixed(1); save();
+      recordLine=`<div style="color:var(--good);font-weight:800;margin:2px 0 10px">🏅 NEW ${TRACKS[driveTrack].name} record!</div>`;
+      SFX.level();
+    } else {
+      recordLine=`<div class="sub" style="margin:2px 0 10px">🏅 ${TRACKS[driveTrack].name} best: ${prev.toFixed(1)}s</div>`;
+    }
+  }
+
   // Multiplayer race: broadcast your finish + show a live leaderboard
   let mpBoard="";
   const mpRace = MP.active && finished;
@@ -1902,6 +1939,7 @@ function endRun(){
   showModal(`
     <div class="big-emoji">${finished?"🏆":"🏁"}</div>
     <h3>${title}</h3>
+    ${recordLine}
     ${mpBoard}
     <p style="text-align:left">
       ${timeLine}📏 Distance: <b>${distM} m</b><br>
