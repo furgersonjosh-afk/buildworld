@@ -2063,8 +2063,10 @@ window.mpCancel=function(){ closeModal(); mpReset(); toast("Room closed"); };
 
 /* ------------------------------- BOOT ------------------------------------ */
 function boot(){
+  // one-time: force music OFF for existing players (it was annoying); still opt-in via 🎵
+  if(state.musicReset!==1){ state.music=false; state.musicReset=1; MUSIC.stop(); save(); }
   refreshTop();
-  if(state.music) MUSIC.start();          // plays once audio unlocks on first tap
+  if(state.music) MUSIC.start();          // only if the player opted in
   setScreen("garage");
   if(!state.seenWelcome){
     state.seenWelcome=true; save();
