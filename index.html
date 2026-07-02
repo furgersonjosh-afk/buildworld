@@ -1469,11 +1469,16 @@ let _dkd=null, _dku=null;
 // Race = smooth asphalt with big jumps and a checkered finish line.
 const TRACKS = {
   offroad:{ name:"Off-Road", emoji:"🏞️", a1:60,a2:30,a3:15, lipSP:900,  rampH:120, rampW:170,
-            ground1:"#7a5a36", ground2:"#5a3f24", edge:"#5fbf4f", finish:0 },
+            ground1:"#7a5a36", ground2:"#5a3f24", edge:"#5fbf4f", sky:["#aee3ff","#d7f0ff","#eef9ff"], race:false },
   race:   { name:"Race Track", emoji:"🏁", a1:24,a2:12,a3:6,  lipSP:1300, rampH:105, rampW:165,
-            ground1:"#3b4048", ground2:"#23262e", edge:"#e23b3b", finish:9000 }
+            ground1:"#3b4048", ground2:"#23262e", edge:"#e23b3b", sky:["#aee3ff","#d7f0ff","#eef9ff"], race:true, laps:3, lapLen:3000 },
+  beach:  { name:"Beach", emoji:"🏖️", a1:30,a2:16,a3:8, lipSP:1200, rampH:110, rampW:160,
+            ground1:"#e8d29a", ground2:"#c9a86a", edge:"#22c9c9", sky:["#8fe0ff","#c4f1ff","#ffe6c2"], race:true, laps:3, lapLen:2600 },
+  night:  { name:"Night City", emoji:"🌃", a1:26,a2:12,a3:6, lipSP:1250, rampH:110, rampW:160,
+            ground1:"#2a2340", ground2:"#141021", edge:"#ff3df0", sky:["#0a0f2c","#171341","#2b1f4d"], race:true, laps:3, lapLen:2800 }
 };
-let driveTrack="offroad";
+let driveTrack="offroad", lap=1;
+function trackFinish(t){ const T=TRACKS[t]; return T.race ? T.laps*T.lapLen : 0; }
 
 // Deterministic terrain. Ramp *lips* sit at known x; crossing one at speed
 // launches the car (see stepPhysics), so air scales with speed.
@@ -1522,6 +1527,7 @@ function driveScreen(){
         <span class="dchip">📏 <b id="ddist">0</b>m</span>
         <span class="dchip">🪙 <b id="dcoins">0</b></span>
         <span class="dchip">🤸 <b id="dflips">0</b></span>
+        <span class="dchip" id="dlap" style="display:none;background:rgba(255,209,77,.35)">🏁 <b id="dlapn">1/3</b></span>
         <span class="dchip" id="dmp" style="display:none;background:rgba(47,123,239,.6)">🌐 <b id="dmpn">0</b></span>
       </div>
       <button class="dchip" id="dexit">✕</button>
@@ -1531,19 +1537,21 @@ function driveScreen(){
     <button class="dctrl" id="dgas">▶</button>
     <div class="dstart" id="dstarthint">
       <div style="font-weight:900;font-size:20px">Pick a track</div>
-      <div class="row" style="justify-content:center;gap:10px;margin:8px 0 2px">
+      <div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap;margin:8px 0 2px;max-width:300px">
         <button class="btn sm gray" data-track="offroad">🏞️ Off-Road</button>
-        <button class="btn sm gray" data-track="race">🏁 Race Track</button>
+        <button class="btn sm gray" data-track="race">🏁 Race</button>
+        <button class="btn sm gray" data-track="beach">🏖️ Beach</button>
+        <button class="btn sm gray" data-track="night">🌃 Night City</button>
       </div>
       <div id="trkname" style="color:#ffd14d;font-weight:800;font-size:13px">Off-Road</div>
       <div style="font-weight:900;font-size:18px;margin-top:8px">Hold ▶ to drive!</div>
-      <div style="color:#dbeaff;font-size:12px;max-width:270px">Hit ramps &amp; flip (▶ leans back, ◀ forward), grab coins, land on your wheels. Race Track has a finish line!</div>
+      <div style="color:#dbeaff;font-size:12px;max-width:270px">Race tracks are 3 laps to the finish! Hit ramps &amp; flip (▶ back, ◀ forward), grab coins, land on your wheels.</div>
     </div>
   </div>`;
 }
 
 function startDrive(){
-  ended=false; crashed=false; started=false; finished=false; runStart=0;
+  ended=false; crashed=false; started=false; finished=false; runStart=0; lap=1;
   coinsRun=0; flipsRun=0; airRot=0; camInit=false;
   if(MP.active) driveTrack="race";      // multiplayer is a race on the same course
   driveCoins=new Set();
@@ -1625,8 +1633,13 @@ function driveFrame(t){
 
 function stepPhysics(dt){
   if(!started){ if(drive.gas){ started=true; runStart=performance.now(); SFX.rev(); } else { collectCoins(); return; } }
-  const fin=TRACKS[driveTrack].finish;
-  if(fin && !finished && (car.x-startX)>=fin){ finished=true; return; }
+  const T=TRACKS[driveTrack], fin=trackFinish(driveTrack);
+  if(T.race){
+    const dist=car.x-startX;
+    const curLap=Math.min(T.laps, Math.floor(dist/T.lapLen)+1);
+    if(curLap>lap && !finished){ lap=curLap; showMsg("LAP "+lap+"/"+T.laps+" 🏁",1000); SFX.coin(); }  // crossed a lap line
+    if(!finished && dist>=fin){ finished=true; return; }
+  }
   if(car.grounded){
     const a=slopeAt(car.x);
     car.speed += (drive.gas?driveTune.accel:0)*dt;
@@ -1685,13 +1698,13 @@ function collectCoins(){
   }
 }
 
-function showFlip(f){
+function showMsg(text, ms){
   const m=$("#flipmsg"); if(!m) return;
-  m.textContent = "FLIP"+(f>1?" x"+f:"")+"! 🤸";
-  m.classList.add("show");
-  clearTimeout(showFlip._t);
-  showFlip._t=setTimeout(()=>m.classList.remove("show"), 800);
+  m.textContent = text; m.classList.add("show");
+  clearTimeout(showMsg._t);
+  showMsg._t=setTimeout(()=>m.classList.remove("show"), ms||800);
 }
+function showFlip(f){ showMsg("FLIP"+(f>1?" x"+f:"")+"! 🤸"); }
 
 function drawDrive(){
   if(!dctx || !dcv._w) return;
@@ -1700,9 +1713,10 @@ function drawDrive(){
   if(!camInit){ camX=tx; camY=ty; camInit=true; }
   camX += (tx-camX)*0.12; camY += (ty-camY)*0.12;
 
-  // sky
+  // sky (per track)
+  const SK=TRACKS[driveTrack].sky||["#aee3ff","#d7f0ff","#eef9ff"];
   const sky=dctx.createLinearGradient(0,0,0,H);
-  sky.addColorStop(0,"#aee3ff"); sky.addColorStop(.55,"#d7f0ff"); sky.addColorStop(1,"#eef9ff");
+  sky.addColorStop(0,SK[0]); sky.addColorStop(.55,SK[1]); sky.addColorStop(1,SK[2]);
   dctx.fillStyle=sky; dctx.fillRect(0,0,W,H);
 
   // terrain fill + grass top
@@ -1721,22 +1735,23 @@ function drawDrive(){
   dctx.beginPath();
   topPts.forEach((p,i)=> i?dctx.lineTo(p[0],p[1]):dctx.moveTo(p[0],p[1]));
   dctx.lineWidth=7; dctx.strokeStyle=TR.edge; dctx.stroke();
-  if(driveTrack==="race"){        // dashed center line down the road
+  if(TR.race){        // dashed center line down the road
     dctx.lineWidth=3; dctx.strokeStyle="rgba(255,255,255,.55)"; dctx.setLineDash([18,20]);
     dctx.beginPath(); topPts.forEach((p,i)=> i?dctx.lineTo(p[0],p[1]+16):dctx.moveTo(p[0],p[1]+16)); dctx.stroke();
     dctx.setLineDash([]);
   }
-  // finish line (race)
-  if(TR.finish){
-    const fx=startX+TR.finish-camX;
-    if(fx>-30 && fx<W+30){
-      const fy=terrainY(startX+TR.finish)-camY;
+  // lap + finish lines (race)
+  if(TR.race){
+    for(let n=1;n<=TR.laps;n++){
+      const wx=startX+n*TR.lapLen, fx=wx-camX;
+      if(fx<-30||fx>W+30) continue;
+      const fy=terrainY(wx)-camY, isFinish=(n===TR.laps);
       for(let r=0;r<8;r++) for(let cc=0;cc<2;cc++){
         dctx.fillStyle=((r+cc)%2)?"#111":"#fff";
         dctx.fillRect(fx-14+cc*14, fy-120+r*15, 14, 15);
       }
-      dctx.fillStyle="#fff"; dctx.font="700 13px Segoe UI"; dctx.textAlign="center";
-      dctx.fillText("FINISH", fx, fy-128);
+      dctx.fillStyle=isFinish?"#ffd14d":"#fff"; dctx.font="700 13px Segoe UI"; dctx.textAlign="center";
+      dctx.fillText(isFinish?"FINISH":("LAP "+n), fx, fy-128);
     }
   }
 
@@ -1778,6 +1793,12 @@ function drawDrive(){
       const others=Object.keys(MP.remotes).length;
       if(mpn) mpn.textContent=(others+1)+(MP.code?"  "+MP.code:"");
     } else mpc.style.display="none";
+  }
+  const lc=$("#dlap"), ln=$("#dlapn");
+  if(lc){
+    if(TRACKS[driveTrack].race){ lc.style.display="inline-flex";
+      if(ln) ln.textContent=lap+"/"+TRACKS[driveTrack].laps;
+    } else lc.style.display="none";
   }
 }
 
