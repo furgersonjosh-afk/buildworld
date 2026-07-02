@@ -235,6 +235,7 @@ const VEHICLES = {
   dirtbike:{name:"Dirt Bike",   emoji:"🏍️", level:4, cost:280, weight:52,  grip:60, parts:["lights"]},
   sportbike:{name:"Sport Bike", emoji:"🏍️", level:5, cost:460, weight:56,  grip:52, parts:["windshield","lights"]},
   chopper: {name:"Chopper",     emoji:"🏍️", level:6, cost:520, weight:92,  grip:48, parts:["saddlebags","lights"]},
+  atv:     {name:"Quad ATV",    emoji:"🛺", level:5, cost:400, weight:105, grip:66, parts:["lights"]},
   bigrig:  {name:"Hauler",     emoji:"🚛", level:6, cost:800, weight:260, grip:50, parts:["tank","crane","flatbed","lights"]},
 };
 
@@ -331,7 +332,7 @@ function cfg(type){
   if(!state.configs[type]) state.configs[type] = {paint:"#2f8fff", wheel:"#c9ccd6", parts:[]};
   const c = state.configs[type];
   if(!c.parts) c.parts=[];
-  if(!c.rim) c.rim=(type==="monster"||type==="tractor"||type==="dirtbike")?"offroad":"sport";
+  if(!c.rim) c.rim=(type==="monster"||type==="tractor"||type==="dirtbike"||type==="atv")?"offroad":"sport";
   if(c.lift===undefined) c.lift=false;
   if(c.tint===undefined) c.tint=false;
   if(!c.wheel) c.wheel="#c9ccd6";
@@ -652,6 +653,7 @@ function carSpec3D(type){
     case "dirtbike":return {len:2.5,wid:0.7,bodyH:0.50,cabinH:0,cabinLen:0,cabinX:0,wheelR:0.56,axleF:1.05,axleR:-1.05,moto:true};
     case "sportbike":return{len:2.7,wid:0.7,bodyH:0.34,cabinH:0,cabinLen:0,cabinX:0,wheelR:0.44,axleF:1.15,axleR:-1.0, moto:true};
     case "chopper": return {len:3.2,wid:0.75,bodyH:0.40,cabinH:0,cabinLen:0,cabinX:0,wheelR:0.5, axleF:1.55,axleR:-1.15,moto:true};
+    case "atv":     return {len:2.7,wid:1.55,bodyH:0.42,cabinH:0,cabinLen:0,cabinX:0,wheelR:0.52,axleF:0.95,axleR:-0.95,quad:true};
     default:        return {len:3.7,wid:1.72,bodyH:0.55,cabinH:0.50,cabinLen:1.7,cabinX:-0.05,wheelR:0.46,axleF:1.18,axleR:-1.18};
   }
 }
@@ -834,6 +836,22 @@ function buildProceduralCar(g,type,c){
       new THREE.MeshStandardMaterial({color:0xfff3b0, emissive:0xffe27a, emissiveIntensity:0.5}));
     hl.position.set(s.axleF-0.02, wr+s.bodyH*1.1+lift, 0); g.add(hl);
     g.add(makeWheel3D(s.axleF,0,wr,c)); g.add(makeWheel3D(s.axleR,0,wr,c));
+  } else if(s.quad){
+    const metal=new THREE.MeshStandardMaterial({color:0x2a2d34, metalness:0.7, roughness:0.4, envMapIntensity:0.9});
+    const chassis=new THREE.Mesh(new THREE.RoundedBoxGeometry(s.len*0.82, s.bodyH, s.wid*0.62, 4, 0.1), paint);
+    chassis.position.y=wr+s.bodyH*0.6+lift; chassis.castShadow=true; g.add(chassis);
+    const seat=new THREE.Mesh(new THREE.RoundedBoxGeometry(s.len*0.34, s.bodyH*0.7, s.wid*0.4, 4, 0.08),
+      new THREE.MeshStandardMaterial({color:0x1c1e24, roughness:0.7}));
+    seat.position.set(-s.len*0.08, wr+s.bodyH*1.1+lift, 0); g.add(seat);
+    const rack=new THREE.Mesh(new THREE.BoxGeometry(s.len*0.22,0.05,s.wid*0.5), metal);
+    rack.position.set(-s.len*0.32, wr+s.bodyH*1.05+lift, 0); g.add(rack);
+    const bar=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,s.wid*0.55,8), metal);
+    bar.rotation.x=Math.PI/2; bar.position.set(s.axleF-0.1, wr+s.bodyH*1.35+lift, 0); g.add(bar);
+    const hl=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.12,s.wid*0.4),
+      new THREE.MeshStandardMaterial({color:0xfff3b0, emissive:0xffe27a, emissiveIntensity:0.5}));
+    hl.position.set(s.len*0.42, wr+s.bodyH*0.9+lift, 0); g.add(hl);
+    [[s.axleF,s.wid/2],[s.axleF,-s.wid/2],[s.axleR,s.wid/2],[s.axleR,-s.wid/2]]
+      .forEach(p=>g.add(makeWheel3D(p[0],p[1],wr,c)));
   } else {
     // shaped body: extrude a real car side-profile (falls back to a box)
     paint.side=THREE.DoubleSide;
@@ -1538,6 +1556,7 @@ function carDims(type){
     case "dirtbike":return {bw:52, bh:12, fr:20, rr:20, dx:24};
     case "sportbike":return{bw:58, bh:9,  fr:15, rr:15, dx:28};
     case "chopper": return {bw:66, bh:10, fr:16, rr:16, dx:34};
+    case "atv":     return {bw:60, bh:20, fr:19, rr:19, dx:26};
     case "bigrig":  return {bw:108,bh:34, fr:17, rr:17, dx:40};
     default:        return {bw:72, bh:26, fr:15, rr:15, dx:24};
   }
