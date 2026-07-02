@@ -1477,7 +1477,7 @@ const DRV = {G:1700, ACCEL:780, BRAKEF:680, MAXS:580, FRICT:0.5, GSLOPE:780,
 let dcv=null, dctx=null, draf=null, dlast=0, dacc=0;
 let car=null, coinsRun=0, flipsRun=0, startX=0, airRot=0;
 let crashed=false, started=false, ended=false, finished=false, runStart=0;
-let counting=false, countStart=0, countTick=-1;
+let counting=false, countStart=0, countTick=-1, boostUntil=0;
 let camX=0, camY=0, camInit=false;
 let driveCoins=new Set();
 const drive={gas:false, brake:false};
@@ -1524,6 +1524,8 @@ function lipBetween(x0,x1){
 function slopeAt(x){ return Math.atan((terrainY(x+3)-terrainY(x-3))/6); }
 function coinX(i){ return startX + 280 + i*150; }
 function coinY(i){ return terrainY(coinX(i)) - 30; }
+function boostX(i){ return startX + 620 + i*820; }
+function boostY(i){ return terrainY(boostX(i)) - 6; }
 
 function carDims(type){
   switch(type){
@@ -1574,7 +1576,7 @@ function driveScreen(){
 
 function startDrive(){
   ended=false; crashed=false; started=false; finished=false; runStart=0; lap=1;
-  counting=false; countStart=0; countTick=-1;
+  counting=false; countStart=0; countTick=-1; boostUntil=0;
   coinsRun=0; flipsRun=0; airRot=0; camInit=false;
   if(MP.active) driveTrack="race";      // multiplayer is a race on the same course
   driveCoins=new Set();
@@ -1676,11 +1678,14 @@ function stepPhysics(dt){
   }
   if(car.grounded){
     const a=slopeAt(car.x);
-    car.speed += (drive.gas?driveTune.accel:0)*dt;
+    const boosting = performance.now()<boostUntil;
+    car.speed += (drive.gas?driveTune.accel*(boosting?1.8:1):0)*dt;
+    if(boosting) car.speed += 260*dt;             // constant push while boosting
     car.speed -= (drive.brake?DRV.BRAKEF:0)*dt;
     car.speed += DRV.GSLOPE*Math.sin(a)*dt;       // downhill speeds up, uphill slows
     car.speed -= car.speed*DRV.FRICT*dt;          // rolling resistance
-    if(car.speed>driveTune.maxs) car.speed=driveTune.maxs;
+    const maxs = driveTune.maxs*(boosting?1.5:1);
+    if(car.speed>maxs) car.speed=maxs;
     if(car.speed<-150) car.speed=-150;
     const vx=car.speed*Math.cos(a), vy=car.speed*Math.sin(a);
     const nx=car.x+vx*dt;
@@ -1729,6 +1734,14 @@ function collectCoins(){
     if(driveCoins.has(i)) continue;
     const dx=coinX(i)-car.x, dy=coinY(i)-car.y;
     if(dx*dx+dy*dy < 42*42){ driveCoins.add(i); coinsRun++; }
+  }
+  // boost pads (reusable, no consume) — grants a short speed burst
+  const bb=Math.floor((car.x-startX-620)/820);
+  for(let i=Math.max(0,bb-1); i<bb+3; i++){
+    const dx=boostX(i)-car.x, dy=boostY(i)-car.y;
+    if(dx*dx+dy*dy < 50*50 && car.speed>40 && boostUntil<=performance.now()){
+      boostUntil=performance.now()+1600; SFX.rev(); showMsg("🔥 BOOST!",700);
+    }
   }
 }
 
@@ -1800,6 +1813,18 @@ function drawDrive(){
     dctx.beginPath(); dctx.arc(cx,cy,5,0,7); dctx.fillStyle="#fff0bf"; dctx.fill();
   }
 
+  // boost pads (glowing forward chevrons on the ground)
+  const bpb=Math.floor((camX-startX-620)/820);
+  for(let i=Math.max(0,bpb-1); i<bpb+4; i++){
+    const bx=boostX(i)-camX, by=boostY(i)-camY;
+    if(bx<-40||bx>W+40) continue;
+    for(let k=0;k<3;k++){
+      const ox=bx-18+k*14, al=0.5+k*0.2;
+      dctx.strokeStyle="rgba(90,255,155,"+al+")"; dctx.lineWidth=5; dctx.lineCap="round";
+      dctx.beginPath(); dctx.moveTo(ox-6,by-9); dctx.lineTo(ox+4,by); dctx.lineTo(ox-6,by+9); dctx.stroke();
+    }
+  }
+
   // other players (ghost cars with name labels)
   if(MP.active){
     const now=performance.now();
@@ -1814,6 +1839,16 @@ function drawDrive(){
 
   // car
   drawCar(car.x-camX, car.y-camY);
+
+  // boost speed-lines
+  if(performance.now()<boostUntil){
+    const cx=car.x-camX, cy=car.y-camY;
+    dctx.strokeStyle="rgba(255,255,255,.5)"; dctx.lineWidth=2;
+    for(let k=0;k<7;k++){ const yy=cy-70+k*18, len=30+((k*53)%40);
+      dctx.beginPath(); dctx.moveTo(cx-40-len, yy); dctx.lineTo(cx-40, yy); dctx.stroke(); }
+    dctx.strokeStyle="rgba(90,255,155,.35)"; dctx.lineWidth=8;
+    dctx.strokeRect(3,3,W-6,H-6);
+  }
 
   // HUD live
   const dd=$("#ddist"), dc=$("#dcoins"), df=$("#dflips"), hint=$("#dstarthint");
