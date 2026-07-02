@@ -174,6 +174,7 @@
 <div id="top">
   <div id="logo">BUILD WORLD<small id="worldname">My World</small></div>
   <div class="spacer"></div>
+  <button class="stat" id="music" title="Music on/off" style="cursor:pointer">🎵</button>
   <button class="stat" id="mute" title="Sound on/off" style="cursor:pointer">🔊</button>
   <div class="stat"><span class="ico">🪙</span><span id="coins">0</span></div>
   <div class="stat" id="lvlwrap">
@@ -314,6 +315,7 @@ const DEFAULT_STATE = {
   gridW:6, gridH:5,
   seenWelcome:false,
   sound:true,                // sound effects on/off
+  music:true,                // background music on/off
   records:{},                // best finish time per track (seconds)
 };
 
@@ -399,6 +401,27 @@ const SFX = {
     o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+0.32); }
 };
 
+/* Background music — a simple looping chiptune, synthesized. Toggle with 🎵. */
+const MUSIC = {
+  timer:null, step:0,
+  mel: [659,0,784,0, 880,784,659,0, 587,0,698,0, 784,0,0,0,
+        659,0,784,0, 1047,880,784,0, 880,0,784,0, 659,0,0,0],
+  bass:[165,0,0,0, 165,0,131,0, 147,0,0,0, 196,0,0,0,
+        165,0,0,0, 165,0,131,0, 98,0,0,0, 110,0,0,0],
+  note(f,d,type,vol){ const ac=SFX.ac(); if(!ac) return;
+    const o=ac.createOscillator(), g=ac.createGain(); o.type=type; o.frequency.value=f;
+    const t=ac.currentTime; g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+d+0.02); },
+  start(){ if(this.timer||!state.music) return; this.step=0;
+    this.timer=setInterval(()=>{ if(!state.music){ this.stop(); return; }
+      const s=this.step%this.mel.length;
+      if(this.mel[s])  this.note(this.mel[s], 0.16, "triangle", 0.03);
+      if(this.bass[s]) this.note(this.bass[s],0.22, "sine",     0.04);
+      this.step++;
+    }, 175); },
+  stop(){ if(this.timer){ clearInterval(this.timer); this.timer=null; } }
+};
+
 function addCoins(n){ state.coins = Math.max(0, state.coins + n); if(n>0) SFX.coin(); save(); refreshTop(); }
 
 function addXP(n){
@@ -439,6 +462,7 @@ function refreshTop(){
   const need = xpForLevel(state.level);
   $("#xpfill").style.width = Math.min(100, (state.xp/need)*100) + "%";
   const mb=$("#mute"); if(mb) mb.textContent = state.sound ? "🔊" : "🔇";
+  const mus=$("#music"); if(mus){ mus.textContent = state.music ? "🎵" : "🎶"; mus.style.opacity = state.music ? "1" : "0.45"; }
 }
 
 /* --------------------------- VEHICLE DRAWING ----------------------------- */
@@ -1352,6 +1376,12 @@ $("#mute").addEventListener("click", ()=>{
   $("#mute").textContent = state.sound ? "🔊" : "🔇";
   if(state.sound) SFX.coin();
 });
+$("#music").addEventListener("click", ()=>{
+  state.music=!state.music; save();
+  $("#music").textContent = state.music ? "🎵" : "🎶";
+  $("#music").style.opacity = state.music ? "1" : "0.45";
+  if(state.music) MUSIC.start(); else MUSIC.stop();
+});
 
 // Share-screen buttons (delegated, since that screen re-renders)
 $("#screen").addEventListener("click", e=>{
@@ -2034,6 +2064,7 @@ window.mpCancel=function(){ closeModal(); mpReset(); toast("Room closed"); };
 /* ------------------------------- BOOT ------------------------------------ */
 function boot(){
   refreshTop();
+  if(state.music) MUSIC.start();          // plays once audio unlocks on first tap
   setScreen("garage");
   if(!state.seenWelcome){
     state.seenWelcome=true; save();
