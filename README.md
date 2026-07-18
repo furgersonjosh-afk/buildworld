@@ -76,14 +76,17 @@ Everything is config. To add content, just add a row — no new code:
 - **Tune difficulty** → `xpForLevel()` controls how fast levels come.
 
 ### Roadmap (in rough order)
-1. **2-player bonk battle** on one device (Drive Ahead style) — two kids, one
-   tablet, knock each other over. Reuses the driving physics. *Next up.*
-2. More Drive content: multiple tracks/biomes, fuel or time-trial modes,
-   obstacles, longer ramps, a speedometer.
-3. More vehicles (police, fire, dirt bike, harvester, monster truck) + more
-   customization (decals/livery, exhaust, finishes, body kits).
+1. ~~**2-player bonk battle** on one device (Drive Ahead style)~~ ✅ **DONE** —
+   ⚔️ Bump Battle lives on the Drive screen: two kids, one tablet, bonk the
+   other driver's head, first to 3 wins. (P1: left buttons / A-D keys.
+   P2: right buttons / arrow keys.)
+2. More Drive content: multiple tracks/biomes ✅ (4 tracks + laps + boost
+   pads), fuel or time-trial modes, obstacles, a speedometer.
+3. More vehicles (police ✅, fire ✅, dirt bike ✅, monster truck ✅,
+   harvester) + more customization (decals/livery, exhaust, body kits).
 4. **Fishing mini-game** (Fishing Clash style) — *parked in the queue.*
-5. Sound effects + a daily reward / quests to keep them coming back.
+5. Sound effects ✅ + a daily reward ✅ (streak gift, grows to day 7) /
+   quests to keep them coming back.
 6. **Live online play-together** — the big one. The `serialize()` /
    `deserialize()` world model is already the data contract a server (or
    peer-to-peer) would sync. This needs accounts and child-privacy handling

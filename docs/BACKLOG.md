@@ -10,6 +10,12 @@ Rough estimates. "Evening" = one focused work session.
 - Build mode (farm/town grid), Jobs, level-up unlocks, save, share-code
 - Installable app (PWA) + offline + free hosting
 - **3D model loader wired** — real `.glb` cars can now be dropped in
+- Multiplayer racing (room codes), 4 tracks, laps, best times, boost pads
+- Music + sound, Quad ATV, 3 more motorcycles
+- **⚔️ Bump Battle** — Drive-Ahead-style 2-players-1-device mode (bonk the
+  other driver's head, first to 3; heavier trucks shove harder)
+- **🎁 Daily reward** — streak-based login gift (grows to day 7)
+- **🚓 Police Cruiser + 🚒 Fire Truck** (light bar / roof ladder) + 2 new jobs
 
 ## 🎯 Now: realistic cars (AI-render / bought models)
 - **Josh:** generate a car on Meshy.ai (free) or buy a `.glb` on Sketchfab
@@ -28,8 +34,8 @@ The big one. Phased:
 - Privacy: keep it a closed friends group, no personal data beyond a nickname.
 
 ## 💡 Later
-- More content (police/fire/dirt-bike/monster-truck), decals, sounds, daily rewards
-- Drive-Ahead-style same-device 2-player bump battle
+- More content (harvester, decals/livery, body kits), quests
+- Bump Battle polish: pick different vehicles per player, arena variety, power-ups
 - Fishing mini-game (parked)
 - Split `index.html` into `src/*.js` modules once it gets big
 

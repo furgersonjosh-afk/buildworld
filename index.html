@@ -227,9 +227,11 @@ const VEHICLES = {
   car:     {name:"Hot Hatch",  emoji:"🚗", level:1, cost:0,   weight:100, grip:55, parts:["spoiler","roofrack","lights"]},
   supercar:{name:"Apex GT",    emoji:"🏎️", level:2, cost:240, weight:88,  grip:64, parts:["spoiler","lights"]},
   muscle:  {name:"Brawler V8", emoji:"🚙", level:3, cost:300, weight:124, grip:58, parts:["spoiler","lights"]},
+  police:  {name:"Police Cruiser", emoji:"🚓", level:3, cost:350, weight:112, grip:62, parts:["spoiler","lights"]},
   truck:   {name:"Pickup HD",  emoji:"🛻", level:2, cost:160, weight:155, grip:54, parts:["flatbed","tank","crane","lights"]},
   armored: {name:"Armored Pickup", emoji:"🚙", level:3, cost:280, weight:180, grip:60, parts:["lights"]},
   dump:    {name:"Dump Truck", emoji:"🚚", level:3, cost:320, weight:230, grip:56, parts:["lights"]},
+  fire:    {name:"Fire Truck", emoji:"🚒", level:4, cost:480, weight:245, grip:58, parts:["crane","tank","lights"]},
   monster: {name:"Monster Truck", emoji:"🛻", level:5, cost:600, weight:200, grip:68, parts:["spoiler","lights"]},
   tractor: {name:"Tractor",    emoji:"🚜", level:4, cost:340, weight:210, grip:72, parts:["plow","trailer","lights"]},
   moto:    {name:"Street Bike", emoji:"🏍️", level:4, cost:250, weight:60,  grip:45, parts:["saddlebags","windshield"]},
@@ -289,6 +291,8 @@ const JOBS = [
   {id:"hay",   name:"Deliver hay",      emoji:"🛻", need:"truck",   coins:30, xp:15, secs:2, cd:6},
   {id:"race",  name:"Win a race",       emoji:"🏁", need:"car",     coins:28, xp:14, secs:2, cd:6},
   {id:"mail",  name:"Mail run",         emoji:"📬", need:"moto",    coins:26, xp:13, secs:2, cd:6},
+  {id:"patrol",name:"Patrol the streets",emoji:"🚓", need:"police", coins:42, xp:21, secs:2, cd:7},
+  {id:"rescue",name:"Answer the alarm", emoji:"🚒", need:"fire",    coins:50, xp:25, secs:3, cd:8},
   {id:"haul",  name:"Haul cargo",       emoji:"📦", need:"bigrig",  coins:70, xp:34, secs:3, cd:8},
   {id:"chores",name:"Farm chores",      emoji:"🧹", need:null,      coins:14, xp:8,  secs:2, cd:5},
 ];
@@ -317,6 +321,8 @@ const DEFAULT_STATE = {
   sound:true,                // sound effects on/off
   music:false,               // background music off by default (opt-in via 🎵)
   records:{},                // best finish time per track (seconds)
+  lastDaily:"",              // last calendar day the daily reward was claimed
+  streak:0,                  // consecutive-day login streak
 };
 
 let state = load();
@@ -667,6 +673,8 @@ function carSpec3D(type){
   switch(type){
     case "supercar":return {len:4.0,wid:1.86,bodyH:0.46,cabinH:0.34,cabinLen:1.35,cabinX:-0.1,wheelR:0.46,axleF:1.34,axleR:-1.3};
     case "muscle":  return {len:4.1,wid:1.80,bodyH:0.56,cabinH:0.46,cabinLen:1.55,cabinX:-0.15,wheelR:0.48,axleF:1.32,axleR:-1.3};
+    case "police":  return {len:4.2,wid:1.84,bodyH:0.54,cabinH:0.46,cabinLen:1.60,cabinX:-0.10,wheelR:0.47,axleF:1.34,axleR:-1.32};
+    case "fire":    return {len:4.8,wid:2.05,bodyH:0.95,cabinH:0.78,cabinLen:1.25,cabinX:1.35,wheelR:0.52,axleF:1.60,axleR:-1.45,bed:true};
     case "truck":   return {len:4.2,wid:1.92,bodyH:0.70,cabinH:0.62,cabinLen:1.30,cabinX:0.55,wheelR:0.52,axleF:1.36,axleR:-1.34,bed:true};
     case "monster": return {len:4.3,wid:2.05,bodyH:0.80,cabinH:0.66,cabinLen:1.35,cabinX:0.30,wheelR:0.92,axleF:1.45,axleR:-1.45,bed:true};
     case "armored": return {len:4.3,wid:1.95,bodyH:0.75,cabinH:0.64,cabinLen:1.30,cabinX:0.55,wheelR:0.54,axleF:1.36,axleR:-1.34,bed:true};
@@ -760,6 +768,8 @@ const CAR_PROFILE = {
   car:     {h:1.18, p:[[.5,.14],[.5,.44],[.33,.5],[.13,.53],[.02,.84],[-.16,.88],[-.25,.83],[-.35,.56],[-.46,.52],[-.5,.46],[-.5,.14]]},
   supercar:{h:0.98, p:[[.5,.12],[.52,.34],[.3,.42],[.06,.52],[-.02,.74],[-.2,.78],[-.34,.6],[-.5,.5],[-.5,.14]]},
   muscle:  {h:1.22, p:[[.5,.14],[.5,.48],[.28,.54],[.1,.57],[0,.82],[-.18,.85],[-.28,.8],[-.4,.58],[-.5,.54],[-.5,.15]]},
+  police:  {h:1.20, p:[[.5,.14],[.5,.44],[.32,.5],[.14,.53],[.04,.82],[-.18,.85],[-.27,.8],[-.36,.56],[-.46,.52],[-.5,.46],[-.5,.14]]},
+  fire:    {h:1.72, p:[[.5,.10],[.5,.9],[.3,.95],[.16,.95],[.12,.62],[-.5,.62],[-.5,.10]]},
   truck:   {h:1.50, p:[[.5,.10],[.5,.44],[.4,.48],[.27,.52],[.2,.9],[.02,.94],[-.02,.6],[-.5,.6],[-.5,.10]]},
   monster: {h:1.55, p:[[.5,.22],[.5,.5],[.34,.56],[.22,.6],[.16,.94],[-.04,.98],[-.1,.64],[-.5,.64],[-.5,.22]]},
   bigrig:  {h:1.70, p:[[.5,.10],[.5,.9],[.32,.94],[.2,.62],[-.5,.62],[-.5,.10]]},
@@ -943,6 +953,29 @@ function buildProceduralCar(g,type,c){
       [-1,1].forEach(z=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(0.13,0.09,0.05), mm);
         m.position.set(s.cabinX+s.cabinLen*0.34, wr+s.bodyH+s.cabinH*0.38+lift, z*(s.wid*0.5+0.05)); g.add(m); });
     }
+    // police: red/blue roof light bar
+    if(type==="police"){
+      const roofY=(CAR_PROFILE.police?CAR_PROFILE.police.h*0.86:1.05)+lift;
+      const base=new THREE.Mesh(new THREE.BoxGeometry(0.36,0.08,s.wid*0.56), trim);
+      base.position.set(-0.1, roofY+0.04, 0); g.add(base);
+      const red=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.13,s.wid*0.24),
+        new THREE.MeshStandardMaterial({color:0xff2b2b, emissive:0xcc0000, emissiveIntensity:0.9}));
+      red.position.set(-0.1, roofY+0.13, s.wid*0.15); g.add(red);
+      const blue=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.13,s.wid*0.24),
+        new THREE.MeshStandardMaterial({color:0x2f8fff, emissive:0x0044cc, emissiveIntensity:0.9}));
+      blue.position.set(-0.1, roofY+0.13, -s.wid*0.15); g.add(blue);
+    }
+    // fire truck: silver roof ladder
+    if(type==="fire"){
+      const H=(CAR_PROFILE.fire?CAR_PROFILE.fire.h:1.72);
+      const rail=new THREE.MeshStandardMaterial({color:0xd8d8de, metalness:0.7, roughness:0.35});
+      const ladder=new THREE.Group();
+      [-1,1].forEach(z=>{ const r=new THREE.Mesh(new THREE.BoxGeometry(s.len*0.55,0.05,0.05), rail);
+        r.position.set(0,0,z*0.15); ladder.add(r); });
+      for(let i=0;i<6;i++){ const rung=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.32,6), rail);
+        rung.rotation.x=Math.PI/2; rung.position.set(-s.len*0.24+i*s.len*0.1,0,0); ladder.add(rung); }
+      ladder.position.set(-s.len*0.16, H*0.66+lift+0.12, 0); ladder.rotation.z=0.09; g.add(ladder);
+    }
   }
 }
 
@@ -987,7 +1020,7 @@ let palSelected = null;        // currently selected build palette item
 let jobCooldowns = {};         // id -> timestamp when usable again
 
 function setScreen(name){
-  if(activeScreen==="drive" && name!=="drive"){ stopDrive(); if(MP.active){ mpReset(); toast("Left the race"); } }
+  if(activeScreen==="drive" && name!=="drive"){ stopDrive(); stopBattle(); if(MP.active){ mpReset(); toast("Left the race"); } }
   if(activeScreen==="garage" && name!=="garage") showroomUnmount();
   activeScreen = name;
   document.querySelectorAll(".navb").forEach(b=>b.classList.toggle("active", b.dataset.screen===name));
@@ -1579,6 +1612,8 @@ function carDims(type){
   switch(type){
     case "supercar":return {bw:90, bh:16, fr:16, rr:16, dx:32};
     case "muscle":  return {bw:84, bh:24, fr:16, rr:16, dx:28};
+    case "police":  return {bw:86, bh:22, fr:16, rr:16, dx:29};
+    case "fire":    return {bw:106,bh:34, fr:17, rr:17, dx:38};
     case "truck":   return {bw:84, bh:30, fr:16, rr:16, dx:28};
     case "monster": return {bw:80, bh:30, fr:26, rr:26, dx:30};
     case "tractor": return {bw:58, bh:30, fr:12, rr:24, dx:24};
@@ -1619,6 +1654,8 @@ function driveScreen(){
       <div id="trkname" style="color:#ffd14d;font-weight:800;font-size:13px">Off-Road</div>
       <div style="font-weight:900;font-size:18px;margin-top:8px">Hold ▶ to drive!</div>
       <div style="color:#dbeaff;font-size:12px;max-width:270px">Race tracks are 3 laps to the finish! Hit ramps &amp; flip (▶ back, ◀ forward), grab coins, land on your wheels.</div>
+      <button class="btn sm" id="battlebtn" style="margin-top:12px;background:linear-gradient(180deg,#ff8a5a,#e0563a)">⚔️ 2-Player Bump Battle</button>
+      <div style="color:#ffd9c4;font-size:11px;max-width:250px">Two players, one screen — bonk your friend's driver to score. First to 3 wins!</div>
     </div>
   </div>`;
 }
@@ -1652,6 +1689,7 @@ function startDrive(){
       car.x=0; startX=0; car.y=terrainY(0); car.angle=slopeAt(0); car.speed=0; camInit=false;
       const t=$("#trkname"); if(t) t.textContent=trkLabel(driveTrack);
     });
+    const bb=$("#battlebtn"); if(bb) bb.onclick=()=>{ SFX.tap(); startBattle(); };
     draf=requestAnimationFrame(driveFrame);
   });
 }
@@ -2061,6 +2099,338 @@ window.exitDrive=function(){ closeModal(); setScreen("garage"); };
 window.mpGo=function(){ closeModal(); MP.active=true; setScreen("drive"); };
 window.mpCancel=function(){ closeModal(); mpReset(); toast("Room closed"); };
 
+/* ==================== BUMP BATTLE (2 players, 1 device) ==================
+   Drive-Ahead style: two kids share one screen. P1 has the left ◀ ▶ buttons
+   (or A/D keys), P2 the right ones (or arrow keys). Bonk the other car so
+   YOUR car touches the other DRIVER'S HEAD — or flip them onto their roof —
+   to win the round. Heavier vehicles shove harder. First to 3 rounds wins.
+   The arena is a bowl so cars always roll back toward each other. */
+const BT={G:1700, ACCEL:980, MAX:540, FRICT:0.55, GSLOPE:780, KO_TILT:1.95, HEAD_R:15};
+let BATTLE=null, braf=null;
+
+function bY(x){ return -(x*x)/1400; }              // bowl arena (canvas y: down = +)
+function bSlope(x){ return Math.atan((bY(x+3)-bY(x-3))/6); }
+
+function battleCarFor(i){
+  const type=state.current, c=cfg(type);
+  // P2 drives the same build in a rival color so every match is fair
+  const altPaint=(c.paint||"").toLowerCase()==="#2f8fff" ? "#37c46a" : "#2f8fff";
+  const x=i?320:-320;
+  return {x:x, y:bY(x), speed:0, vx:0, vy:0, angle:bSlope(x), angVel:0,
+    grounded:true, ko:false, dir:i?-1:1, type:type,
+    paint:i?altPaint:c.paint, wheel:c.wheel, rim:c.rim, lift:c.lift, tint:c.tint,
+    mass:(VEHICLES[type].weight||120)};
+}
+
+function battleScreen(){
+  return `<div id="driveroot">
+    <canvas id="drivecanvas"></canvas>
+    <div class="dhud">
+      <div class="dstatrow">
+        <span class="dchip" style="background:rgba(226,59,59,.6)">🔴 P1 <b id="bs1">0</b></span>
+        <span class="dchip" style="background:rgba(47,143,255,.6)">🔵 P2 <b id="bs2">0</b></span>
+        <span class="dchip">Round <b id="brnd">1</b></span>
+      </div>
+      <button class="dchip" id="bexit">✕</button>
+    </div>
+    <div class="flipmsg" id="flipmsg"></div>
+    <button class="dctrl" id="b1b" style="left:16px;bottom:20px;width:74px;height:74px;font-size:28px;border-color:rgba(255,120,120,.8)">◀</button>
+    <button class="dctrl" id="b1f" style="left:102px;bottom:20px;width:74px;height:74px;font-size:28px;border-color:rgba(255,120,120,.8)">▶</button>
+    <button class="dctrl" id="b2f" style="right:102px;bottom:20px;width:74px;height:74px;font-size:28px;border-color:rgba(120,170,255,.8)">◀</button>
+    <button class="dctrl" id="b2b" style="right:16px;bottom:20px;width:74px;height:74px;font-size:28px;border-color:rgba(120,170,255,.8)">▶</button>
+  </div>`;
+}
+
+function startBattle(){
+  stopDrive();
+  $("#screen").innerHTML=battleScreen();
+  BATTLE={cars:[battleCarFor(0),battleCarFor(1)], score:[0,0], round:1,
+    phase:"count", phaseT:performance.now(), winner:-1, over:false,
+    input:[{f:false,b:false},{f:false,b:false}], last:0, acc:0};
+  resizeDriveCanvas();
+  bindBattleInput();
+  const ex=$("#bexit"); if(ex) ex.onclick=()=>{ stopBattle(); render(); };
+  cancelAnimationFrame(braf);
+  braf=requestAnimationFrame(battleFrame);
+}
+function stopBattle(){
+  if(braf){ cancelAnimationFrame(braf); braf=null; }
+  unbindBattleInput(); BATTLE=null;
+}
+
+let _bkd=null,_bku=null;
+function bindBattleInput(){
+  const hook=(id,pi,key)=>{ const b=$(id); if(!b) return;
+    b.onpointerdown=e=>{ e.preventDefault(); if(BATTLE) BATTLE.input[pi][key]=true; };
+    b.onpointerup=b.onpointerleave=b.onpointercancel=()=>{ if(BATTLE) BATTLE.input[pi][key]=false; }; };
+  hook("#b1f",0,"f"); hook("#b1b",0,"b"); hook("#b2f",1,"f"); hook("#b2b",1,"b");
+  _bkd=e=>{ if(!BATTLE) return;
+    if(e.key==="d"||e.key==="D"){ BATTLE.input[0].f=true; e.preventDefault(); }
+    if(e.key==="a"||e.key==="A"){ BATTLE.input[0].b=true; e.preventDefault(); }
+    if(e.key==="ArrowLeft"){ BATTLE.input[1].f=true; e.preventDefault(); }
+    if(e.key==="ArrowRight"){ BATTLE.input[1].b=true; e.preventDefault(); } };
+  _bku=e=>{ if(!BATTLE) return;
+    if(e.key==="d"||e.key==="D") BATTLE.input[0].f=false;
+    if(e.key==="a"||e.key==="A") BATTLE.input[0].b=false;
+    if(e.key==="ArrowLeft") BATTLE.input[1].f=false;
+    if(e.key==="ArrowRight") BATTLE.input[1].b=false; };
+  document.addEventListener("keydown",_bkd);
+  document.addEventListener("keyup",_bku);
+}
+function unbindBattleInput(){
+  if(_bkd) document.removeEventListener("keydown",_bkd);
+  if(_bku) document.removeEventListener("keyup",_bku);
+  _bkd=_bku=null;
+}
+
+function bVel(c){
+  if(c.grounded){ const a=bSlope(c.x); return {x:c.speed*Math.cos(a), y:c.speed*Math.sin(a)}; }
+  return {x:c.vx, y:c.vy};
+}
+
+function stepBattle(dt){
+  const B=BATTLE; if(!B) return;
+  if(B.phase==="count"){
+    if(performance.now()-B.phaseT>=2400) B.phase="play";
+    return;
+  }
+  const play=B.phase==="play";
+  B.cars.forEach((c,i)=>{
+    if(c.ko) return;
+    const inp=play?B.input[i]:{f:false,b:false};
+    if(c.grounded){
+      const a=bSlope(c.x);
+      c.speed += (inp.f?BT.ACCEL*c.dir:0)*dt;
+      c.speed -= (inp.b?BT.ACCEL*0.7*c.dir:0)*dt;
+      c.speed += BT.GSLOPE*Math.sin(a)*dt;          // bowl walls roll you back in
+      c.speed -= c.speed*BT.FRICT*dt;
+      c.speed=Math.max(-BT.MAX,Math.min(BT.MAX,c.speed));
+      c.x += c.speed*Math.cos(a)*dt;
+      c.y=bY(c.x); c.angle=bSlope(c.x);
+    } else {
+      c.vy += BT.G*dt;
+      c.x += c.vx*dt; c.y += c.vy*dt;
+      c.angVel *= (1-0.04*dt);
+      c.angle += c.angVel*dt;
+      const g=bY(c.x);
+      if(c.y>=g){                                    // landed
+        const ga=bSlope(c.x);
+        let diff=c.angle-ga;
+        while(diff>Math.PI) diff-=2*Math.PI;
+        while(diff<-Math.PI) diff+=2*Math.PI;
+        if(!play || Math.abs(diff)<BT.KO_TILT){
+          c.grounded=true; c.y=g; c.angle=ga; c.speed=c.vx; c.angVel=0;
+        } else {                                     // landed on the roof
+          c.ko=true; SFX.crash(); battleRoundOver(1-i);
+        }
+      }
+    }
+    if(play && Math.abs(c.x)>760 && !c.ko){ c.ko=true; battleRoundOver(1-i); }
+  });
+  if(play){ battleCollide(); battleHeadCheck(); }
+}
+
+function battleCollide(){
+  const B=BATTLE, c1=B.cars[0], c2=B.cars[1];
+  if(c1.ko||c2.ko) return;
+  const d1=carDims(c1.type), d2=carDims(c2.type);
+  const r1=d1.bw*0.42, r2=d2.bw*0.42;
+  const dx=c2.x-c1.x, dy=(c2.y-28)-(c1.y-28);
+  const dist=Math.hypot(dx,dy), min=r1+r2;
+  if(dist>=min||dist===0) return;
+  const nx=dx/dist, ny=dy/dist;
+  const m1=c1.mass, m2=c2.mass, tot=m1+m2;
+  // push apart (heavier car budges less)
+  const push=(min-dist)+2;
+  c1.x -= nx*push*(m2/tot); c2.x += nx*push*(m1/tot);
+  const v1=bVel(c1), v2=bVel(c2);
+  const rel=(v1.x-v2.x)*nx+(v1.y-v2.y)*ny;           // closing speed along normal
+  if(rel>60){                                         // real bonk -> both go flying
+    const e=0.75, j=(1+e)*rel/(1/m1+1/m2);
+    const pop=Math.min(430, 90+rel*0.5);
+    c1.grounded=false; c1.vx=v1.x-j*nx/m1; c1.vy=Math.min(v1.y,0)-pop*(m2/tot)*1.7;
+    c2.grounded=false; c2.vx=v2.x+j*nx/m2; c2.vy=Math.min(v2.y,0)-pop*(m1/tot)*1.7;
+    c1.angVel -= rel*0.004*(m2/tot)*2;
+    c2.angVel += rel*0.004*(m1/tot)*2;
+    SFX.crash(); showMsg("💥 BONK!",500);
+  }
+}
+
+// world position of the driver's head (mirrored cars flip local x)
+function headPos(c){
+  const d=carDims(c.type), sc=c.lift?1.18:1;
+  const maxR=Math.max(d.fr*sc,d.rr*sc);
+  const top=-(maxR+d.bh*0.5+2)+(c.lift?-8:0)-d.bh/2;
+  const px=-d.bw*0.08*c.dir, py=top-16;
+  const ca=Math.cos(c.angle), sa=Math.sin(c.angle);
+  return [c.x+px*ca-py*sa, c.y+px*sa+py*ca];
+}
+// world positions of a car's hard points (bumpers, wheels, roof corners)
+function carPts(c){
+  const d=carDims(c.type), sc=c.lift?1.18:1;
+  const fr=d.fr*sc, rr=d.rr*sc, maxR=Math.max(fr,rr);
+  const by=-(maxR+d.bh*0.5+2)+(c.lift?-8:0);
+  const pts=[[d.bw/2,by],[-d.bw/2,by],[d.dx,-fr],[-d.dx,-rr],
+             [d.bw/2,by-d.bh/2],[-d.bw/2,by-d.bh/2]];
+  const ca=Math.cos(c.angle), sa=Math.sin(c.angle);
+  return pts.map(p=>{ const px=p[0]*c.dir, py=p[1];
+    return [c.x+px*ca-py*sa, c.y+px*sa+py*ca]; });
+}
+function battleHeadCheck(){
+  const B=BATTLE, c1=B.cars[0], c2=B.cars[1];
+  if(c1.ko||c2.ko) return;
+  if(Math.abs(c1.x-c2.x)>200) return;
+  const h1=headPos(c1), h2=headPos(c2);
+  const R2=BT.HEAD_R*BT.HEAD_R;
+  const hit=(pts,h)=>pts.some(p=>{ const dx=p[0]-h[0], dy=p[1]-h[1]; return dx*dx+dy*dy<R2; });
+  const p1HitsP2=hit(carPts(c1),h2), p2HitsP1=hit(carPts(c2),h1);
+  if(p1HitsP2 && !p2HitsP1){ c2.ko=true; battleRoundOver(0); }
+  else if(p2HitsP1 && !p1HitsP2){ c1.ko=true; battleRoundOver(1); }
+  // both at once = a clash, play on
+}
+
+function battleRoundOver(winnerIdx){
+  const B=BATTLE; if(!B||B.phase!=="play") return;
+  B.phase="roundend"; B.phaseT=performance.now();
+  B.score[winnerIdx]++;
+  SFX.coin();
+  showMsg((winnerIdx===0?"🔴 P1":"🔵 P2")+" scores! 💥",1300);
+  if(B.score[winnerIdx]>=3){ B.over=true; B.winner=winnerIdx; }
+}
+
+function battleFrame(t){
+  const B=BATTLE; if(!B) return;
+  if(!B.last) B.last=t;
+  let dt=(t-B.last)/1000; B.last=t; dt=Math.min(dt,0.05);
+  B.acc+=dt;
+  const STEP=1/120; let guard=0;
+  while(B.acc>=STEP && guard++<8){ stepBattle(STEP); B.acc-=STEP; }
+  drawBattle();
+  if(B.phase==="roundend" && performance.now()-B.phaseT>1500){
+    if(B.over){ battleMatchOver(); return; }
+    B.cars=[battleCarFor(0),battleCarFor(1)]; B.round++;
+    B.phase="count"; B.phaseT=performance.now();
+  }
+  braf=requestAnimationFrame(battleFrame);
+}
+
+function battleMatchOver(){
+  const B=BATTLE, w=B.winner, score=B.score.slice();
+  stopBattle();
+  addCoins(60); addXP(30);
+  showModal(`
+    <div class="big-emoji">🏆</div>
+    <h3>${w===0?"🔴 Player 1":"🔵 Player 2"} wins the battle!</h3>
+    <p style="font-size:22px;font-weight:900;margin:2px 0 8px">${score[0]} — ${score[1]}</p>
+    <p><span style="color:var(--coin)">+🪙60 · +⭐30 XP</span> for an epic battle!</p>
+    <button class="btn green" onclick="battleAgain()">⚔️ Battle again</button>
+    <button class="btn gray sm" style="margin-top:8px" onclick="exitDrive()">🔧 Back to Garage</button>`);
+}
+window.battleAgain=function(){ closeModal(); startBattle(); };
+
+function drawBattleCar(c){
+  const ctx=dctx, d=carDims(c.type);
+  const sc=c.lift?1.18:1, liftY=c.lift?-8:0;
+  const fr=d.fr*sc, rr=d.rr*sc, maxR=Math.max(fr,rr);
+  ctx.save(); ctx.translate(c.x,c.y); ctx.rotate(c.angle);
+  if(c.dir<0) ctx.scale(-1,1);
+  drawWheelC(ctx,-d.dx,-rr,rr,c.rim,c.wheel);
+  drawWheelC(ctx, d.dx,-fr,fr,c.rim,c.wheel);
+  const by=-(maxR+d.bh*0.5+2)+liftY, top=by-d.bh/2;
+  const grad=ctx.createLinearGradient(0,top,0,by+d.bh/2);
+  grad.addColorStop(0,shade(c.paint,0.28)); grad.addColorStop(.5,c.paint); grad.addColorStop(1,shade(c.paint,-0.28));
+  roundRectPath(-d.bw/2,top,d.bw,d.bh,8);
+  ctx.fillStyle=grad; ctx.fill();
+  ctx.lineWidth=2; ctx.strokeStyle=shade(c.paint,-0.4); ctx.stroke();
+  if(c.type!=="moto"){
+    roundRectPath(-d.bw*0.16,top-12,d.bw*0.5,13,4);
+    ctx.fillStyle=c.tint?"#33414f":"#bfe6ff"; ctx.fill();
+  }
+  ctx.beginPath(); ctx.arc(d.bw*0.5-3,by,3,0,7); ctx.fillStyle="#fff3b0"; ctx.fill();
+  // the driver's head — this is the target! Helmet = player color.
+  ctx.beginPath(); ctx.arc(-d.bw*0.08,top-16,6.5,0,7); ctx.fillStyle="#f1c8a0"; ctx.fill();
+  ctx.beginPath(); ctx.arc(-d.bw*0.08,top-18,7.5,Math.PI,2*Math.PI);
+  ctx.fillStyle=c.dir>0?"#e23b3b":"#2f8fff"; ctx.fill();
+  ctx.restore();
+}
+
+function drawBattle(){
+  if(!dctx||!dcv||!dcv._w) return;
+  const B=BATTLE, W=dcv._w, H=dcv._h;
+  const c1=B.cars[0], c2=B.cars[1];
+  // sunset arena sky
+  const sky=dctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"#ffb35a"); sky.addColorStop(.55,"#ffd9a0"); sky.addColorStop(1,"#ffeccd");
+  dctx.fillStyle=sky; dctx.fillRect(0,0,W,H);
+  // camera: keep both cars in view
+  const midX=(c1.x+c2.x)/2, midY=(c1.y+c2.y)/2-60;
+  const span=Math.abs(c1.x-c2.x)+460;
+  const zoom=Math.min(1.05, W/span);
+  dctx.save();
+  dctx.translate(W/2,H*0.60); dctx.scale(zoom,zoom); dctx.translate(-midX,-midY);
+  const x0=midX-(W/2)/zoom-80, x1=midX+(W/2)/zoom+80;
+  dctx.beginPath(); dctx.moveTo(x0,1400);
+  for(let x=x0;x<=x1;x+=10) dctx.lineTo(x,bY(x));
+  dctx.lineTo(x1,1400); dctx.closePath();
+  dctx.fillStyle="#7a5a36"; dctx.fill();
+  dctx.beginPath();
+  for(let x=x0,f=1;x<=x1;x+=10,f=0){ const y=bY(x); f?dctx.moveTo(x,y):dctx.lineTo(x,y); }
+  dctx.lineWidth=7; dctx.strokeStyle="#5fbf4f"; dctx.stroke();
+  // center mark
+  dctx.font="36px serif"; dctx.textAlign="center";
+  dctx.fillText("⚔️", 0, bY(0)-120);
+  drawBattleCar(c1); drawBattleCar(c2);
+  dctx.restore();
+  // countdown
+  if(B.phase==="count"){
+    const el2=performance.now()-B.phaseT;
+    const n=el2<800?"3":el2<1600?"2":"1";
+    dctx.save(); dctx.textAlign="center"; dctx.font="900 68px Segoe UI, sans-serif";
+    dctx.lineWidth=5; dctx.strokeStyle="rgba(0,0,0,.55)"; dctx.fillStyle="#ffd14d";
+    dctx.strokeText(n,W/2,H*0.40); dctx.fillText(n,W/2,H*0.40);
+    if(B.round===1){
+      dctx.font="800 17px Segoe UI, sans-serif"; dctx.lineWidth=3;
+      const tip="Bonk the other driver's HEAD! First to 3 wins";
+      dctx.strokeText(tip,W/2,H*0.40+40); dctx.fillStyle="#fff"; dctx.fillText(tip,W/2,H*0.40+40);
+    }
+    dctx.restore();
+  }
+  const s1=$("#bs1"), s2=$("#bs2"), rn=$("#brnd");
+  if(s1) s1.textContent=B.score[0];
+  if(s2) s2.textContent=B.score[1];
+  if(rn) rn.textContent=B.round;
+}
+
+/* --------------------------- DAILY REWARD --------------------------------
+   A once-a-day gift that grows with a consecutive-day streak (caps at day 7).
+   Miss a day and the streak starts over. Keeps kids coming back. */
+function dayKey(offsetDays){
+  const d=new Date(Date.now()+(offsetDays||0)*86400000);
+  return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();
+}
+function dailyCheck(){
+  const today=dayKey(0);
+  if(state.lastDaily===today) return;
+  const kept = state.lastDaily && state.lastDaily===dayKey(-1);   // played yesterday too?
+  state.streak = kept ? (state.streak||0)+1 : 1;
+  state.lastDaily = today; save();
+  const n=Math.min(7,state.streak);
+  const coins=25+n*10, xp=10+n*5;
+  const days=[1,2,3,4,5,6,7].map(d=>
+    `<span style="font-size:20px;opacity:${d<=n?1:0.28}">${d<=n?"🪙":"⚪"}</span>`).join(" ");
+  showModal(`
+    <div class="big-emoji">🎁</div>
+    <h3>Daily Reward!</h3>
+    <p>Day <b>${state.streak}</b> in a row${state.streak>1?" — streak bonus!":""}${state.streak>=7?" 🔥 MAX!":""}</p>
+    <div style="margin:4px 0 10px">${days}</div>
+    <p style="font-size:17px;color:var(--coin);font-weight:900">+🪙${coins} &nbsp; +⭐${xp} XP</p>
+    <button class="btn gold" onclick="claimDaily(${coins},${xp})">Claim! 🎉</button>`);
+}
+window.claimDaily=function(coins,xp){
+  closeModal(); SFX.buy(); addCoins(coins); addXP(xp);
+  toast("🎁 +🪙"+coins+" +⭐"+xp+" XP — come back tomorrow!");
+};
+
 /* ------------------------------- BOOT ------------------------------------ */
 function boot(){
   // one-time: force music OFF for existing players (it was annoying); still opt-in via 🎵
@@ -2068,6 +2438,12 @@ function boot(){
   refreshTop();
   if(state.music) MUSIC.start();          // only if the player opted in
   setScreen("garage");
+  if(state.seenWelcome){
+    dailyCheck();                          // returning player -> daily gift
+  } else {
+    // brand-new player: welcome instead; streak starts tomorrow
+    state.lastDaily=dayKey(0); state.streak=1; save();
+  }
   if(!state.seenWelcome){
     state.seenWelcome=true; save();
     showModal(`
