@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0.0",
+  "vehicleId": "jax_bouncer_02",
+  "displayName": "Viper Rock Bouncer 4x4",
+  "buildworldType": "bouncer",
+  "category": "rock_bouncer_trophy",
+  "modelPath": "assets/models/jax_bouncer_02.glb",
+  "geometryStats": {
+    "totalTriangles": 16248,
+    "totalVertices": 11252,
+    "meshObjectCount": 20
+  },
+  "buildworldStats": {
+    "name": "Viper Rock Bouncer",
+    "emoji": "\ud83e\udd82",
+    "level": 2,
+    "cost": 220,
+    "weight": 152,
+    "grip": 88,
+    "parts": [
+      "bullbar",
+      "stinger",
+      "winch",
+      "lights",
+      "pillars",
+      "underglow",
+      "snorkel",
+      "stacks",
+      "roofrack",
+      "spare",
+      "toolbox"
+    ]
+  }
+}

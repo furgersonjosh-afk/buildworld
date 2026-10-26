@@ -174,6 +174,7 @@
 <div id="top">
   <div id="logo">BUILD WORLD<small id="worldname">My World</small></div>
   <div class="spacer"></div>
+  <button class="stat" id="brainbtn" title="Jax's Brain Boost (Earn Coins & XP!)" style="cursor:pointer;background:linear-gradient(180deg,#36c98a,#1f9e69);color:#fff;border-color:#5bff9b">🧠 +🪙</button>
   <button class="stat" id="music" title="Music on/off" style="cursor:pointer">🎵</button>
   <button class="stat" id="mute" title="Sound on/off" style="cursor:pointer">🔊</button>
   <div class="stat"><span class="ico">🪙</span><span id="coins">0</span></div>
@@ -228,8 +229,9 @@ const VEHICLES = {
   supercar:{name:"Apex GT",    emoji:"🏎️", level:2, cost:240, weight:88,  grip:64, parts:["spoiler","lights"]},
   muscle:  {name:"Brawler V8", emoji:"🚙", level:3, cost:300, weight:124, grip:58, parts:["spoiler","lights"]},
   police:  {name:"Police Cruiser", emoji:"🚓", level:3, cost:350, weight:112, grip:62, parts:["spoiler","lights"]},
-  crawler: {name:"Trail Crawler 4x4", emoji:"🛻", level:1, cost:0,   weight:175, grip:78, parts:["lights","roofrack","flatbed","crane","tank"]},
-  truck:   {name:"Pickup HD",  emoji:"🛻", level:2, cost:160, weight:155, grip:54, parts:["flatbed","tank","crane","lights"]},
+  crawler: {name:"Trail Crawler 4x4", emoji:"🛻", level:1, cost:0,   weight:175, grip:78, parts:["bullbar","stinger","winch","shackles","lights","pillars","underglow","snorkel","stacks","roofrack","spare","rollcage","toolbox","flatbed","tank","crane"]},
+  bouncer: {name:"Viper Rock Bouncer",emoji:"🦂", level:1, cost:0,   weight:152, grip:88, parts:["bullbar","stinger","winch","shackles","lights","pillars","underglow","snorkel","stacks","roofrack","spare","toolbox","crane"]},
+  truck:   {name:"Pickup HD",  emoji:"🛻", level:2, cost:160, weight:155, grip:54, parts:["bullbar","winch","snorkel","stacks","roofrack","spare","toolbox","flatbed","tank","crane","lights"]},
   armored: {name:"Armored Pickup", emoji:"🚙", level:3, cost:280, weight:180, grip:60, parts:["lights"]},
   dump:    {name:"Dump Truck", emoji:"🚚", level:3, cost:320, weight:230, grip:56, parts:["lights"]},
   fire:    {name:"Fire Truck", emoji:"🚒", level:4, cost:480, weight:245, grip:58, parts:["crane","tank","lights"]},
@@ -254,16 +256,27 @@ const ENGINES = {
 
 // Add-on parts the player can toggle onto a vehicle.
 const PARTS = {
-  spoiler:  {name:"Spoiler",     emoji:"🪽", level:1, cost:40},
-  roofrack: {name:"Roof Rack",   emoji:"🧳", level:2, cost:35},
-  lights:   {name:"Light Bar",   emoji:"💡", level:2, cost:55},
-  flatbed:  {name:"Flatbed",     emoji:"🟫", level:2, cost:60},
-  tank:     {name:"Tank",        emoji:"🛢️", level:3, cost:90},
-  crane:    {name:"Crane",       emoji:"🏗️", level:5, cost:140},
-  plow:     {name:"Plow",        emoji:"⛏️", level:3, cost:70},
-  trailer:  {name:"Trailer",     emoji:"🚃", level:3, cost:85},
-  saddlebags:{name:"Saddlebags", emoji:"🎒", level:4, cost:30},
-  windshield:{name:"Windshield", emoji:"🛡️", level:4, cost:25},
+  bullbar:   {name:"Heavy Bull Bar",   emoji:"🛡️", level:1, cost:45,  cat:"Bumpers & Armor"},
+  stinger:   {name:"Stinger Bumper",   emoji:"📐", level:1, cost:65,  cat:"Bumpers & Armor"},
+  winch:     {name:"Electric Winch",   emoji:"🪝", level:1, cost:75,  cat:"Winch & Recovery"},
+  shackles:  {name:"Tow Shackles",     emoji:"🔗", level:1, cost:35,  cat:"Winch & Recovery"},
+  lights:    {name:"Roof LED Bar",     emoji:"💡", level:1, cost:55,  cat:"Off-Road Lighting"},
+  pillars:   {name:"Pillar Spotlights",emoji:"🔦", level:2, cost:50,  cat:"Off-Road Lighting"},
+  underglow: {name:"Neon Rock Glow",   emoji:"✨", level:2, cost:70,  cat:"Off-Road Lighting"},
+  snorkel:   {name:"Safari Snorkel",   emoji:"🤿", level:1, cost:60,  cat:"Engine & Exhaust"},
+  stacks:    {name:"Twin Diesel Stacks",emoji:"💨",level:2, cost:85,  cat:"Engine & Exhaust"},
+  roofrack:  {name:"Expedition Rack",  emoji:"🧳", level:1, cost:40,  cat:"Bed & Roof Gear"},
+  spare:     {name:"38-Inch Spare Carrier",emoji:"🛞", level:1, cost:55,  cat:"Bed & Roof Gear"},
+  rollcage:  {name:"Exo Roll Cage",    emoji:"🏗️", level:2, cost:95,  cat:"Bed & Roof Gear"},
+  toolbox:   {name:"Jerry Cans & Box", emoji:"🧰", level:1, cost:45,  cat:"Bed & Roof Gear"},
+  flatbed:   {name:"Timber Flatbed",   emoji:"🟫", level:2, cost:60,  cat:"Heavy Utility"},
+  tank:      {name:"Fuel Tanker",      emoji:"🛢️", level:3, cost:90,  cat:"Heavy Utility"},
+  crane:     {name:"Recovery Crane",   emoji:"🏗️", level:3, cost:140, cat:"Heavy Utility"},
+  spoiler:   {name:"Aero Spoiler",     emoji:"🪽", level:1, cost:40,  cat:"Street & Farm"},
+  plow:      {name:"Snow/Dirt Plow",   emoji:"⛏️", level:2, cost:70,  cat:"Street & Farm"},
+  trailer:   {name:"Utility Trailer",  emoji:"🚃", level:3, cost:85,  cat:"Street & Farm"},
+  saddlebags:{name:"Saddlebags",       emoji:"🎒", level:4, cost:30,  cat:"Street & Farm"},
+  windshield:{name:"Windshield",       emoji:"🛡️", level:4, cost:25,  cat:"Street & Farm"},
 };
 
 // Paint colors (wheels reuse a darker palette).
@@ -309,7 +322,7 @@ const DEFAULT_STATE = {
   coins:80,
   xp:0,
   level:1,
-  owned:["car","crawler"],   // vehicle types owned
+  owned:["car","crawler","bouncer"],   // vehicle types owned
   current:"car",             // vehicle in the garage
   configs:{                  // per-vehicle customization
     car:{paint:"#e23b3b", wheel:"#c9ccd6", parts:[], rim:"sport", lift:false, tint:false, engine:"stock"}
@@ -333,7 +346,7 @@ function load(){
     const raw = localStorage.getItem("buildworld");
     if(raw){
       const st = Object.assign(structuredClone(DEFAULT_STATE), JSON.parse(raw));
-      if(Array.isArray(st.owned) && !st.owned.includes("crawler")) st.owned.push("crawler");
+      if(Array.isArray(st.owned)){ if(!st.owned.includes("crawler")) st.owned.push("crawler"); if(!st.owned.includes("bouncer")) st.owned.push("bouncer"); }
       return st;
     }
   }catch(e){}
@@ -342,36 +355,58 @@ function load(){
 function save(){ try{ localStorage.setItem("buildworld", JSON.stringify(state)); }catch(e){} }
 
 function cfg(type){
-  if(!state.configs[type]) state.configs[type] = {paint:"#2f8fff", wheel:"#c9ccd6", parts:[]};
+  const defPaint = type==="bouncer" ? "#24c757" : (type==="crawler" ? "#eb4214" : "#2f8fff");
+  if(!state.configs[type]) state.configs[type] = {paint:defPaint, wheel:"#c9ccd6", parts:[]};
   const c = state.configs[type];
   if(!c.parts) c.parts=[];
-  if(!c.rim) c.rim=(type==="crawler"||type==="monster"||type==="tractor"||type==="dirtbike"||type==="atv")?"offroad":"sport";
-  if(c.lift===undefined) c.lift=false;
+  if(!c.rim) c.rim=(type==="crawler"||type==="bouncer"||type==="monster"||type==="tractor"||type==="dirtbike"||type==="atv")?"offroad":"sport";
+  if(c.lift===undefined) c.lift=(type==="bouncer");
   if(c.tint===undefined) c.tint=false;
   if(!c.wheel) c.wheel="#c9ccd6";
   if(!c.engine) c.engine="stock";
   if(!c.finish) c.finish="gloss";
+  // Off-Road Outlaws Suspension & Tire Tuning Defaults
+  if(c.suspType===undefined) c.suspType = (type==="bouncer"||type==="crawler") ? "solid" : "ibeam";
+  if(c.suspTravel===undefined) c.suspTravel = c.lift ? 0.24 : 0.14;
+  if(c.suspStiff===undefined)  c.suspStiff  = 38000;
+  if(c.suspDamp===undefined)   c.suspDamp   = 4000;
+  if(c.axleWidth===undefined)  c.axleWidth  = (type==="bouncer") ? 0.12 : 0.04;
+  if(c.tireRadius===undefined) c.tireRadius = c.lift ? 1.12 : 1.00;
+  if(c.tireWidth===undefined)  c.tireWidth  = (type==="bouncer") ? 1.18 : 1.05;
+  if(c.tirePsi===undefined)    c.tirePsi    = 18;
+  if(c.mudLevel===undefined)   c.mudLevel   = 0;
   if(!state.ownedEngines) state.ownedEngines=["stock"];
+  if(!state.barnFinds) state.barnFinds=[];
+  if(!state.brainStreak) state.brainStreak=0;
+  if(!state.brainSolved) state.brainSolved=0;
   return c;
 }
 
 // Build stats from body + engine + wheels + extras. Drives the stat bars AND
 // how the car performs in Test Drive (see startDrive).
 function carStats(type, c){
-  const v=VEHICLES[type], e=ENGINES[c.engine||"stock"];
+  const v=VEHICLES[type]||VEHICLES.car, e=ENGINES[c.engine||"stock"]||ENGINES.stock;
   const w=v.weight||120;
-  let power=e.power;
-  let speed=Math.round(46 + power*1.05 - w*0.12);
-  let grip=(v.grip||50);
+  const pts=c.parts||[];
+  let power = e.power + (pts.includes("stacks")?8:0) + (pts.includes("snorkel")?4:0);
+  let speed = Math.round(46 + power*1.05 - w*0.12);
+  let grip  = (v.grip||50);
   if(c.rim==="offroad"){ grip+=12; } else if(c.rim==="sport"){ grip+=4; speed+=6; } else if(c.rim==="steel"){ grip+=6; }
-  if(c.lift){ grip+=6; speed-=6; }
-  if((c.parts||[]).includes("spoiler")){ grip+=8; speed+=2; }
-  let style=28 + (c.parts||[]).length*8 + (c.rim==="sport"?10:0) + (c.tint?6:0) + (c.lift?6:0);
+  if(c.lift || (c.suspTravel||0.14)>0.20){ grip+=6; speed-=4; }
+  // Airing down tire PSI increases rock/mud contact patch grip!
+  const psi = c.tirePsi||18;
+  if(psi <= 15) { grip += 10; speed -= 3; }
+  else if(psi >= 28) { speed += 5; grip -= 4; }
+  if((c.tireWidth||1) > 1.12) grip += 5;
+  if((c.axleWidth||0) >= 0.10) grip += 4;
+  if(pts.includes("winch")) grip += 6;
+  if(pts.includes("spoiler")){ grip+=8; speed+=2; }
+  let style=28 + pts.length*7 + (c.rim==="sport"?10:0) + (c.tint?6:0) + (c.lift?6:0) + (pts.includes("underglow")?10:0);
   return {
-    power:Math.min(120,power),
-    speed:Math.max(20,Math.min(140,speed)),
-    grip:Math.max(20,Math.min(100,grip)),
-    style:Math.min(100,style)
+    power:Math.min(130,Math.round(power)),
+    speed:Math.max(20,Math.min(140,Math.round(speed))),
+    grip:Math.max(20,Math.min(100,Math.round(grip))),
+    style:Math.min(100,Math.round(style))
   };
 }
 
@@ -556,7 +591,7 @@ function vehicleSVG(type, c){
     if(has("roofrack")) extras+=`<g transform="translate(0,${by})"><rect x="165" y="64" width="80" height="6" rx="3" fill="#3a3a3a"/></g>`;
     if(has("lights")) extras+=`<g transform="translate(0,${by})"><rect x="158" y="55" width="66" height="9" rx="4" fill="#ffe27a" stroke="#caa12a"/></g>`;
   }
-  else if(type==="truck" || type==="crawler"){
+  else if(type==="truck" || type==="crawler" || type==="bouncer"){
     const wr=26*tscale;
     wheels=wheelSVG(106,ground,wr,rim,wheel)+wheelSVG(272,ground,wr,rim,wheel);
     body=`<g transform="translate(0,${by})">
@@ -681,6 +716,7 @@ function carSpec3D(type){
     case "police":  return {len:4.2,wid:1.84,bodyH:0.54,cabinH:0.46,cabinLen:1.60,cabinX:-0.10,wheelR:0.47,axleF:1.34,axleR:-1.32};
     case "fire":    return {len:4.8,wid:2.05,bodyH:0.95,cabinH:0.78,cabinLen:1.25,cabinX:1.35,wheelR:0.52,axleF:1.60,axleR:-1.45,bed:true};
     case "crawler": return {len:4.46,wid:2.34,bodyH:0.78,cabinH:0.64,cabinLen:1.36,cabinX:0.05,wheelR:0.48,axleF:1.42,axleR:-1.42,bed:true};
+    case "bouncer": return {len:4.42,wid:2.42,bodyH:0.74,cabinH:0.62,cabinLen:1.32,cabinX:0.02,wheelR:0.52,axleF:1.42,axleR:-1.42,bed:true};
     case "truck":   return {len:4.2,wid:1.92,bodyH:0.70,cabinH:0.62,cabinLen:1.30,cabinX:0.55,wheelR:0.52,axleF:1.36,axleR:-1.34,bed:true};
     case "monster": return {len:4.3,wid:2.05,bodyH:0.80,cabinH:0.66,cabinLen:1.35,cabinX:0.30,wheelR:0.92,axleF:1.45,axleR:-1.45,bed:true};
     case "armored": return {len:4.3,wid:1.95,bodyH:0.75,cabinH:0.64,cabinLen:1.30,cabinX:0.55,wheelR:0.54,axleF:1.36,axleR:-1.34,bed:true};
@@ -787,6 +823,7 @@ const CAR_PROFILE = {
 // (get one free from Meshy.ai, or buy from Sketchfab — see docs/PROJECT-MAP.md)
 const CAR_MODELS = {
   crawler: "assets/models/jax_test_crawler_01.glb", // Jax's Build World Rigged 4x4 Crawler (GLB + JSON)
+  bouncer: "assets/models/jax_bouncer_02.glb",      // Viper Rock Bouncer 4x4 (GLB + JSON)
   truck:   "assets/models/pickup-quaternius.glb",   // CC0 Quaternius pickup
   armored: "assets/models/pickup-armored.glb",      // CC0 Quaternius armored pickup
   dump:    "assets/models/dump-truck.glb",          // CC-BY "jeremy"
@@ -824,17 +861,119 @@ const gltfCache={};
 function attachRiggedAddons(bodyNode, c){
   if(!bodyNode || !c || !Array.isArray(c.parts)) return;
   const has = p => c.parts.includes(p);
-  const metalMat = new THREE.MeshStandardMaterial({color:0x2a2e38, metalness:0.75, roughness:0.35});
+  const metalMat  = new THREE.MeshStandardMaterial({color:0x222630, metalness:0.80, roughness:0.32});
+  const chromeMat = new THREE.MeshStandardMaterial({color:0xe2e8f0, metalness:0.95, roughness:0.12});
+  const redMat    = new THREE.MeshStandardMaterial({color:0xe23b3b, metalness:0.55, roughness:0.30});
+  const ledMat    = new THREE.MeshStandardMaterial({color:0xffffff, emissive:0xffe999, emissiveIntensity:3.5});
+
+  if(has("bullbar")){
+    const bb = new THREE.Group();
+    const main = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.65,12), metalMat);
+    main.rotation.x = Math.PI/2; main.position.set(2.26, 0.14, 0); bb.add(main);
+    [-0.52, 0.52].forEach(z=>{
+      const up = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.48, 0.08), metalMat);
+      up.position.set(2.24, 0.28, z); bb.add(up);
+    });
+    bodyNode.add(bb);
+  }
+  if(has("stinger")){
+    const st = new THREE.Group();
+    [-0.42, 0.42].forEach(z=>{
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.75,12), chromeMat);
+      tube.position.set(2.38, 0.36, z*0.6); tube.rotation.z = -0.55; st.add(tube);
+    });
+    const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.52,12), redMat);
+    tip.rotation.x = Math.PI/2; tip.position.set(2.58, 0.62, 0); st.add(tip);
+    bodyNode.add(st);
+  }
+  if(has("winch")){
+    const wg = new THREE.Group();
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.20, 0.46), metalMat);
+    box.position.set(2.25, 0.06, 0); wg.add(box);
+    const spool = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.32,14), new THREE.MeshStandardMaterial({color:0x444c5c, roughness:0.6}));
+    spool.rotation.x = Math.PI/2; spool.position.set(2.28, 0.06, 0); wg.add(spool);
+    const hook = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.022, 8, 16), redMat);
+    hook.position.set(2.38, 0.06, 0); wg.add(hook);
+    bodyNode.add(wg);
+  }
+  if(has("shackles")){
+    [-0.58, 0.58].forEach(z=>{
+      const shF = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.018, 8, 14), redMat);
+      shF.position.set(2.26, -0.02, z); bodyNode.add(shF);
+      const shR = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.018, 8, 14), redMat);
+      shR.position.set(-2.22, -0.02, z); bodyNode.add(shR);
+    });
+  }
+  if(has("pillars")){
+    [-0.84, 0.84].forEach(z=>{
+      const pod = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.16), metalMat);
+      pod.position.set(0.66, 0.72, z); bodyNode.add(pod);
+      const lens = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.11, 0.13), ledMat);
+      lens.position.set(0.73, 0.72, z); bodyNode.add(lens);
+    });
+  }
+  if(has("underglow")){
+    const glowCol = new THREE.Color(c.paint || "#00e5ff");
+    const glowMat = new THREE.MeshStandardMaterial({color:glowCol, emissive:glowCol, emissiveIntensity:4.0});
+    [-0.65, 0.65].forEach(z=>{
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.04, 0.08), glowMat);
+      bar.position.set(0, -0.14, z); bodyNode.add(bar);
+    });
+    const pt = new THREE.PointLight(glowCol, 2.2, 4.5);
+    pt.position.set(0, -0.25, 0); bodyNode.add(pt);
+  }
+  if(has("snorkel")){
+    const sn = new THREE.Group();
+    const pipe1 = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.68,12), metalMat);
+    pipe1.rotation.z = Math.PI/2; pipe1.position.set(1.05, 0.60, -0.96); sn.add(pipe1);
+    const pipe2 = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.72,12), metalMat);
+    pipe2.position.set(0.68, 0.92, -0.96); pipe2.rotation.z = -0.25; sn.add(pipe2);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.12), redMat);
+    head.position.set(0.60, 1.26, -0.96); sn.add(head);
+    bodyNode.add(sn);
+  }
+  if(has("stacks")){
+    [-0.58, 0.58].forEach(z=>{
+      const st = new THREE.Mesh(new THREE.CylinderGeometry(0.065,0.065,1.28,16), chromeMat);
+      st.position.set(-0.78, 0.78, z); bodyNode.add(st);
+      const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.065,0.18,16), chromeMat);
+      tip.position.set(-0.82, 1.42, z); tip.rotation.z = 0.35; bodyNode.add(tip);
+    });
+  }
   if(has("roofrack")){
-    const rack = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.08, 1.48), metalMat);
+    const rack = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.09, 1.52), metalMat);
     rack.position.set(-0.05, 1.22, 0); bodyNode.add(rack);
+  }
+  if(has("spare")){
+    const sp = new THREE.Group();
+    const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.46,0.46,0.34,24), new THREE.MeshStandardMaterial({color:0x111215, roughness:0.85}));
+    tire.rotation.x = Math.PI/2; tire.rotation.z = 0.45;
+    tire.position.set(-1.55, 0.56, 0); sp.add(tire);
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.24,0.36,18), new THREE.MeshStandardMaterial({color:new THREE.Color(c.wheel||"#ffd14d"), metalness:0.85, roughness:0.25}));
+    rim.rotation.x = Math.PI/2; rim.rotation.z = 0.45;
+    rim.position.set(-1.55, 0.56, 0); sp.add(rim);
+    bodyNode.add(sp);
+  }
+  if(has("rollcage")){
+    [-0.74, 0.74].forEach(z=>{
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,1.35,12), redMat);
+      bar.rotation.z = 0.65; bar.position.set(-1.35, 0.72, z); bodyNode.add(bar);
+    });
+  }
+  if(has("toolbox")){
+    const tb = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.34, 1.44), chromeMat);
+    tb.position.set(-0.98, 0.34, 0); bodyNode.add(tb);
+    [-0.55, 0.55].forEach(z=>{
+      const can = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.38, 0.18), redMat);
+      can.position.set(-1.32, 0.36, z); bodyNode.add(can);
+    });
   }
   if(has("flatbed")){
     const bed = new THREE.Mesh(new THREE.BoxGeometry(1.38, 0.12, 1.68), new THREE.MeshStandardMaterial({color:0x6b4728, roughness:0.8}));
     bed.position.set(-1.42, 0.18, 0); bodyNode.add(bed);
   }
   if(has("tank")){
-    const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 1.25, 20), new THREE.MeshStandardMaterial({color:0xd3dae8, metalness:0.85, roughness:0.22}));
+    const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 1.25, 20), chromeMat);
     tank.rotation.z = Math.PI/2; tank.position.set(-1.42, 0.48, 0); bodyNode.add(tank);
   }
   if(has("crane")){
@@ -847,10 +986,14 @@ function attachRiggedAddons(bodyNode, c){
 
 function applyRiggedPose(rig, steerRad, wheelSpin, fTrav, rTrav, rollRad, lift){
   if(!rig || !rig.nodes) return;
-  const N = rig.nodes, R = rig.restPos;
-  const liftOff = lift ? 0.16 : 0.0;
-  const wScale = lift ? 1.10 : 1.0;
-  const wDelta = (wScale - 1.0) * 0.48;
+  const N = rig.nodes, R = rig.restPos, c = rig.c || {};
+  const baseTrav = (c.suspTravel !== undefined) ? (c.suspTravel - 0.14) : (lift ? 0.16 : 0.0);
+  const liftOff  = Math.max(0, baseTrav);
+  const wScaleR  = (c.tireRadius !== undefined) ? c.tireRadius : (lift ? 1.12 : 1.0);
+  const wScaleW  = (c.tireWidth  !== undefined) ? c.tireWidth  : 1.05;
+  const axOut    = (c.axleWidth  !== undefined) ? c.axleWidth  : 0.04;
+  const wDelta   = (wScaleR - 1.0) * 0.48;
+
   ["Body_Shell","Chassis_Frame"].forEach(k=>{ if(N[k]) N[k].position.y = R[k].y + liftOff + wDelta; });
   if(N.Axle_Front){ N.Axle_Front.position.y = R.Axle_Front.y + fTrav + wDelta; N.Axle_Front.rotation.x = rollRad; }
   if(N.Axle_Rear){  N.Axle_Rear.position.y  = R.Axle_Rear.y  + rTrav + wDelta; N.Axle_Rear.rotation.x  = -rollRad; }
@@ -861,9 +1004,10 @@ function applyRiggedPose(rig, steerRad, wheelSpin, fTrav, rTrav, rollRad, lift){
     {k:"Wheel_RR", t:rTrav, zs:1,  rs:-1, st:false}
   ].forEach(w=>{
     const o = N[w.k]; if(!o) return;
-    const rDz = Math.sin(rollRad * w.rs) * (0.98 * w.zs);
+    const rDz = Math.sin(rollRad * w.rs) * ((0.98 + axOut) * w.zs);
     o.position.y = R[w.k].y + w.t + rDz + wDelta;
-    o.scale.setScalar(wScale);
+    o.position.z = R[w.k].z + w.zs * axOut;
+    o.scale.set(wScaleR, wScaleR, wScaleW);
     o.rotation.order = "YXZ";
     o.rotation.y = w.st ? steerRad : 0;
     o.rotation.z = -wheelSpin;
@@ -873,11 +1017,11 @@ function applyRiggedPose(rig, steerRad, wheelSpin, fTrav, rTrav, rollRad, lift){
     {tag:"FR", t:fTrav, zs:1,  rs:1},
     {tag:"RL", t:rTrav, zs:-1, rs:-1},
     {tag:"RR", t:rTrav, zs:1,  rs:-1}
-  ].forEach(c=>{
-    const rDy = Math.sin(rollRad * c.rs) * (0.56 * c.zs);
-    const topY = 1.02 + liftOff + wDelta, botY = 0.52 + c.t + rDy + wDelta;
+  ].forEach(cp=>{
+    const rDy = Math.sin(rollRad * cp.rs) * (0.56 * cp.zs);
+    const topY = 1.02 + liftOff + wDelta, botY = 0.52 + cp.t + rDy + wDelta;
     const sy = Math.max(0.18, topY - botY) / 0.50;
-    ["Shock_"+c.tag, "Spring_"+c.tag].forEach(sn=>{
+    ["Shock_"+cp.tag, "Spring_"+cp.tag].forEach(sn=>{
       if(N[sn]){ N[sn].position.y = R[sn].y + liftOff + wDelta; N[sn].scale.y = sy; }
     });
   });
@@ -1174,104 +1318,154 @@ function render(){
 /* ---- GARAGE ---- */
 function garageScreen(){
   const type = state.current, c = cfg(type), v = VEHICLES[type];
-  // vehicle picker tiles
   const vtiles = Object.keys(VEHICLES).map(k=>{
     const vv=VEHICLES[k], owned=state.owned.includes(k), locked=state.level<vv.level;
+    const is3D = (k==="crawler"||k==="bouncer");
     const cls = "tile "+(k===type?"sel ":"")+(owned?"owned ":"")+(locked?"locked":"");
-    const foot = owned ? "" : (locked ? `<div class="lock">🔒 Lv${vv.level}</div>` : `<div class="price">🪙${vv.cost}</div>`);
+    const badge3d = is3D ? `<div style="font-size:9px;background:#1f9e69;color:#fff;border-radius:6px;padding:1px 5px;display:inline-block;margin-top:2px">3D RIGGED</div>` : "";
+    const foot = owned ? badge3d : (locked ? `<div class="lock">🔒 Lv${vv.level}</div>` : `<div class="price">🪙${vv.cost}</div>`);
     return `<button class="${cls}" data-vehicle="${k}"><span class="emoji">${vv.emoji}</span>${vv.name}${foot}</button>`;
   }).join("");
 
-  // paint swatches
   const paintSw = PAINTS.map(p=>`<button class="sw ${p===c.paint?'sel':''}" data-paint="${p}" style="background:${p}"></button>`).join("");
-  const wheelSw = ["#c9ccd6","#7d828f","#2b2f3a","#ffd14d","#d9a441","#e23b3b"]
+  const wheelSw = ["#c9ccd6","#7d828f","#2b2f3a","#ffd14d","#d9a441","#e23b3b","#24c757","#00e5ff"]
     .map(p=>`<button class="sw ${p===c.wheel?'sel':''}" data-wheel="${p}" style="background:${p}"></button>`).join("");
 
-  // parts for this vehicle
-  const ptiles = (v.parts||[]).map(pk=>{
-    const p=PARTS[pk], owned=state.ownedParts.includes(pk), on=(c.parts||[]).includes(pk);
+  // Group parts into a clear Shopping List with equipped count & prices
+  const vParts = v.parts || [];
+  const equippedCount = (c.parts||[]).filter(pk=>vParts.includes(pk)).length;
+  const ptiles = vParts.map(pk=>{
+    const p=PARTS[pk]; if(!p) return "";
+    const owned=state.ownedParts.includes(pk), on=(c.parts||[]).includes(pk);
     const locked=state.level<p.level;
-    const cls="tile palitem "+(on?"sel ":"")+(locked?"locked":"");
-    const foot = owned||state.level>=p.level ? (owned?(on?'<div class="price" style="color:var(--good)">ON</div>':'<div class="price">tap</div>'):`<div class="price">🪙${p.cost}</div>`) : `<div class="lock">🔒 Lv${p.level}</div>`;
-    return `<button class="${cls}" data-part="${pk}"><span class="emoji">${p.emoji}</span>${p.name}${foot}</button>`;
+    const cls="tile palitem "+(on?"sel ":"")+(owned?"owned ":"")+(locked?"locked":"");
+    const catTag = p.cat ? `<div style="font-size:9px;color:var(--muted);margin-top:1px">${p.cat}</div>` : "";
+    const foot = owned||state.level>=p.level ? (owned?(on?'<div class="price" style="color:var(--good)">BOLTED ON</div>':'<div class="price">tap to bolt</div>'):`<div class="price">🪙${p.cost} + 🧠</div>`) : `<div class="lock">🔒 Lv${p.level}</div>`;
+    return `<button class="${cls}" data-part="${pk}"><span class="emoji">${p.emoji}</span>${p.name}${catTag}${foot}</button>`;
   }).join("") || `<div class="sub">No add-ons for this one yet.</div>`;
 
-  // rim styles + feature toggles
-  const RIMS=[{k:"sport",n:"Sport",e:"🛞"},{k:"steel",n:"Steel",e:"⚙️"},{k:"offroad",n:"Off-road",e:"🟤"}];
+  const RIMS=[{k:"sport",n:"Sport",e:"🛞"},{k:"steel",n:"Steel",e:"⚙️"},{k:"offroad",n:"Off-road Beadlock",e:"🟤"}];
   const rimTiles = RIMS.map(r=>`<button class="tile palitem ${c.rim===r.k?'sel':''}" data-rim="${r.k}">
     <span class="emoji">${r.e}</span>${r.n}</button>`).join("");
   const toggle = (key,name,emoji)=>`<button class="tile palitem ${c[key]?'sel':''}" data-toggle="${key}">
     <span class="emoji">${emoji}</span>${name}<div class="price" style="color:${c[key]?'var(--good)':'var(--muted)'}">${c[key]?'ON':'OFF'}</div></button>`;
 
-  // engine tiles
   const etiles = Object.keys(ENGINES).map(k=>{
     const en=ENGINES[k], owned=(state.ownedEngines||[]).includes(k), sel=c.engine===k, locked=state.level<en.level;
     const cls="tile "+(sel?"sel ":"")+(owned&&!sel?"owned ":"")+(locked?"locked":"");
-    const foot = sel?'<div class="price" style="color:var(--good)">IN</div>'
+    const foot = sel?'<div class="price" style="color:var(--good)">INSTALLED</div>'
       : (locked?`<div class="lock">🔒 Lv${en.level}</div>`
-      : (owned?'<div class="price">tap</div>':`<div class="price">🪙${en.cost}</div>`));
-    return `<button class="${cls}" data-engine="${k}"><span class="emoji">${en.emoji}</span>${en.name}<div class="sub" style="font-size:10px;margin:2px 0 0">⚡${en.power}</div>${foot}</button>`;
+      : (owned?'<div class="price">tap</div>':`<div class="price">🪙${en.cost} + 🧠</div>`));
+    return `<button class="${cls}" data-engine="${k}"><span class="emoji">${en.emoji}</span>${en.name}<div class="sub" style="font-size:10px;margin:2px 0 0">⚡${en.power} HP</div>${foot}</button>`;
   }).join("");
 
-  // stat bars + computed stats
   const st = carStats(type, c);
   const bar=(label,val,max,col)=>`<div style="margin:7px 0">
     <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800"><span>${label}</span><span>${val}</span></div>
     <div class="statbar"><i style="width:${Math.min(100,val/max*100)}%;background:${col}"></i></div></div>`;
 
+  const slRow=(id,label,valTxt,min,max,step,val)=>`<div style="margin:8px 0">
+    <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800"><span>${label}</span><span id="${id}_val" style="color:var(--coin)">${valTxt}</span></div>
+    <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}" style="width:100%;accent-color:var(--accent);cursor:pointer"/>
+  </div>`;
+
   return `
-    <h2 class="title">🔧 Build Shop</h2>
-    <div id="stage"><div class="spinhint">drag to spin • pinch/scroll to zoom</div></div>
+    <div class="row" style="justify-content:space-between;align-items:center;margin:2px 0 10px">
+      <h2 class="title" style="margin:0">🔧 Off-Road Build Shop</h2>
+      <button class="btn sm green" id="openbrain" style="padding:8px 13px">🧠 Brain Boost (+🪙40)</button>
+    </div>
+    <div id="stage"><div class="spinhint">drag to spin • pinch/scroll to zoom • live 3D suspension flex</div></div>
     <div class="card" style="margin-top:14px">
       <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
         <div class="chip">${v.emoji} ${v.name}</div>
         <div class="chip">${ENGINES[c.engine].emoji} ${ENGINES[c.engine].name}</div>
+        <div class="chip" style="color:var(--coin)">🔩 ${equippedCount}/${vParts.length} Parts</div>
       </div>
-      ${bar("🏎️ Power", st.power,120,"#ff8c1a")}
+      ${bar("🏎️ Horsepower & Torque", st.power,130,"#ff8c1a")}
       ${bar("💨 Top Speed", st.speed,140,"#2f8fff")}
-      ${bar("🛞 Grip", st.grip,100,"#37c46a")}
-      ${bar("✨ Style", st.style,100,"#9b5bff")}
+      ${bar("🛞 Off-Road Grip & Crawl", st.grip,100,"#37c46a")}
+      ${bar("✨ Rig Style Rating", st.style,100,"#9b5bff")}
       <div class="row" style="margin-top:10px;gap:8px">
         <button class="btn gold" id="testdrive" style="flex:1">🏁 2D Stunt Drive</button>
-        <button class="btn green" id="testdrive3d" style="flex:1">🏔️ 3D Off-Road Chapters</button>
+        <button class="btn green" id="testdrive3d" style="flex:1">🏔️ 3D Off-Road Outlaws (6 Chapters)</button>
       </div>
     </div>
+
+    <div class="card" style="border-color:#36c98a;background:linear-gradient(180deg,#18304c,#1b2854)">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div>
+          <b>🪙 How to Earn Coins, Points &amp; Unlock Upgrades</b>
+          <div class="sub" style="margin:2px 0 0">Complete Spelling, English &amp; Math challenges or hit the 3D trails!</div>
+        </div>
+        <span class="chip" style="background:#1f9e69;color:#fff">🔥 Streak: ${state.brainStreak||0}</span>
+      </div>
+      <div class="grid g3" style="margin-top:10px">
+        <button class="tile" id="earn_spell" style="border-color:#5bff9b"><span class="emoji">✍️</span>Spelling Builder<div class="price">+🪙45 · +⭐25 XP</div></button>
+        <button class="tile" id="earn_mem" style="border-color:#5b8cff"><span class="emoji">🧠</span>2-Sentence Memory<div class="price">+🪙45 · +⭐25 XP</div></button>
+        <button class="tile" id="earn_math" style="border-color:#ffd14d"><span class="emoji">⚡</span>Shop Math &amp; English<div class="price">+🪙40 · +⭐20 XP</div></button>
+      </div>
+    </div>
+
     <div class="card">
-      <b>① Body / Chassis</b><div class="sub">What you're building on. 🔒 unlocks by leveling up.</div>
+      <b>① Choose Your Rig (Body / Chassis)</b><div class="sub">🛻 <b>Trail Crawler 4x4</b> &amp; 🦂 <b>Viper Rock Bouncer</b> have full 20-node 3D articulated suspension!</div>
       <div class="grid g3" id="vehicles">${vtiles}</div>
     </div>
+
     <div class="card">
-      <b>② Engine</b><div class="sub">More power = faster, quicker builds. Tap to install.</div>
+      <b>② Custom Parts Shopping List (${equippedCount}/${vParts.length} Bolted On)</b>
+      <div class="sub">Tap any part to buy &amp; bolt it directly onto your 3D truck! New upgrades trigger a quick Brain Boost challenge.</div>
+      <div class="grid g3" id="parts">${ptiles}</div>
+    </div>
+
+    <div class="card">
+      <b>③ Off-Road Outlaws Suspension &amp; Tire Tuning Shop</b>
+      <div class="sub">Tune travel (lift), spring stiffness, shock damping, axle width, and tire air pressure (PSI) — watch the 3D rig update live!</div>
+      <div class="grid g2" style="margin-bottom:10px">
+        <button class="tile palitem ${c.suspType==='solid'?'sel':''}" data-susptype="solid"><span class="emoji">🪨</span>Solid Axle Pro<div class="price">Max Rock Flex</div></button>
+        <button class="tile palitem ${c.suspType==='ibeam'?'sel':''}" data-susptype="ibeam"><span class="emoji">🏜️</span>Trophy I-Beam<div class="price">High-Speed Desert</div></button>
+      </div>
+      ${slRow("sl_travel", "⬆️ Suspension Travel (Lift Height)", Math.round((c.suspTravel||0.18)*100)+" cm", 0.08, 0.34, 0.02, c.suspTravel||0.18)}
+      ${slRow("sl_stiff",  "🌀 Spring Stiffness (Soft Flex ↔ Firm)", (c.suspStiff||38000).toLocaleString(), 15000, 65000, 2500, c.suspStiff||38000)}
+      ${slRow("sl_damp",   "🔧 Shock Damping (Bounce Control)", (c.suspDamp||4000).toLocaleString(), 1500, 8000, 500, c.suspDamp||4000)}
+      ${slRow("sl_axle",   "↔️ Axle Track Width (Stance)", "+"+Math.round((c.axleWidth||0.04)*100)+" cm", 0.0, 0.24, 0.02, c.axleWidth||0.04)}
+      ${slRow("sl_trad",   "🛞 Tire Height (Wheel Radius)", Math.round((c.tireRadius||1.05)*35)+"-Inch Tires", 0.90, 1.28, 0.02, c.tireRadius||1.05)}
+      ${slRow("sl_twid",   "🛞 Tire Width (Footprint)", Math.round((c.tireWidth||1.08)*12.5)+"-Inch Wide", 0.85, 1.40, 0.05, c.tireWidth||1.08)}
+      ${slRow("sl_psi",    "💨 Tire Air Pressure (Air Down = +Grip!)", (c.tirePsi||18)+" PSI", 8, 36, 1, c.tirePsi||18)}
+      <div class="row" style="margin-top:8px">
+        <button class="btn sm gray" id="washbtn" style="flex:1">💦 Pressure Wash &amp; Repair Rig</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <b>④ Engine Swap</b><div class="sub">Install a bigger engine for more climbing torque &amp; top speed.</div>
       <div class="grid g3" id="engines">${etiles}</div>
     </div>
+
     <div class="card">
-      <b>③ Wheels &amp; Tires</b><div class="sub">Off-road = most grip, Sport = faster. Then pick a rim color.</div>
+      <b>⑤ Wheels &amp; Beadlock Rims</b><div class="sub">Off-road Beadlock = most rock/mud grip, Sport = faster.</div>
       <div class="grid g3" style="margin-bottom:10px">${rimTiles}</div>
-      <b style="font-size:13px">Rim color</b><div class="swatches" id="wheels">${wheelSw}</div>
+      <b style="font-size:13px">Rim &amp; Beadlock Color</b><div class="swatches" id="wheels">${wheelSw}</div>
     </div>
+
     <div class="card">
-      <b>④ Paint &amp; Style</b>
+      <b>⑥ Paint &amp; Finish</b>
       <div class="swatches" id="paints" style="margin:8px 0 10px">${paintSw}</div>
       <div class="row" style="align-items:center;gap:10px;margin-bottom:12px">
         <label class="btn sm gray" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
-          🎨 Any color
+          🎨 Custom Hex Color
           <input type="color" id="paintpick" value="${/^#/.test(c.paint)?c.paint:'#e23b3b'}" style="width:30px;height:26px;border:none;background:none;padding:0;cursor:pointer"/>
         </label>
-        <button class="btn sm gold" id="paintrand">🎲 Surprise</button>
+        <button class="btn sm gold" id="paintrand">🎲 Surprise Paint</button>
       </div>
-      <b style="font-size:13px;display:block;margin:0 0 6px">Finish</b>
+      <b style="font-size:13px;display:block;margin:0 0 6px">Clearcoat Finish</b>
       <div class="grid g4" style="margin-bottom:12px">
         ${[["gloss","Gloss","✨"],["matte","Matte","🥚"],["metallic","Metallic","🔩"],["chrome","Chrome","🪞"]]
           .map(f=>`<button class="tile palitem ${c.finish===f[0]?'sel':''}" data-finish="${f[0]}"><span class="emoji">${f[2]}</span>${f[1]}</button>`).join("")}
       </div>
       <div class="grid g2">
-        ${toggle("lift","Lift Kit","⬆️")}
-        ${toggle("tint","Window Tint","🕶️")}
+        ${toggle("lift","Quick +4-Inch Lift Kit","⬆️")}
+        ${toggle("tint","Dark Window Tint","🕶️")}
       </div>
-    </div>
-    <div class="card">
-      <b>⑤ Add-ons</b><div class="sub">Tap to buy, then tap to turn on/off.</div>
-      <div class="grid g3" id="parts">${ptiles}</div>
     </div>`;
 }
 
@@ -1281,8 +1475,50 @@ function wireGarage(){
   document.querySelectorAll("[data-paint]").forEach(b=>b.onclick=()=>{ cfg(state.current).paint=b.dataset.paint; save(); render(); });
   document.querySelectorAll("[data-wheel]").forEach(b=>b.onclick=()=>{ cfg(state.current).wheel=b.dataset.wheel; save(); render(); });
   document.querySelectorAll("[data-rim]").forEach(b=>b.onclick=()=>{ cfg(state.current).rim=b.dataset.rim; save(); render(); });
-  document.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{ const k=b.dataset.toggle, c=cfg(state.current); c[k]=!c[k]; save(); render(); });
+  document.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.toggle, c=cfg(state.current);
+    if(k==="lift" && !c.lift){
+      openBrainBoostGate("Install +4-Inch Lift Kit", ()=>{
+        c.lift=true; c.suspTravel=Math.max(0.24, c.suspTravel||0.24); save(); render();
+      });
+      return;
+    }
+    c[k]=!c[k]; save(); render();
+  });
   document.querySelectorAll("[data-part]").forEach(b=>b.onclick=()=>togglePart(b.dataset.part));
+  document.querySelectorAll("[data-susptype]").forEach(b=>b.onclick=()=>{
+    cfg(state.current).suspType=b.dataset.susptype; SFX.tap(); save(); render();
+  });
+
+  const bindTune = (id, key, fmt)=>{
+    const el=$("#"+id); if(!el) return;
+    el.oninput = ()=>{
+      const c=cfg(state.current);
+      c[key] = parseFloat(el.value);
+      if(key==="suspTravel") c.lift = (c.suspTravel >= 0.20);
+      const vEl=$("#"+id+"_val"); if(vEl) vEl.textContent = fmt(c[key]);
+      save();
+      if(SR && SR.carGroup && SR.carGroup.userData && SR.carGroup.userData.rig){
+        SR.carGroup.userData.rig.c = c;
+      }
+    };
+  };
+  bindTune("sl_travel", "suspTravel", v=>Math.round(v*100)+" cm");
+  bindTune("sl_stiff",  "suspStiff",  v=>Math.round(v).toLocaleString());
+  bindTune("sl_damp",   "suspDamp",   v=>Math.round(v).toLocaleString());
+  bindTune("sl_axle",   "axleWidth",  v=>"+"+Math.round(v*100)+" cm");
+  bindTune("sl_trad",   "tireRadius", v=>Math.round(v*35)+"-Inch Tires");
+  bindTune("sl_twid",   "tireWidth",  v=>Math.round(v*12.5)+"-Inch Wide");
+  bindTune("sl_psi",    "tirePsi",    v=>Math.round(v)+" PSI");
+
+  const wb=$("#washbtn"); if(wb) wb.onclick=()=>{
+    cfg(state.current).mudLevel=0; SFX.coin(); save(); toast("💦 Rig pressure-washed & repaired to 100%!"); render();
+  };
+  const ob=$("#openbrain"); if(ob) ob.onclick=()=>openBrainBoostGate("Earn Bonus Garage Coins", null, "spell");
+  const es=$("#earn_spell"); if(es) es.onclick=()=>openBrainBoostGate("Spelling Builder Bonus", null, "spell");
+  const em=$("#earn_mem");   if(em) em.onclick=()=>openBrainBoostGate("2-Sentence Memory Bonus", null, "memory");
+  const ema=$("#earn_math"); if(ema) ema.onclick=()=>openBrainBoostGate("Shop Math & English Bonus", null, "math");
+
   const td=$("#testdrive"); if(td) td.onclick=()=>setScreen("drive");
   const td3=$("#testdrive3d"); if(td3) td3.onclick=()=>{ setScreen("drive"); setTimeout(()=>start3DChapterMode(), 60); };
   const pp=$("#paintpick"); if(pp) pp.onchange=()=>{ cfg(state.current).paint=pp.value; SFX.tap(); save(); render(); };
@@ -1297,8 +1533,16 @@ function selectEngine(k){
   const en=ENGINES[k], c=cfg(state.current);
   if(state.level < en.level){ toast(`🔒 Reach level ${en.level} for the ${en.name}`); return; }
   if(!state.ownedEngines.includes(k)){
-    if(state.coins < en.cost){ toast(`Need 🪙${en.cost} for the ${en.name}`); return; }
-    addCoins(-en.cost); state.ownedEngines.push(k); SFX.buy(); toast(`🔧 Installed the ${en.name}!`);
+    if(state.coins < en.cost){
+      toast(`Need 🪙${en.cost} — solve this Brain Boost to earn coins!`);
+      openBrainBoostGate(`Earn Coins for ${en.name}`, null, "spell");
+      return;
+    }
+    openBrainBoostGate(`Unlock & Install ${en.name} Engine`, ()=>{
+      addCoins(-en.cost); state.ownedEngines.push(k); c.engine=k; SFX.buy(); save(); render();
+      toast(`🔧 Installed the ${en.name}!`);
+    });
+    return;
   }
   c.engine=k; save(); render();
 }
@@ -1307,23 +1551,40 @@ function selectVehicle(k){
   const v=VEHICLES[k];
   if(state.owned.includes(k)){ state.current=k; save(); render(); return; }
   if(state.level < v.level){ toast(`🔒 Reach level ${v.level} to unlock the ${v.name}`); return; }
-  if(state.coins < v.cost){ toast(`Need 🪙${v.cost} — do some jobs!`); return; }
-  addCoins(-v.cost);
-  state.owned.push(k); state.current=k; cfg(k); save(); SFX.buy();
-  toast(`🎉 Bought the ${v.name}!`); render();
+  if(state.coins < v.cost){
+    toast(`Need 🪙${v.cost} — solve a Brain Boost to earn coins!`);
+    openBrainBoostGate(`Earn Coins for ${v.name}`, null, "spell");
+    return;
+  }
+  openBrainBoostGate(`Unlock ${v.emoji} ${v.name}`, ()=>{
+    addCoins(-v.cost);
+    state.owned.push(k); state.current=k; cfg(k); save(); SFX.buy();
+    toast(`🎉 Bought the ${v.name}!`); render();
+  });
 }
 
 function togglePart(pk){
   const p=PARTS[pk], c=cfg(state.current);
   if(state.level < p.level){ toast(`🔒 Reach level ${p.level} first`); return; }
   if(!state.ownedParts.includes(pk)){
-    if(state.coins < p.cost){ toast(`Need 🪙${p.cost} for ${p.name}`); return; }
-    addCoins(-p.cost); state.ownedParts.push(pk); toast(`Bought ${p.name}!`);
+    if(state.coins < p.cost){
+      toast(`Need 🪙${p.cost} for ${p.name} — do a quick Brain Boost!`);
+      openBrainBoostGate(`Earn Coins for ${p.name}`, null, "spell");
+      return;
+    }
+    openBrainBoostGate(`Bolt On ${p.emoji} ${p.name}`, ()=>{
+      addCoins(-p.cost); state.ownedParts.push(pk);
+      c.parts = c.parts||[];
+      if(!c.parts.includes(pk)) c.parts.push(pk);
+      SFX.buy(); save(); render();
+      toast(`🔩 Bolted on ${p.name}!`);
+    });
+    return;
   }
   c.parts = c.parts||[];
   const i=c.parts.indexOf(pk);
   if(i>=0) c.parts.splice(i,1); else c.parts.push(pk);
-  save(); render();
+  SFX.tap(); save(); render();
 }
 
 /* ---- JOBS ---- */
@@ -1538,6 +1799,7 @@ $("#mute").addEventListener("click", ()=>{
   $("#mute").textContent = state.sound ? "🔊" : "🔇";
   if(state.sound) SFX.coin();
 });
+$("#brainbtn")?.addEventListener("click", ()=>{ SFX.tap(); openBrainBoostGate("Jax's Brain Boost Challenge", null); });
 $("#music").addEventListener("click", ()=>{
   state.music=!state.music; save();
   $("#music").textContent = state.music ? "🎵" : "🎶";
@@ -1744,6 +2006,7 @@ function carDims(type){
     case "police":  return {bw:86, bh:22, fr:16, rr:16, dx:29};
     case "fire":    return {bw:106,bh:34, fr:17, rr:17, dx:38};
     case "crawler": return {bw:88, bh:32, fr:21, rr:21, dx:30};
+    case "bouncer": return {bw:86, bh:30, fr:23, rr:23, dx:31};
     case "truck":   return {bw:84, bh:30, fr:16, rr:16, dx:28};
     case "monster": return {bw:80, bh:30, fr:26, rr:26, dx:30};
     case "tractor": return {bw:58, bh:30, fr:12, rr:24, dx:24};
@@ -2291,24 +2554,398 @@ function stopBattle(){
   unbindBattleInput(); BATTLE=null;
 }
 
+/* ================= JAX'S 11-YEAR-OLD BRAIN BOOST ACADEMY ==================
+   Typed Spelling Builder (with 🔊 Speech Audio + letter-by-letter coaching),
+   Two-Sentence Memory & Typed Dictation, 5th/6th-Grade English Fix-It,
+   and Off-Road Garage Math! */
+
+const SPELL_BANK = [
+  {w:"suspension",  clue:"The springs and shocks that cushion a 4x4 truck over boulders.", sent:"The rock crawler's suspension flexed over the giant canyon ledge."},
+  {w:"differential",clue:"The axle gear box that locks both wheels together in deep mud.", sent:"Lock the front differential before climbing the slippery sandstone wall."},
+  {w:"traction",    clue:"The grip between your rubber tires and the dirt trail.", sent:"Airing down the tires to twelve PSI gave the truck way more traction."},
+  {w:"acceleration",clue:"How quickly a vehicle gains speed when you hit the throttle.", sent:"Installing the twin-turbo V8 engine doubled our acceleration."},
+  {w:"obstacle",    clue:"Something that blocks your path on a rocky mountain trail.", sent:"The fallen timber log was the toughest obstacle in Chapter Two."},
+  {w:"hydraulics",  clue:"Fluid-powered pistons used for heavy-duty steering and cranes.", sent:"The rock bouncer uses heavy hydraulics to steer its huge tires."},
+  {w:"endurance",   clue:"The ability to keep going through a long, grueling desert race.", sent:"Winning the Baja dune rally takes serious mechanical endurance."},
+  {w:"mechanic",    clue:"An expert who builds, repairs, and tunes engines and machines.", sent:"Every great off-road driver is also a smart garage mechanic."},
+  {w:"equipment",   clue:"The tools, winches, and gear bolted onto an expedition truck.", sent:"We packed our recovery equipment into the aluminum bed toolbox."},
+  {w:"environment", clue:"The natural world of forests, canyons, and rivers around us.", sent:"Tread lightly so we protect the mountain environment."},
+  {w:"definitely",  clue:"Without any doubt; for sure (watch the 'finite' in the middle!).", sent:"We are definitely going to need four-wheel drive in this mud bog."},
+  {w:"separate",    clue:"Detached or apart (remember: there is 'a rat' in sep-a-rate!).", sent:"Each wheel hub is a separate 3D node in our game engine."},
+  {w:"necessary",   clue:"Required or essential (one collar 'c', two sleeves 'ss').", sent:"A snorkel is necessary when driving through deep creek water."},
+  {w:"guarantee",   clue:"A firm promise that something will work as expected.", sent:"Locking both axles will guarantee that we climb out of the trench."},
+  {w:"camouflage",  clue:"A pattern that helps something blend into the forest or desert.", sent:"We painted the armored pickup in desert sand camouflage."}
+];
+
+const MEMORY_BANK = [
+  {
+    s1:"When a four-wheel-drive truck shifts into low range, the transfer case multiplies engine torque so the tires can crawl up steep canyon boulders without stalling.",
+    s2:"Lowering tire pressure to twelve pounds per square inch widens the rubber footprint and dramatically increases grip on slick sandstone.",
+    prompt:"Complete the two memorized facts by typing the two missing words:",
+    blankText:"The transfer case multiplies engine [1] on steep boulders, and lowering tire pressure to [2] PSI widens the rubber footprint.",
+    a1:"torque", a2:"twelve", a2_alt:"12"
+  },
+  {
+    s1:"A turbocharger uses hot exhaust gases to spin a turbine that forces extra compressed air into the engine's cylinders.",
+    s2:"With more oxygen inside each cylinder, the fuel burns with greater power and boosts the truck's horsepower up steep sand dunes.",
+    prompt:"Type the two key words from the sentences you just memorized:",
+    blankText:"A turbocharger uses hot [1] gases to spin a turbine, forcing extra oxygen into the cylinders to boost [2].",
+    a1:"exhaust", a2:"horsepower"
+  },
+  {
+    s1:"Coilover shocks combine a helical steel spring wrapped around a hydraulic shock absorber that controls how fast the suspension bounces.",
+    s2:"If your damping is set too low, the truck will bounce like a pogo stick after landing off a wooden stunt ramp.",
+    prompt:"Type the two missing words from the suspension sentences:",
+    blankText:"Coilovers wrap a steel [1] around a shock absorber, and low [2] makes the truck bounce after a jump.",
+    a1:"spring", a2:"damping"
+  },
+  {
+    s1:"An electric recovery winch spools heavy braided steel cable onto a drum mounted inside the front bull bar.",
+    s2:"When a mud truck sinks axle-deep in a swamp, hooking the winch cable to a sturdy pine tree pulls the chassis free.",
+    prompt:"Type the two missing words from the winch sentences:",
+    blankText:"A recovery winch spools braided steel [1] onto a drum, and hooking it to a sturdy [2] pulls the chassis free.",
+    a1:"cable", a2:"tree", a2_alt:"pine"
+  }
+];
+
+const ENGLISH_BANK = [
+  {
+    wrong:"Press the break pedal before you hit the canyon wall!",
+    question:"Spot the misspelled homophone in the sentence above! Which word fixes 'break' when talking about stopping a truck?",
+    answer:"brake",
+    hint:"'Break' means to smash into pieces. The part that stops a truck's wheels is spelled B-R-A-K-E."
+  },
+  {
+    wrong:"The mud boggers parked there trucks by the red barn.",
+    question:"Fix the highlighted homophone error: 'parked there trucks' — type the correct word that means 'belonging to them':",
+    answer:"their",
+    hint:"'There' is a place; 'They're' means they are; 'Their' (T-H-E-I-R) means belonging to them!"
+  },
+  {
+    wrong:"Make sure your lug nuts aren't to loose before the race.",
+    question:"In 'aren't to loose', 'to' is spelled wrong for meaning 'excessively / overly'. Type the correct spelling:",
+    answer:"too",
+    hint:"Use T-O-O (with two O's) when it means 'also' or 'excessively/very'!"
+  },
+  {
+    wrong:"The rock bouncer lost traction on it's rear axle.",
+    question:"Fix 'it's rear axle' — type the possessive form of 'it' (without an apostrophe):",
+    answer:"its",
+    hint:"'It's' with an apostrophe always means 'It is'. Possessive 'its' has NO apostrophe!"
+  },
+  {
+    wrong:"Your going to love driving the Viper Rock Bouncer in Chapter Three!",
+    question:"Fix the first word ('Your going') — type the contraction for 'You are':",
+    answer:"you're",
+    alt:"youre",
+    hint:"'Your' means belonging to you. 'You're' (You + are) is the contraction!"
+  },
+  {
+    wrong:"Heavy mud has a big affect on how fast your tires spin.",
+    question:"Noun vs. Verb: 'has a big affect' should use the NOUN meaning 'result'. Type the correct word starting with E:",
+    answer:"effect",
+    hint:"Almost always: Affect is the Action (verb), and Effect (E-F-F-E-C-T) is the End result (noun)!"
+  }
+];
+
+function genMathProblem(){
+  const roll = Math.floor(Math.random()*5);
+  if(roll===0){
+    const price = [120, 160, 200, 240, 320, 400][Math.floor(Math.random()*6)];
+    const pct   = [25, 50, 20, 10][Math.floor(Math.random()*4)];
+    const disc  = Math.round(price * (pct/100));
+    const finalP= price - disc;
+    return {
+      q: `A heavy-duty off-road part costs ${price} coins, and the Build Shop is running a ${pct}% OFF sale. What is the sale price after subtracting the ${pct}% discount?`,
+      ans: String(finalP),
+      hint: `${pct}% of ${price} is ${disc} coins. Now subtract: ${price} - ${disc} = ${finalP}!`
+    };
+  } else if(roll===1){
+    const mph = [35, 42, 45, 55, 60][Math.floor(Math.random()*5)];
+    const hrs = [3, 4, 5, 6][Math.floor(Math.random()*4)];
+    const dist = mph * hrs;
+    return {
+      q: `Your Baja Trophy Truck averages ${mph} miles per hour across the desert dunes for ${hrs} hours straight. How many total miles did you drive?`,
+      ans: String(dist),
+      hint: `Multiply speed × time: ${mph} × ${hrs} = ${dist} miles!`
+    };
+  } else if(roll===2){
+    const a = 12 + Math.floor(Math.random()*14);
+    const b = 4 + Math.floor(Math.random()*6);
+    const c = 15 + Math.floor(Math.random()*25);
+    const res = a * b + c;
+    return {
+      q: `Order of Operations (PEMDAS): Each trail gate awards ${a} coins. You clear ${b} gates and find a bonus crate worth ${c} coins. Solve: (${a} × ${b}) + ${c} = ?`,
+      ans: String(res),
+      hint: `First multiply ${a} × ${b} = ${a*b}, then add ${c} to get ${res}!`
+    };
+  } else if(roll===3){
+    const psiStart = 34;
+    const drop = [16, 18, 20, 22][Math.floor(Math.random()*4)];
+    const perTire = psiStart - drop;
+    const totalPsi = perTire * 4;
+    return {
+      q: `Each of your 4 tires starts at ${psiStart} PSI. You air down each tire by ${drop} PSI for rock crawling. What is the new PSI of ONE tire multiplied by all 4 tires?`,
+      ans: String(totalPsi),
+      hint: `One tire is ${psiStart} - ${drop} = ${perTire} PSI. Multiply by 4 tires: ${perTire} × 4 = ${totalPsi}!`
+    };
+  } else {
+    const boxes = [6, 7, 8, 9][Math.floor(Math.random()*4)];
+    const bolts = [14, 15, 16, 18][Math.floor(Math.random()*4)];
+    const tot = boxes * bolts;
+    return {
+      q: `Beadlock rims use ${bolts} titanium bolts per wheel. If you build ${boxes} off-road wheels in the shop, how many bolts do you need in total?`,
+      ans: String(tot),
+      hint: `Multiply ${boxes} × ${bolts}: (${boxes} × 10 = ${boxes*10}) + (${boxes} × ${bolts-10} = ${boxes*(bolts-10)}) = ${tot}!`
+    };
+  }
+}
+
+let BRAIN = null;
+window.getBrainTargetWord = () => BRAIN && BRAIN.spellItem ? BRAIN.spellItem.w : "";
+
+function speakText(txt){
+  try{
+    if("speechSynthesis" in window){
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(txt);
+      u.rate = 0.92; u.pitch = 1.0;
+      window.speechSynthesis.speak(u);
+    }
+  }catch(e){}
+}
+
+function diffMaskHtml(typed, target){
+  const t = (typed||"").trim().toLowerCase();
+  const w = target.toLowerCase();
+  let out = "";
+  for(let i=0;i<w.length;i++){
+    const ch = w[i];
+    if(i < t.length && t[i]===ch){
+      out += `<span style="color:#5bff9b;font-weight:900;border-bottom:2px solid #5bff9b;padding:0 2px">${ch.toUpperCase()}</span>`;
+    } else if(i===0 || i===w.length-1){
+      out += `<span style="color:#ffd14d;font-weight:900;border-bottom:2px dashed #ffd14d;padding:0 2px">${ch.toUpperCase()}</span>`;
+    } else {
+      out += `<span style="color:#ff8a8a;border-bottom:2px dashed #ff6b6b;padding:0 3px">_</span>`;
+    }
+  }
+  return `<div style="font-family:monospace;font-size:18px;letter-spacing:3px;margin:6px 0">${out}</div>`;
+}
+
+function openBrainBoostGate(actionLabel, onSuccess, forceMode){
+  const modes = ["spell","memory","english","math"];
+  const pickMode = forceMode || modes[(state.brainSolved||0) % modes.length];
+  BRAIN = {
+    actionLabel: actionLabel || "Garage Upgrade",
+    onSuccess: onSuccess,
+    mode: pickMode,
+    memStep: 1,
+    spellItem: SPELL_BANK[Math.floor(Math.random()*SPELL_BANK.length)],
+    memItem:   MEMORY_BANK[Math.floor(Math.random()*MEMORY_BANK.length)],
+    engItem:   ENGLISH_BANK[Math.floor(Math.random()*ENGLISH_BANK.length)],
+    mathItem:  genMathProblem(),
+    feedback:  ""
+  };
+  renderBrainModal();
+}
+
+function renderBrainModal(){
+  if(!BRAIN) return;
+  const m = BRAIN.mode;
+  const tabBtn = (k, label, emoji)=>`<button class="btn sm ${m===k?'green':'gray'}" onclick="switchBrainMode('${k}')" style="flex:1;padding:7px 8px;font-size:11.5px">${emoji} ${label}</button>`;
+
+  let bodyHtml = "";
+  if(m==="spell"){
+    const it = BRAIN.spellItem;
+    // Mask the target word in the context sentence so Jax hears it & spells it!
+    const maskedSent = it.sent.replace(new RegExp(it.w, "ig"), "_______");
+    bodyHtml = `
+      <div style="background:#121c42;border:1px solid var(--line);border-radius:14px;padding:12px;text-align:left;margin:8px 0">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <b style="color:#5bff9b;font-size:13px">✍️ Type &amp; Spell the Off-Road Word (${it.w.length} letters)</b>
+          <button class="btn sm gold" onclick="speakBrainWord()" style="padding:5px 10px;font-size:12px">🔊 Hear Word</button>
+        </div>
+        <div style="font-size:13px;color:var(--ink);margin-bottom:6px"><b>Meaning:</b> ${it.clue}</div>
+        <div style="font-size:12.5px;color:var(--muted);font-style:italic">"${maskedSent}"</div>
+        <div style="margin-top:8px;font-size:12px;color:#ffd14d">First letter: <b>${it.w[0].toUpperCase()}...${it.w[it.w.length-1].toUpperCase()}</b> (${it.w.length} letters)</div>
+      </div>
+      <input id="brain_input" type="text" autocomplete="off" spellcheck="false" placeholder="Type the spelling here…"
+        style="width:100%;padding:12px;border-radius:12px;border:2px solid var(--accent);background:#0c1330;color:#fff;font-size:17px;font-weight:900;text-align:center;letter-spacing:1.5px"/>
+    `;
+  } else if(m==="memory"){
+    const it = BRAIN.memItem;
+    if(BRAIN.memStep===1){
+      bodyHtml = `
+        <div style="background:#121c42;border:1px solid var(--line);border-radius:14px;padding:12px;text-align:left;margin:8px 0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <b style="color:#5b8cff;font-size:13px">🧠 Step 1: Read &amp; Memorize These 2 Sentences!</b>
+            <button class="btn sm gold" onclick="speakText(BRAIN.memItem.s1+' '+BRAIN.memItem.s2)" style="padding:5px 10px;font-size:12px">🔊 Read Aloud</button>
+          </div>
+          <p style="color:#fff;font-size:13.5px;line-height:1.45;margin:6px 0">1️⃣ ${it.s1}</p>
+          <p style="color:#ffd14d;font-size:13.5px;line-height:1.45;margin:6px 0">2️⃣ ${it.s2}</p>
+        </div>
+        <button class="btn green" onclick="BRAIN.memStep=2;BRAIN.feedback='';renderBrainModal()">✅ I've Got It Memorized — Quiz Me!</button>
+      `;
+    } else {
+      bodyHtml = `
+        <div style="background:#121c42;border:1px solid var(--line);border-radius:14px;padding:12px;text-align:left;margin:8px 0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <b style="color:#5b8cff;font-size:13px">🧠 Step 2: Type the 2 Missing Words!</b>
+            <button class="btn sm gray" onclick="BRAIN.memStep=1;renderBrainModal()" style="padding:4px 8px;font-size:11px">👀 Peek Again</button>
+          </div>
+          <div style="font-size:12.5px;color:var(--muted);margin-bottom:6px">${it.prompt}</div>
+          <div style="font-size:13.5px;color:#fff;line-height:1.45">${it.blankText.replace("[1]","<b style='color:#5bff9b'>[Word 1]</b>").replace("[2]","<b style='color:#ffd14d'>[Word 2]</b>")}</div>
+        </div>
+        <div class="row" style="gap:8px">
+          <input id="mem_in1" type="text" autocomplete="off" spellcheck="false" placeholder="Type Word [1]…"
+            style="flex:1;padding:11px;border-radius:12px;border:2px solid #5bff9b;background:#0c1330;color:#fff;font-size:15px;font-weight:800;text-align:center"/>
+          <input id="mem_in2" type="text" autocomplete="off" spellcheck="false" placeholder="Type Word [2]…"
+            style="flex:1;padding:11px;border-radius:12px;border:2px solid #ffd14d;background:#0c1330;color:#fff;font-size:15px;font-weight:800;text-align:center"/>
+        </div>
+      `;
+    }
+  } else if(m==="english"){
+    const it = BRAIN.engItem;
+    bodyHtml = `
+      <div style="background:#121c42;border:1px solid var(--line);border-radius:14px;padding:12px;text-align:left;margin:8px 0">
+        <b style="color:#ff9f43;font-size:13px;display:block;margin-bottom:5px">📘 5th/6th-Grade English &amp; Spelling Fix-It</b>
+        <div style="background:#0c1330;padding:8px 10px;border-radius:8px;color:#ff8a8a;font-weight:800;font-size:13.5px;margin-bottom:6px">❌ "${it.wrong}"</div>
+        <div style="font-size:13px;color:#fff">${it.question}</div>
+      </div>
+      <input id="brain_input" type="text" autocomplete="off" spellcheck="false" placeholder="Type the corrected word…"
+        style="width:100%;padding:12px;border-radius:12px;border:2px solid var(--accent);background:#0c1330;color:#fff;font-size:17px;font-weight:900;text-align:center"/>
+    `;
+  } else {
+    const it = BRAIN.mathItem;
+    bodyHtml = `
+      <div style="background:#121c42;border:1px solid var(--line);border-radius:14px;padding:12px;text-align:left;margin:8px 0">
+        <b style="color:#ffd14d;font-size:13px;display:block;margin-bottom:5px">⚡ Off-Road Garage Math Challenge</b>
+        <div style="font-size:13.5px;color:#fff;line-height:1.45">${it.q}</div>
+      </div>
+      <input id="brain_input" type="text" autocomplete="off" placeholder="Type your numeric answer…"
+        style="width:100%;padding:12px;border-radius:12px;border:2px solid #ffd14d;background:#0c1330;color:#fff;font-size:18px;font-weight:900;text-align:center"/>
+    `;
+  }
+
+  const submitBtn = (m==="memory" && BRAIN.memStep===1) ? "" :
+    `<button class="btn green" id="brain_submit" onclick="checkBrainAnswer()" style="margin-top:10px">🚀 Check Answer &amp; Claim +🪙45 Bonus!</button>`;
+
+  showModal(`
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span class="chip" style="background:#1f9e69;color:#fff;font-size:11.5px">🧠 Brain Boost · Streak 🔥${state.brainStreak||0}</span>
+      <span style="font-size:11.5px;color:var(--coin);font-weight:800">🎯 ${BRAIN.actionLabel}</span>
+    </div>
+    <div class="row" style="gap:5px;margin-top:10px">
+      ${tabBtn("spell","Spelling","✍️")}
+      ${tabBtn("memory","2-Sentences","🧠")}
+      ${tabBtn("english","English","📘")}
+      ${tabBtn("math","Math","⚡")}
+    </div>
+    ${bodyHtml}
+    <div id="brain_fb" style="margin-top:8px;font-size:12.5px;color:#ffd14d;min-height:18px">${BRAIN.feedback||""}</div>
+    ${submitBtn}
+    <button class="btn gray sm" style="margin-top:8px" onclick="closeModal()">Back to Garage</button>
+  `);
+
+  setTimeout(()=>{
+    const inp = $("#brain_input") || $("#mem_in1");
+    if(inp){
+      inp.focus();
+      inp.onkeydown = e=>{ if(e.key==="Enter") checkBrainAnswer(); };
+    }
+    const inp2 = $("#mem_in2");
+    if(inp2) inp2.onkeydown = e=>{ if(e.key==="Enter") checkBrainAnswer(); };
+    if(m==="spell") speakBrainWord();
+  }, 60);
+}
+
+window.switchBrainMode = function(k){
+  if(!BRAIN) return;
+  BRAIN.mode = k; BRAIN.memStep = 1; BRAIN.feedback = "";
+  renderBrainModal();
+};
+window.speakBrainWord = function(){
+  if(!BRAIN || !BRAIN.spellItem) return;
+  speakText(BRAIN.spellItem.w + ". " + BRAIN.spellItem.sent);
+};
+window.speakText = speakText;
+
+window.checkBrainAnswer = function(){
+  if(!BRAIN) return;
+  const m = BRAIN.mode;
+  let ok = false, coachHtml = "";
+
+  if(m==="spell"){
+    const val = ($("#brain_input")?.value||"").trim().toLowerCase();
+    const target = BRAIN.spellItem.w.toLowerCase();
+    if(val === target){ ok = true; }
+    else {
+      coachHtml = `<div>Almost! Check the green letters you nailed and fill in the rest:</div>` +
+                  diffMaskHtml(val, target) +
+                  `<div style="color:#bfe6ff;font-size:12px">Tip: Tap <b>🔊 Hear Word</b> or spell: <b>${target.toUpperCase()}</b></div>`;
+    }
+  } else if(m==="memory"){
+    const v1 = ($("#mem_in1")?.value||"").trim().toLowerCase();
+    const v2 = ($("#mem_in2")?.value||"").trim().toLowerCase();
+    const it = BRAIN.memItem;
+    const ok1 = (v1 === it.a1.toLowerCase());
+    const ok2 = (v2 === it.a2.toLowerCase() || (it.a2_alt && v2 === it.a2_alt.toLowerCase()));
+    if(ok1 && ok2){ ok = true; }
+    else {
+      coachHtml = `<div>Close! Word [1]: ${ok1?"✅":diffMaskHtml(v1, it.a1)} Word [2]: ${ok2?"✅":diffMaskHtml(v2, it.a2)}</div>
+                   <div style="color:#bfe6ff;font-size:12px">Hint: Word 1 is <b>${it.a1.toUpperCase()}</b> and Word 2 is <b>${it.a2.toUpperCase()}</b>!</div>`;
+    }
+  } else if(m==="english"){
+    const val = ($("#brain_input")?.value||"").trim().toLowerCase();
+    const it = BRAIN.engItem;
+    if(val === it.answer.toLowerCase() || (it.alt && val === it.alt.toLowerCase())){ ok = true; }
+    else {
+      coachHtml = `<div>${it.hint}</div>` + diffMaskHtml(val, it.answer);
+    }
+  } else {
+    const val = ($("#brain_input")?.value||"").trim().replace(/[^0-9.-]/g,"");
+    if(val === BRAIN.mathItem.ans){ ok = true; }
+    else {
+      coachHtml = `<div>💡 Coach Hint: ${BRAIN.mathItem.hint}</div>`;
+    }
+  }
+
+  if(ok){
+    state.brainStreak = (state.brainStreak||0) + 1;
+    state.brainSolved = (state.brainSolved||0) + 1;
+    const bonusCoins = 40 + Math.min(25, state.brainStreak * 5);
+    const bonusXp    = 25;
+    addCoins(bonusCoins); addXP(bonusXp);
+    confettiBurst(); SFX.level();
+    const cb = BRAIN.onSuccess;
+    closeModal();
+    if(typeof cb === "function") cb();
+    toast(`🧠 NAILED IT! +🪙${bonusCoins} · +⭐${bonusXp} XP (Streak 🔥${state.brainStreak})`);
+    save(); render();
+  } else {
+    SFX.tap();
+    BRAIN.feedback = coachHtml;
+    const fb = $("#brain_fb");
+    if(fb) fb.innerHTML = coachHtml;
+  }
+};
+
 /* ================= 3D OFF-ROAD OUTLAWS CHAPTERS (6 ROOMS) =================
-   Full 3D Free-Roam Driving & Trail Checkpoint Mode across all 6 Blender-built
-   Chapter Environments with real-time 4-wheel suspension articulation, steering,
-   coins/checkpoints, and camera follow! */
+   Full 3D Free-Roam Driving, Drivetrain Controls (4WD / LOW GEAR / DIFF LOCK /
+   3D ELECTRIC WINCH), Hidden Money Crates, Barn Finds & Trail Checkpoints! */
 const CHAPTERS_3D = [
-  { id:"chapter_01_ranch",     num:1, name:"Ch 1: Ranch Trail",   emoji:"🏡", glb:"assets/models/chapters/chapter_01_ranch.glb",     mode:"ranch",     skyTop:"#3a7bd5", skyBot:"#bde0fe", baseZ:0.18 },
-  { id:"chapter_02_mudbog",    num:2, name:"Ch 2: Mud Bog Creek", emoji:"🌲", glb:"assets/models/chapters/chapter_02_mudbog.glb",    mode:"mudbog",    skyTop:"#2c4d63", skyBot:"#a8c7db", baseZ:0.12 },
-  { id:"chapter_03_redrock",   num:3, name:"Ch 3: Red Rock Crawl",emoji:"🏜️", glb:"assets/models/chapters/chapter_03_redrock.glb",   mode:"redrock",   skyTop:"#c85a32", skyBot:"#ffe0b2", baseZ:0.42 },
-  { id:"chapter_04_dunes",     num:4, name:"Ch 4: Baja Dunes",    emoji:"🏖️", glb:"assets/models/chapters/chapter_04_dunes.glb",     mode:"dunes",     skyTop:"#1d9bf0", skyBot:"#fff1cf", baseZ:0.32 },
-  { id:"chapter_05_nightcity", num:5, name:"Ch 5: Night City",    emoji:"🌃", glb:"assets/models/chapters/chapter_05_nightcity.glb", mode:"nightcity", skyTop:"#090d24", skyBot:"#311c5c", baseZ:0.25 },
-  { id:"chapter_06_arena",     num:6, name:"Ch 6: Monster Arena", emoji:"🏟️", glb:"assets/models/chapters/chapter_06_arena.glb",     mode:"arena",     skyTop:"#ff8c3b", skyBot:"#ffeacc", baseZ:0.48 }
+  { id:"chapter_01_ranch",     num:1, name:"Ch 1: Ranch Trail",   emoji:"🏡", glb:"assets/models/chapters/chapter_01_ranch.glb",     mode:"ranch",     skyTop:"#3a7bd5", skyBot:"#bde0fe", baseZ:0.18, anchor:[6.5, 1.2, 3.8],  barn:[ -9.5,  8.5] },
+  { id:"chapter_02_mudbog",    num:2, name:"Ch 2: Mud Bog Creek", emoji:"🌲", glb:"assets/models/chapters/chapter_02_mudbog.glb",    mode:"mudbog",    skyTop:"#2c4d63", skyBot:"#a8c7db", baseZ:0.12, anchor:[5.5, 1.6, 5.8],  barn:[ -8.5,  6.2] },
+  { id:"chapter_03_redrock",   num:3, name:"Ch 3: Red Rock Crawl",emoji:"🏜️", glb:"assets/models/chapters/chapter_03_redrock.glb",   mode:"redrock",   skyTop:"#c85a32", skyBot:"#ffe0b2", baseZ:0.42, anchor:[2.5, 2.8, -7.8], barn:[ -7.5, -7.2] },
+  { id:"chapter_04_dunes",     num:4, name:"Ch 4: Baja Dunes",    emoji:"🏖️", glb:"assets/models/chapters/chapter_04_dunes.glb",     mode:"dunes",     skyTop:"#1d9bf0", skyBot:"#fff1cf", baseZ:0.32, anchor:[4.5, 2.2, -6.2], barn:[-10.5,  6.5] },
+  { id:"chapter_05_nightcity", num:5, name:"Ch 5: Night City",    emoji:"🌃", glb:"assets/models/chapters/chapter_05_nightcity.glb", mode:"nightcity", skyTop:"#090d24", skyBot:"#311c5c", baseZ:0.25, anchor:[5.8, 2.5, 3.2],  barn:[ -8.0, -6.5] },
+  { id:"chapter_06_arena",     num:6, name:"Ch 6: Monster Arena", emoji:"🏟️", glb:"assets/models/chapters/chapter_06_arena.glb",     mode:"arena",     skyTop:"#ff8c3b", skyBot:"#ffeacc", baseZ:0.48, anchor:[6.2, 2.0, 0.0],  barn:[-11.0,  7.0] }
 ];
 
 let CH3D = null;
 const chEnvCache = {};
 
 function evalChapterTerrainY(mode, x, z){
-  // Note: Blender (x, y) mapped to Three.js (x, -z) -> y_bl = -z
   const y = -z;
   const r = Math.hypot(x, y);
   if(mode==="ranch"){
@@ -2337,18 +2974,30 @@ function evalChapterTerrainY(mode, x, z){
 }
 
 function chapter3DScreen(){
-  const chBtns = CHAPTERS_3D.map((c,i)=>`<button class="dchip" data-ch3d="${i}" style="pointer-events:auto;cursor:pointer;font-size:12px;padding:5px 9px;background:${i===0?'rgba(54,201,138,.85)':'rgba(8,12,30,.72)'}">${c.emoji} Ch${c.num}</button>`).join("");
+  const chBtns = CHAPTERS_3D.map((c,i)=>`<button class="dchip" data-ch3d="${i}" style="pointer-events:auto;cursor:pointer;font-size:11.5px;padding:5px 8px;background:${i===0?'rgba(54,201,138,.88)':'rgba(8,12,30,.72)'}">${c.emoji} Ch${c.num}</button>`).join("");
   return `<div id="driveroot">
     <div id="ch3dstage" style="width:100%;height:100%;position:relative"></div>
     <div class="dhud" style="flex-direction:column;gap:6px">
-      <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
+      <div style="display:flex;justify-content:space-between;width:100%;align-items:center;flex-wrap:wrap;gap:6px">
         <div class="dstatrow">
-          <span class="dchip" id="ch3dtitle" style="background:rgba(47,143,255,.75)">🏡 Ch 1: Ranch Trail</span>
+          <span class="dchip" id="ch3dtitle" style="background:rgba(47,143,255,.82)">🏡 Ch 1: Ranch Trail</span>
           <span class="dchip">🚩 Gates <b id="ch3dgates">0/6</b></span>
+          <span class="dchip">📦 Crates <b id="ch3dcrates">0/3</b></span>
+          <span class="dchip">🏚️ Barn Find <b id="ch3dbarn">0/1</b></span>
           <span class="dchip">🪙 <b id="ch3dcoins">0</b></span>
-          <span class="dchip" id="ch3dlift" style="pointer-events:auto;cursor:pointer;background:rgba(255,140,26,.75)">⬆️ Lift: ON</span>
         </div>
-        <button class="dchip" id="ch3dexit" style="pointer-events:auto;cursor:pointer">✕</button>
+        <div class="dstatrow">
+          <button class="dchip" id="ch3drigswap" style="pointer-events:auto;cursor:pointer;background:rgba(155,91,255,.82)">🛻 Switch Rig</button>
+          <button class="dchip" id="ch3dexit" style="pointer-events:auto;cursor:pointer">✕</button>
+        </div>
+      </div>
+      <!-- OFF-ROAD OUTLAWS DRIVETRAIN & WINCH BAR -->
+      <div class="dstatrow" id="outlaws_hud">
+        <button class="dchip" id="btn_4wd"   style="pointer-events:auto;cursor:pointer;background:rgba(55,196,106,.88);border-color:#5bff9b">🛞 4WD: ON</button>
+        <button class="dchip" id="btn_low"   style="pointer-events:auto;cursor:pointer;background:rgba(8,12,30,.78)">⚙️ GEAR: HIGH</button>
+        <button class="dchip" id="btn_diff"  style="pointer-events:auto;cursor:pointer;background:rgba(8,12,30,.78)">🔒 DIFF LOCK: OFF</button>
+        <button class="dchip" id="btn_winch" style="pointer-events:auto;cursor:pointer;background:rgba(226,59,59,.85);border-color:#ff8a8a">🪝 WINCH: PULL</button>
+        <button class="dchip" id="ch3dlift"  style="pointer-events:auto;cursor:pointer;background:rgba(255,140,26,.82)">⬆️ LIFT: ON</button>
       </div>
       <div class="dstatrow" id="ch3dbar">${chBtns}</div>
     </div>
@@ -2400,31 +3049,47 @@ function start3DChapterMode(initialIdx){
   sun.shadow.camera.top = 22; sun.shadow.camera.bottom = -22;
   scene.add(sun);
 
-  const envGroup = new THREE.Group();
+  const envGroup  = new THREE.Group();
   const carHolder = new THREE.Group();
   const gateGroup = new THREE.Group();
   scene.add(envGroup); scene.add(carHolder); scene.add(gateGroup);
 
-  // Use the player's current vehicle config (or Trail Crawler 4x4 if they want realistic suspension articulation)
-  const vType = (state.current==="crawler" || CAR_MODELS[state.current]) ? state.current : "crawler";
-  const vCfg = Object.assign({}, cfg(state.current));
+  // 3D Winch Cable Line + Anchor Marker
+  const winchGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0.8,0), new THREE.Vector3(5,1.2,0)]);
+  const winchLine = new THREE.Line(winchGeo, new THREE.LineBasicMaterial({color:0xffd14d, linewidth:3}));
+  winchLine.visible = false;
+  scene.add(winchLine);
+
+  const vType = (state.current==="bouncer" || state.current==="crawler" || CAR_MODELS[state.current]) ? state.current : "crawler";
+  const vCfg = Object.assign({}, cfg(vType));
   if(vCfg.lift===undefined) vCfg.lift = true;
-  placeModel(carHolder, vType, vCfg, gltfCache[CAR_MODELS[vType]] || new THREE.Group());
-  if(!gltfCache[CAR_MODELS[vType]]){
-    loadCarModel(carHolder, vType, vCfg, CAR_MODELS[vType]);
-  }
+
+  const mountActiveRig = (rType)=>{
+    while(carHolder.children.length) carHolder.remove(carHolder.children[0]);
+    const rc = Object.assign({}, cfg(rType));
+    if(CH3D){ CH3D.vType = rType; CH3D.vCfg = rc; }
+    if(gltfCache[CAR_MODELS[rType]]){
+      placeModel(carHolder, rType, rc, gltfCache[CAR_MODELS[rType]]);
+    } else {
+      loadCarModel(carHolder, rType, rc, CAR_MODELS[rType]);
+    }
+  };
+  mountActiveRig(vType);
 
   CH3D = {
-    renderer, scene, camera, envGroup, carHolder, gateGroup, vType, vCfg,
+    renderer, scene, camera, envGroup, carHolder, gateGroup, winchLine, vType, vCfg,
     chIdx: initialIdx || 0,
     x: 0, z: 0, y: 0.2, heading: 0, speed: 0, steer: 0, wheelSpin: 0,
-    pitch: 0, roll: 0, coins: 0, gatesHit: 0,
+    pitch: 0, roll: 0, coins: 0, gatesHit: 0, cratesHit: 0, barnFound: false,
+    fourWD: true, lowGear: false, diffLock: false, winchActive: false,
+    anchorPos: new THREE.Vector3(6.5, 1.2, 3.8),
     input: {gas:false, rev:false, left:false, right:false},
-    checkpoints: [],
+    checkpoints: [], crates: [], barnMesh: null,
     raf: null, last: 0
   };
 
-  const buildGates = (mode)=>{
+  const buildGatesAndSecrets = (ch)=>{
+    const mode = ch.mode;
     while(gateGroup.children.length) gateGroup.remove(gateGroup.children[0]);
     const pts = [[8,0],[13,-7],[2,-13],[-12,-7],[-11,8],[2,11]];
     CH3D.checkpoints = pts.map((p,idx)=>{
@@ -2437,15 +3102,57 @@ function start3DChapterMode(initialIdx){
       gateGroup.add(ring);
       return {x:p[0], z:p[1], y:gy, mesh:ring, taken:false, idx};
     });
-    CH3D.gatesHit = 0;
-    const gEl = $("#ch3dgates"); if(gEl) gEl.textContent = "0/" + CH3D.checkpoints.length;
+
+    // 3 Hidden Off-Road Money Crates per Chapter
+    const cratePts = [[6, -8], [-7, 6], [11, 7]];
+    CH3D.crates = cratePts.map(p=>{
+      const gy = evalChapterTerrainY(mode, p[0], p[1]);
+      const box = new THREE.Mesh(
+        new THREE.BoxGeometry(0.95, 0.95, 0.95),
+        new THREE.MeshStandardMaterial({color:0xd9822b, emissive:0x552800, roughness:0.6})
+      );
+      box.position.set(p[0], gy + 0.5, p[1]);
+      gateGroup.add(box);
+      return {x:p[0], z:p[1], y:gy, mesh:box, taken:false};
+    });
+
+    // 1 Rusty Abandoned Barn Find Project Chassis per Chapter
+    const bp = ch.barn || [-9.5, 8.0];
+    const bgy = evalChapterTerrainY(mode, bp[0], bp[1]);
+    const barnGrp = new THREE.Group();
+    const rustMat = new THREE.MeshStandardMaterial({color:0x8c3b20, roughness:0.85, metalness:0.35});
+    const rBody = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.85, 1.35), rustMat);
+    rBody.position.y = 0.55; barnGrp.add(rBody);
+    const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.6, 10),
+      new THREE.MeshBasicMaterial({color:0x5bff9b, transparent:true, opacity:0.65}));
+    beacon.position.y = 1.4; barnGrp.add(beacon);
+    barnGrp.position.set(bp[0], bgy, bp[1]);
+    gateGroup.add(barnGrp);
+    CH3D.barnMesh = {x:bp[0], z:bp[1], mesh:barnGrp, taken:false};
+
+    // Winch Anchor Post
+    const ap = ch.anchor || [6.5, 1.2, 3.8];
+    const agy = evalChapterTerrainY(mode, ap[0], ap[2]);
+    CH3D.anchorPos.set(ap[0], agy + 0.9, ap[2]);
+    const ancMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.18, 0.18, 1.8, 12),
+      new THREE.MeshStandardMaterial({color:0xe23b3b, emissive:0x660000, roughness:0.4})
+    );
+    ancMesh.position.set(ap[0], agy + 0.9, ap[2]);
+    gateGroup.add(ancMesh);
+
+    CH3D.gatesHit = 0; CH3D.cratesHit = 0; CH3D.barnFound = false;
+    $("#ch3dgates").textContent = "0/6";
+    $("#ch3dcrates").textContent = "0/3";
+    $("#ch3dbarn").textContent = "0/1";
   };
 
   const loadChapterRoom = (idx)=>{
     if(!CH3D) return;
     const ch = CHAPTERS_3D[idx] || CHAPTERS_3D[0];
     CH3D.chIdx = idx;
-    CH3D.x = 0; CH3D.z = 0; CH3D.heading = 0; CH3D.speed = 0;
+    CH3D.x = 0; CH3D.z = 0; CH3D.heading = 0; CH3D.speed = 0; CH3D.winchActive = false;
+    winchLine.visible = false;
     stage.style.background = `linear-gradient(180deg, ${ch.skyTop} 0%, ${ch.skyBot} 100%)`;
     renderer.setClearColor(new THREE.Color(ch.skyTop), 0.0);
     const tEl = $("#ch3dtitle"); if(tEl) tEl.textContent = `${ch.emoji} ${ch.name}`;
@@ -2453,7 +3160,7 @@ function start3DChapterMode(initialIdx){
       b.style.background = (+b.dataset.ch3d===idx) ? "rgba(54,201,138,.88)" : "rgba(8,12,30,.72)";
     });
     while(envGroup.children.length) envGroup.remove(envGroup.children[0]);
-    buildGates(ch.mode);
+    buildGatesAndSecrets(ch);
 
     const mount = (sc)=>{
       const cl = sc.clone(true);
@@ -2474,13 +3181,51 @@ function start3DChapterMode(initialIdx){
     b.onclick = ()=>{ SFX.tap(); loadChapterRoom(+b.dataset.ch3d); };
   });
 
+  // Wire Off-Road Outlaws Drivetrain Controls
+  const b4 = $("#btn_4wd");
+  if(b4) b4.onclick = ()=>{
+    CH3D.fourWD = !CH3D.fourWD; SFX.tap();
+    b4.textContent = "🛞 " + (CH3D.fourWD ? "4WD: ON" : "2WD: RWD");
+    b4.style.background = CH3D.fourWD ? "rgba(55,196,106,.88)" : "rgba(8,12,30,.78)";
+  };
+  const bLow = $("#btn_low");
+  if(bLow) bLow.onclick = ()=>{
+    CH3D.lowGear = !CH3D.lowGear; SFX.tap();
+    bLow.textContent = "⚙️ GEAR: " + (CH3D.lowGear ? "LOW CRAWL" : "HIGH");
+    bLow.style.background = CH3D.lowGear ? "rgba(255,140,26,.88)" : "rgba(8,12,30,.78)";
+    showMsg(CH3D.lowGear ? "⚙️ LOW RANGE CRAWL ENGAGED (2.4x Torque)" : "⚙️ HIGH RANGE ENGAGED", 900);
+  };
+  const bDiff = $("#btn_diff");
+  if(bDiff) bDiff.onclick = ()=>{
+    CH3D.diffLock = !CH3D.diffLock; SFX.tap();
+    bDiff.textContent = "🔒 DIFF LOCK: " + (CH3D.diffLock ? "LOCKED" : "OFF");
+    bDiff.style.background = CH3D.diffLock ? "rgba(47,143,255,.88)" : "rgba(8,12,30,.78)";
+    showMsg(CH3D.diffLock ? "🔒 FRONT & REAR AXLES LOCKED" : "🔓 DIFFS OPEN", 800);
+  };
+  const bWinch = $("#btn_winch");
+  if(bWinch) bWinch.onclick = ()=>{
+    CH3D.winchActive = !CH3D.winchActive; SFX.tap();
+    winchLine.visible = CH3D.winchActive;
+    bWinch.textContent = CH3D.winchActive ? "🪝 WINCH: PULLING!" : "🪝 WINCH: PULL";
+    bWinch.style.background = CH3D.winchActive ? "rgba(55,196,106,.92)" : "rgba(226,59,59,.85)";
+    if(CH3D.winchActive) showMsg("🪝 WINCH HOOKED TO TRAIL ANCHOR!", 900);
+  };
+
+  const bSwap = $("#ch3drigswap");
+  if(bSwap) bSwap.onclick = ()=>{
+    const nextRig = (CH3D.vType==="crawler") ? "bouncer" : "crawler";
+    state.current = nextRig; save(); SFX.buy();
+    mountActiveRig(nextRig);
+    showMsg((nextRig==="bouncer"?"🦂 Viper Rock Bouncer":"🛻 Trail Crawler 4x4")+" Deployed!", 1000);
+  };
+
   const liftBtn = $("#ch3dlift");
   if(liftBtn){
-    liftBtn.textContent = "⬆️ Lift: " + (vCfg.lift?"ON":"OFF");
+    liftBtn.textContent = "⬆️ LIFT: " + (vCfg.lift?"ON":"OFF");
     liftBtn.onclick = ()=>{
-      vCfg.lift = !vCfg.lift;
-      cfg(state.current).lift = vCfg.lift; save();
-      liftBtn.textContent = "⬆️ Lift: " + (vCfg.lift?"ON":"OFF");
+      CH3D.vCfg.lift = !CH3D.vCfg.lift;
+      cfg(CH3D.vType).lift = CH3D.vCfg.lift; save();
+      liftBtn.textContent = "⬆️ LIFT: " + (CH3D.vCfg.lift?"ON":"OFF");
       SFX.tap();
     };
   }
@@ -2533,17 +3278,45 @@ function step3DChapterFrame(now){
 
   const ch = CHAPTERS_3D[CH3D.chIdx] || CHAPTERS_3D[0];
   const inp = CH3D.input;
-  const st = carStats(state.current, CH3D.vCfg);
-  const maxSpd = 9.5 + st.speed * 0.045;
-  const accel  = 11.0 + st.power * 0.06;
+  const st = carStats(CH3D.vType, CH3D.vCfg);
+
+  // Off-Road Outlaws Drivetrain Physics Modifiers (4WD, Low Gear, Diff Lock, Winch)
+  const lowMultSpd = CH3D.lowGear ? 0.52 : 1.0;
+  const lowMultAcc = CH3D.lowGear ? 1.85 : 1.0;
+  const fourMult   = CH3D.fourWD  ? 1.25 : 0.85;
+  const diffMult   = CH3D.diffLock? 1.18 : 1.0;
+
+  const maxSpd = (9.5 + st.speed * 0.045) * lowMultSpd;
+  const accel  = (11.0 + st.power * 0.06) * lowMultAcc * fourMult * diffMult;
 
   if(inp.gas) CH3D.speed += accel * dt;
   else if(inp.rev) CH3D.speed -= accel * 0.85 * dt;
   else CH3D.speed *= (1 - 2.2 * dt);
 
+  // Winch Pull Force toward Chapter Anchor Point
+  if(CH3D.winchActive){
+    const ax = CH3D.anchorPos.x - CH3D.x, az = CH3D.anchorPos.z - CH3D.z;
+    const adist = Math.hypot(ax, az);
+    if(adist > 1.8){
+      CH3D.x += (ax / adist) * 5.2 * dt;
+      CH3D.z += (az / adist) * 5.2 * dt;
+      CH3D.heading = Math.atan2(-az, ax);
+    } else {
+      CH3D.winchActive = false;
+      CH3D.winchLine.visible = false;
+      const bw = $("#btn_winch"); if(bw){ bw.textContent="🪝 WINCH: PULL"; bw.style.background="rgba(226,59,59,.85)"; }
+      showMsg("✅ WINCH RECOVERY COMPLETE!", 900);
+    }
+    const posArr = CH3D.winchLine.geometry.attributes.position;
+    posArr.setXYZ(0, CH3D.x + Math.cos(CH3D.heading)*2.1, CH3D.y + 0.85, CH3D.z - Math.sin(CH3D.heading)*2.1);
+    posArr.setXYZ(1, CH3D.anchorPos.x, CH3D.anchorPos.y, CH3D.anchorPos.z);
+    posArr.needsUpdate = true;
+  }
+
   CH3D.speed = Math.max(-maxSpd*0.55, Math.min(maxSpd, CH3D.speed));
 
-  const targetSteer = (inp.left ? 0.52 : 0) + (inp.right ? -0.52 : 0);
+  const steerLimit = CH3D.diffLock ? 0.40 : 0.54;
+  const targetSteer = (inp.left ? steerLimit : 0) + (inp.right ? -steerLimit : 0);
   CH3D.steer += (targetSteer - CH3D.steer) * Math.min(1, dt * 10);
 
   if(Math.abs(CH3D.speed) > 0.15){
@@ -2552,13 +3325,11 @@ function step3DChapterFrame(now){
 
   CH3D.x += Math.cos(CH3D.heading) * CH3D.speed * dt;
   CH3D.z -= Math.sin(CH3D.heading) * CH3D.speed * dt;
-  // Keep inside 40m x 40m course bounds
   CH3D.x = Math.max(-19.5, Math.min(19.5, CH3D.x));
   CH3D.z = Math.max(-19.5, Math.min(19.5, CH3D.z));
 
   CH3D.wheelSpin = (CH3D.wheelSpin + CH3D.speed * 2.1 * dt) % (Math.PI * 2);
 
-  // Sample terrain height at all 4 wheel hubs in world space for authentic 4x4 articulation
   const chCos = Math.cos(CH3D.heading), chSin = Math.sin(CH3D.heading);
   const wWorld = (lx, lz)=>[
     CH3D.x + lx*chCos + lz*chSin,
@@ -2585,31 +3356,27 @@ function step3DChapterFrame(now){
   CH3D.carHolder.rotation.z = CH3D.pitch;
   CH3D.carHolder.rotation.x = CH3D.roll;
 
-  // Articulate individual suspension nodes on rigged truck
   const rig = CH3D.carHolder.userData && CH3D.carHolder.userData.rig;
   if(rig){
-    const fTrav = Math.max(-0.14, Math.min(0.14, ((hFL+hFR)*0.5 - avgH)*1.4));
-    const rTrav = Math.max(-0.14, Math.min(0.14, ((hRL+hRR)*0.5 - avgH)*1.4));
-    const axleTwist = Math.max(-0.24, Math.min(0.24, ((hFL - hFR) - (hRL - hRR))*0.65 + Math.sin(now*0.006)*Math.abs(CH3D.speed)*0.012));
+    const flexFactor = (CH3D.vCfg.suspType==="solid") ? 1.55 : 1.15;
+    const fTrav = Math.max(-0.16, Math.min(0.16, ((hFL+hFR)*0.5 - avgH)*flexFactor));
+    const rTrav = Math.max(-0.16, Math.min(0.16, ((hRL+hRR)*0.5 - avgH)*flexFactor));
+    const axleTwist = Math.max(-0.26, Math.min(0.26, ((hFL - hFR) - (hRL - hRR))*0.75 + Math.sin(now*0.006)*Math.abs(CH3D.speed)*0.012));
     applyRiggedPose(rig, CH3D.steer, CH3D.wheelSpin, fTrav, rTrav, axleTwist, !!CH3D.vCfg.lift);
   }
 
-  // Checkpoints & rewards
+  // Checkpoints
   CH3D.checkpoints.forEach(cp=>{
     if(!cp.taken){
       cp.mesh.rotation.y += dt * 1.8;
-      const d = Math.hypot(CH3D.x - cp.x, CH3D.z - cp.z);
-      if(d < 2.3){
-        cp.taken = true;
-        cp.mesh.visible = false;
-        CH3D.gatesHit++;
-        CH3D.coins += 15;
+      if(Math.hypot(CH3D.x - cp.x, CH3D.z - cp.z) < 2.35){
+        cp.taken = true; cp.mesh.visible = false;
+        CH3D.gatesHit++; CH3D.coins += 15;
         addCoins(15); addXP(10);
-        const gEl = $("#ch3dgates"); if(gEl) gEl.textContent = CH3D.gatesHit + "/" + CH3D.checkpoints.length;
-        const cEl = $("#ch3dcoins"); if(cEl) cEl.textContent = CH3D.coins;
+        $("#ch3dgates").textContent = CH3D.gatesHit + "/" + CH3D.checkpoints.length;
+        $("#ch3dcoins").textContent = CH3D.coins;
         if(CH3D.gatesHit >= CH3D.checkpoints.length){
-          SFX.level();
-          addCoins(50); addXP(35);
+          SFX.level(); addCoins(50); addXP(35);
           const nextIdx = (CH3D.chIdx + 1) % CHAPTERS_3D.length;
           showMsg("🏆 CHAPTER CLEAR! +🪙50 → Next Chapter!", 1600);
           setTimeout(()=>{ if(CH3D) document.querySelector(`[data-ch3d="${nextIdx}"]`)?.click(); }, 1500);
@@ -2620,7 +3387,34 @@ function step3DChapterFrame(now){
     }
   });
 
-  // Smooth chase camera behind truck
+  // Hidden Money Crates
+  CH3D.crates.forEach(cr=>{
+    if(!cr.taken){
+      cr.mesh.rotation.y += dt * 1.2;
+      if(Math.hypot(CH3D.x - cr.x, CH3D.z - cr.z) < 2.1){
+        cr.taken = true; cr.mesh.visible = false;
+        CH3D.cratesHit++; CH3D.coins += 30;
+        addCoins(30); addXP(20); SFX.buy();
+        $("#ch3dcrates").textContent = CH3D.cratesHit + "/3";
+        $("#ch3dcoins").textContent = CH3D.coins;
+        showMsg("📦 MONEY CRATE SMASHED! +🪙30", 950);
+      }
+    }
+  });
+
+  // Hidden Barn Find Discovery
+  if(CH3D.barnMesh && !CH3D.barnMesh.taken){
+    if(Math.hypot(CH3D.x - CH3D.barnMesh.x, CH3D.z - CH3D.barnMesh.z) < 2.8){
+      CH3D.barnMesh.taken = true;
+      CH3D.barnMesh.mesh.visible = false;
+      CH3D.coins += 75;
+      addCoins(75); addXP(45); SFX.level(); confettiBurst();
+      $("#ch3dbarn").textContent = "1/1";
+      $("#ch3dcoins").textContent = CH3D.coins;
+      showMsg("🏚️ BARN FIND DISCOVERED! +🪙75 · +⭐45 XP!", 1600);
+    }
+  }
+
   const camDist = 7.4, camHeight = 3.2;
   const tx = CH3D.x - Math.cos(CH3D.heading) * camDist;
   const tz = CH3D.z + Math.sin(CH3D.heading) * camDist;
@@ -2632,7 +3426,6 @@ function step3DChapterFrame(now){
 
   CH3D.renderer.render(CH3D.scene, CH3D.camera);
 }
-
 
 let _bkd=null,_bku=null;
 function bindBattleInput(){
