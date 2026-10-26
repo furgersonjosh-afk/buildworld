@@ -228,6 +228,7 @@ const VEHICLES = {
   supercar:{name:"Apex GT",    emoji:"🏎️", level:2, cost:240, weight:88,  grip:64, parts:["spoiler","lights"]},
   muscle:  {name:"Brawler V8", emoji:"🚙", level:3, cost:300, weight:124, grip:58, parts:["spoiler","lights"]},
   police:  {name:"Police Cruiser", emoji:"🚓", level:3, cost:350, weight:112, grip:62, parts:["spoiler","lights"]},
+  crawler: {name:"Trail Crawler 4x4", emoji:"🛻", level:1, cost:0,   weight:175, grip:78, parts:["lights","roofrack","flatbed","crane","tank"]},
   truck:   {name:"Pickup HD",  emoji:"🛻", level:2, cost:160, weight:155, grip:54, parts:["flatbed","tank","crane","lights"]},
   armored: {name:"Armored Pickup", emoji:"🚙", level:3, cost:280, weight:180, grip:60, parts:["lights"]},
   dump:    {name:"Dump Truck", emoji:"🚚", level:3, cost:320, weight:230, grip:56, parts:["lights"]},
@@ -308,7 +309,7 @@ const DEFAULT_STATE = {
   coins:80,
   xp:0,
   level:1,
-  owned:["car"],             // vehicle types owned
+  owned:["car","crawler"],   // vehicle types owned
   current:"car",             // vehicle in the garage
   configs:{                  // per-vehicle customization
     car:{paint:"#e23b3b", wheel:"#c9ccd6", parts:[], rim:"sport", lift:false, tint:false, engine:"stock"}
@@ -330,7 +331,11 @@ let state = load();
 function load(){
   try{
     const raw = localStorage.getItem("buildworld");
-    if(raw){ return Object.assign(structuredClone(DEFAULT_STATE), JSON.parse(raw)); }
+    if(raw){
+      const st = Object.assign(structuredClone(DEFAULT_STATE), JSON.parse(raw));
+      if(Array.isArray(st.owned) && !st.owned.includes("crawler")) st.owned.push("crawler");
+      return st;
+    }
   }catch(e){}
   return structuredClone(DEFAULT_STATE);
 }
@@ -340,7 +345,7 @@ function cfg(type){
   if(!state.configs[type]) state.configs[type] = {paint:"#2f8fff", wheel:"#c9ccd6", parts:[]};
   const c = state.configs[type];
   if(!c.parts) c.parts=[];
-  if(!c.rim) c.rim=(type==="monster"||type==="tractor"||type==="dirtbike"||type==="atv")?"offroad":"sport";
+  if(!c.rim) c.rim=(type==="crawler"||type==="monster"||type==="tractor"||type==="dirtbike"||type==="atv")?"offroad":"sport";
   if(c.lift===undefined) c.lift=false;
   if(c.tint===undefined) c.tint=false;
   if(!c.wheel) c.wheel="#c9ccd6";
@@ -551,7 +556,7 @@ function vehicleSVG(type, c){
     if(has("roofrack")) extras+=`<g transform="translate(0,${by})"><rect x="165" y="64" width="80" height="6" rx="3" fill="#3a3a3a"/></g>`;
     if(has("lights")) extras+=`<g transform="translate(0,${by})"><rect x="158" y="55" width="66" height="9" rx="4" fill="#ffe27a" stroke="#caa12a"/></g>`;
   }
-  else if(type==="truck"){
+  else if(type==="truck" || type==="crawler"){
     const wr=26*tscale;
     wheels=wheelSVG(106,ground,wr,rim,wheel)+wheelSVG(272,ground,wr,rim,wheel);
     body=`<g transform="translate(0,${by})">
@@ -675,6 +680,7 @@ function carSpec3D(type){
     case "muscle":  return {len:4.1,wid:1.80,bodyH:0.56,cabinH:0.46,cabinLen:1.55,cabinX:-0.15,wheelR:0.48,axleF:1.32,axleR:-1.3};
     case "police":  return {len:4.2,wid:1.84,bodyH:0.54,cabinH:0.46,cabinLen:1.60,cabinX:-0.10,wheelR:0.47,axleF:1.34,axleR:-1.32};
     case "fire":    return {len:4.8,wid:2.05,bodyH:0.95,cabinH:0.78,cabinLen:1.25,cabinX:1.35,wheelR:0.52,axleF:1.60,axleR:-1.45,bed:true};
+    case "crawler": return {len:4.46,wid:2.34,bodyH:0.78,cabinH:0.64,cabinLen:1.36,cabinX:0.05,wheelR:0.48,axleF:1.42,axleR:-1.42,bed:true};
     case "truck":   return {len:4.2,wid:1.92,bodyH:0.70,cabinH:0.62,cabinLen:1.30,cabinX:0.55,wheelR:0.52,axleF:1.36,axleR:-1.34,bed:true};
     case "monster": return {len:4.3,wid:2.05,bodyH:0.80,cabinH:0.66,cabinLen:1.35,cabinX:0.30,wheelR:0.92,axleF:1.45,axleR:-1.45,bed:true};
     case "armored": return {len:4.3,wid:1.95,bodyH:0.75,cabinH:0.64,cabinLen:1.30,cabinX:0.55,wheelR:0.54,axleF:1.36,axleR:-1.34,bed:true};
@@ -780,11 +786,18 @@ const CAR_PROFILE = {
 //   supercar: "assets/models/apex-gt.glb"
 // (get one free from Meshy.ai, or buy from Sketchfab — see docs/PROJECT-MAP.md)
 const CAR_MODELS = {
-  truck:   "assets/models/pickup-quaternius.glb", // CC0 Quaternius pickup
-  armored: "assets/models/pickup-armored.glb",    // CC0 Quaternius armored pickup
-  dump:    "assets/models/dump-truck.glb",        // CC-BY "jeremy"
-  bigrig:  "assets/models/truck-hauler.glb"       // CC-BY "Poly by Google"
+  crawler: "assets/models/jax_test_crawler_01.glb", // Jax's Build World Rigged 4x4 Crawler (GLB + JSON)
+  truck:   "assets/models/pickup-quaternius.glb",   // CC0 Quaternius pickup
+  armored: "assets/models/pickup-armored.glb",      // CC0 Quaternius armored pickup
+  dump:    "assets/models/dump-truck.glb",          // CC-BY "jeremy"
+  bigrig:  "assets/models/truck-hauler.glb"         // CC-BY "Poly by Google"
 };
+
+const CAR_SPECS_JSON = {
+  crawler: "assets/models/jax_test_crawler_01.json"
+};
+const specJsonCache = {};
+fetch("assets/models/jax_test_crawler_01.json").then(r=>r.ok?r.json():null).then(d=>{ if(d) specJsonCache.crawler=d; }).catch(()=>{});
 
 function showroomBuildCar(type,c){
   const sr=SR; if(!sr) return;
@@ -808,31 +821,134 @@ function applyFinish(mat, finish){
 // Load a real .glb model (cached after first load so paint changes are instant),
 // fit to size, sit on ground, and REPAINT the body to the chosen color.
 const gltfCache={};
+function attachRiggedAddons(bodyNode, c){
+  if(!bodyNode || !c || !Array.isArray(c.parts)) return;
+  const has = p => c.parts.includes(p);
+  const metalMat = new THREE.MeshStandardMaterial({color:0x2a2e38, metalness:0.75, roughness:0.35});
+  if(has("roofrack")){
+    const rack = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.08, 1.48), metalMat);
+    rack.position.set(-0.05, 1.22, 0); bodyNode.add(rack);
+  }
+  if(has("flatbed")){
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(1.38, 0.12, 1.68), new THREE.MeshStandardMaterial({color:0x6b4728, roughness:0.8}));
+    bed.position.set(-1.42, 0.18, 0); bodyNode.add(bed);
+  }
+  if(has("tank")){
+    const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 1.25, 20), new THREE.MeshStandardMaterial({color:0xd3dae8, metalness:0.85, roughness:0.22}));
+    tank.rotation.z = Math.PI/2; tank.position.set(-1.42, 0.48, 0); bodyNode.add(tank);
+  }
+  if(has("crane")){
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.95, 0.14), metalMat);
+    post.position.set(-1.05, 0.65, 0); bodyNode.add(post);
+    const boom = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.12, 0.12), new THREE.MeshStandardMaterial({color:0xffae33, metalness:0.4, roughness:0.35}));
+    boom.position.set(-1.50, 1.12, 0); boom.rotation.z = -0.18; bodyNode.add(boom);
+  }
+}
+
+function applyRiggedPose(rig, steerRad, wheelSpin, fTrav, rTrav, rollRad, lift){
+  if(!rig || !rig.nodes) return;
+  const N = rig.nodes, R = rig.restPos;
+  const liftOff = lift ? 0.16 : 0.0;
+  const wScale = lift ? 1.10 : 1.0;
+  const wDelta = (wScale - 1.0) * 0.48;
+  ["Body_Shell","Chassis_Frame"].forEach(k=>{ if(N[k]) N[k].position.y = R[k].y + liftOff + wDelta; });
+  if(N.Axle_Front){ N.Axle_Front.position.y = R.Axle_Front.y + fTrav + wDelta; N.Axle_Front.rotation.x = rollRad; }
+  if(N.Axle_Rear){  N.Axle_Rear.position.y  = R.Axle_Rear.y  + rTrav + wDelta; N.Axle_Rear.rotation.x  = -rollRad; }
+  [
+    {k:"Wheel_FL", t:fTrav, zs:-1, rs:1,  st:true},
+    {k:"Wheel_FR", t:fTrav, zs:1,  rs:1,  st:true},
+    {k:"Wheel_RL", t:rTrav, zs:-1, rs:-1, st:false},
+    {k:"Wheel_RR", t:rTrav, zs:1,  rs:-1, st:false}
+  ].forEach(w=>{
+    const o = N[w.k]; if(!o) return;
+    const rDz = Math.sin(rollRad * w.rs) * (0.98 * w.zs);
+    o.position.y = R[w.k].y + w.t + rDz + wDelta;
+    o.scale.setScalar(wScale);
+    o.rotation.order = "YXZ";
+    o.rotation.y = w.st ? steerRad : 0;
+    o.rotation.z = -wheelSpin;
+  });
+  [
+    {tag:"FL", t:fTrav, zs:-1, rs:1},
+    {tag:"FR", t:fTrav, zs:1,  rs:1},
+    {tag:"RL", t:rTrav, zs:-1, rs:-1},
+    {tag:"RR", t:rTrav, zs:1,  rs:-1}
+  ].forEach(c=>{
+    const rDy = Math.sin(rollRad * c.rs) * (0.56 * c.zs);
+    const topY = 1.02 + liftOff + wDelta, botY = 0.52 + c.t + rDy + wDelta;
+    const sy = Math.max(0.18, topY - botY) / 0.50;
+    ["Shock_"+c.tag, "Spring_"+c.tag].forEach(sn=>{
+      if(N[sn]){ N[sn].position.y = R[sn].y + liftOff + wDelta; N[sn].scale.y = sy; }
+    });
+  });
+  ["FL","FR"].forEach((tag,i)=>{
+    const arm = N["ControlArm_"+tag]; if(!arm) return;
+    arm.position.y = R["ControlArm_"+tag].y + liftOff + wDelta;
+    const dy = fTrav + Math.sin(rollRad)*(0.54*(i===0?-1:1)) - liftOff;
+    arm.rotation.z = Math.atan2(dy, 0.97);
+  });
+  ["RL","RR"].forEach((tag,i)=>{
+    const arm = N["TrailingArm_"+tag]; if(!arm) return;
+    arm.position.y = R["TrailingArm_"+tag].y + liftOff + wDelta;
+    const dy = rTrav + Math.sin(-rollRad)*(0.54*(i===0?-1:1)) - liftOff;
+    arm.rotation.z = -Math.atan2(dy, 1.07);
+  });
+}
+
 function placeModel(g,type,c,scene){
   const s=carSpec3D(type);
   const m=scene.clone(true);
   const paintCol=new THREE.Color(c.paint||"#e23b3b");
-  const tintCol=new THREE.Color(c.tint?0x0a0e14:0x2a3b4d);
-  m.traverse(o=>{ if(o.isMesh){
-    o.castShadow=true; o.userData.keepGeo=true;               // geometry is shared with cache — don't dispose it
-    const arr=Array.isArray(o.material)?o.material:[o.material];
-    const cloned=arr.map(mat=>{
-      const nm=mat.clone();
-      const col=nm.color, lum=col?(0.299*col.r+0.587*col.g+0.114*col.b):1;
-      const dark=lum<0.11;                                     // tires / dark trim -> leave black
-      const glassy=nm.transparent && nm.opacity<0.6;           // windows -> tint instead
-      if(glassy) nm.color=tintCol;
-      else if(!dark){ nm.color=paintCol; applyFinish(nm, c.finish); }  // body & panels -> chosen paint + finish
-      return nm;
-    });
-    o.material=Array.isArray(o.material)?cloned:cloned[0];
-  }});
+  const wheelCol=new THREE.Color(c.wheel||"#c9ccd6");
+  const tintCol=new THREE.Color(c.tint?0x06090e:0x1b2b3a);
+  const nodes={}, restPos={};
+  let isRiggedCrawler = false;
+
+  m.traverse(o=>{
+    if(o.name){ nodes[o.name]=o; restPos[o.name]=o.position.clone(); }
+    if(o.name==="Wheel_FL" || o.name==="Body_Shell") isRiggedCrawler = true;
+    if(o.isMesh){
+      o.castShadow=true; o.receiveShadow=true; o.userData.keepGeo=true;
+      const arr=Array.isArray(o.material)?o.material:[o.material];
+      const cloned=arr.map(mat=>{
+        const nm=mat.clone();
+        const mname = nm.name || "";
+        if(mname==="Truck_Paint_Primary"){
+          nm.color.copy(paintCol); applyFinish(nm, c.finish);
+        } else if(mname==="Rim_Alloy"){
+          nm.color.copy(wheelCol); nm.metalness=0.88; nm.roughness=0.22;
+        } else if(mname==="Beadlock_Ring"){
+          nm.color.copy(c.rim==="offroad" ? new THREE.Color("#f2ad1a") : wheelCol);
+        } else if(mname==="Window_Glass"){
+          nm.color.copy(tintCol); nm.opacity=c.tint?0.93:0.76; nm.transparent=true;
+        } else if(mname==="Headlight_Emissive"){
+          const lOn = (c.parts||[]).includes("lights") || type==="crawler";
+          nm.emissiveIntensity = lOn ? 4.5 : 1.2;
+        } else if(!isRiggedCrawler){
+          const col=nm.color, lum=col?(0.299*col.r+0.587*col.g+0.114*col.b):1;
+          const dark=lum<0.11;
+          const glassy=nm.transparent && nm.opacity<0.6;
+          if(glassy) nm.color=tintCol;
+          else if(!dark){ nm.color=paintCol; applyFinish(nm, c.finish); }
+        }
+        return nm;
+      });
+      o.material=Array.isArray(o.material)?cloned:cloned[0];
+    }
+  });
+
   let box=new THREE.Box3().setFromObject(m), size=box.getSize(new THREE.Vector3());
   const scale=(s.len)/(Math.max(size.x,size.z)||1);
   m.scale.setScalar(scale);
   box=new THREE.Box3().setFromObject(m);
   const ctr=box.getCenter(new THREE.Vector3());
   m.position.x-=ctr.x; m.position.z-=ctr.z; m.position.y-=box.min.y;
+
+  if(isRiggedCrawler){
+    attachRiggedAddons(nodes["Body_Shell"], c);
+    g.userData.rig = { nodes, restPos, c };
+    applyRiggedPose(g.userData.rig, 0.25, 0, 0, 0, 0, !!c.lift);
+  }
   g.add(m);
 }
 function loadCarModel(g,type,c,url){
@@ -989,6 +1105,15 @@ function showroomResize(){
 function showroomLoop(){
   const sr=SR; if(!sr) return;
   sr.raf=requestAnimationFrame(showroomLoop);
+  if(sr.carGroup && sr.carGroup.userData && sr.carGroup.userData.rig){
+    const t = performance.now()*0.0015;
+    const rig = sr.carGroup.userData.rig;
+    const steer = Math.sin(t*0.9)*0.32;
+    const roll  = Math.sin(t*1.2)*0.11;
+    const fTrav = Math.cos(t*1.5)*0.035;
+    const rTrav = -Math.cos(t*1.5)*0.035;
+    applyRiggedPose(rig, steer, t*1.8, fTrav, rTrav, roll, !!(rig.c && rig.c.lift));
+  }
   sr.controls.update();
   sr.renderer.render(sr.scene,sr.camera);
 }
@@ -1020,7 +1145,7 @@ let palSelected = null;        // currently selected build palette item
 let jobCooldowns = {};         // id -> timestamp when usable again
 
 function setScreen(name){
-  if(activeScreen==="drive" && name!=="drive"){ stopDrive(); stopBattle(); if(MP.active){ mpReset(); toast("Left the race"); } }
+  if(activeScreen==="drive" && name!=="drive"){ stopDrive(); stopBattle(); stop3DChapterMode(); if(MP.active){ mpReset(); toast("Left the race"); } }
   if(activeScreen==="garage" && name!=="garage") showroomUnmount();
   activeScreen = name;
   document.querySelectorAll(".navb").forEach(b=>b.classList.toggle("active", b.dataset.screen===name));
@@ -1106,7 +1231,10 @@ function garageScreen(){
       ${bar("💨 Top Speed", st.speed,140,"#2f8fff")}
       ${bar("🛞 Grip", st.grip,100,"#37c46a")}
       ${bar("✨ Style", st.style,100,"#9b5bff")}
-      <button class="btn gold" id="testdrive" style="margin-top:10px">🏁 Test Drive your build</button>
+      <div class="row" style="margin-top:10px;gap:8px">
+        <button class="btn gold" id="testdrive" style="flex:1">🏁 2D Stunt Drive</button>
+        <button class="btn green" id="testdrive3d" style="flex:1">🏔️ 3D Off-Road Chapters</button>
+      </div>
     </div>
     <div class="card">
       <b>① Body / Chassis</b><div class="sub">What you're building on. 🔒 unlocks by leveling up.</div>
@@ -1156,6 +1284,7 @@ function wireGarage(){
   document.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{ const k=b.dataset.toggle, c=cfg(state.current); c[k]=!c[k]; save(); render(); });
   document.querySelectorAll("[data-part]").forEach(b=>b.onclick=()=>togglePart(b.dataset.part));
   const td=$("#testdrive"); if(td) td.onclick=()=>setScreen("drive");
+  const td3=$("#testdrive3d"); if(td3) td3.onclick=()=>{ setScreen("drive"); setTimeout(()=>start3DChapterMode(), 60); };
   const pp=$("#paintpick"); if(pp) pp.onchange=()=>{ cfg(state.current).paint=pp.value; SFX.tap(); save(); render(); };
   const pr=$("#paintrand"); if(pr) pr.onclick=()=>{
     const h="#"+Math.floor(Math.random()*0xffffff).toString(16).padStart(6,"0");
@@ -1614,6 +1743,7 @@ function carDims(type){
     case "muscle":  return {bw:84, bh:24, fr:16, rr:16, dx:28};
     case "police":  return {bw:86, bh:22, fr:16, rr:16, dx:29};
     case "fire":    return {bw:106,bh:34, fr:17, rr:17, dx:38};
+    case "crawler": return {bw:88, bh:32, fr:21, rr:21, dx:30};
     case "truck":   return {bw:84, bh:30, fr:16, rr:16, dx:28};
     case "monster": return {bw:80, bh:30, fr:26, rr:26, dx:30};
     case "tractor": return {bw:58, bh:30, fr:12, rr:24, dx:24};
@@ -1654,7 +1784,9 @@ function driveScreen(){
       <div id="trkname" style="color:#ffd14d;font-weight:800;font-size:13px">Off-Road</div>
       <div style="font-weight:900;font-size:18px;margin-top:8px">Hold ▶ to drive!</div>
       <div style="color:#dbeaff;font-size:12px;max-width:270px">Race tracks are 3 laps to the finish! Hit ramps &amp; flip (▶ back, ◀ forward), grab coins, land on your wheels.</div>
-      <button class="btn sm" id="battlebtn" style="margin-top:12px;background:linear-gradient(180deg,#ff8a5a,#e0563a)">⚔️ 2-Player Bump Battle</button>
+      <button class="btn sm" id="chapters3dbtn" style="margin-top:10px;background:linear-gradient(180deg,#36c98a,#1f9e69);font-size:14px;padding:10px 16px">🏔️ 3D Off-Road Outlaws (6 Chapters)</button>
+      <div style="color:#b8ffe0;font-size:11px;max-width:270px">Drive your 3D rigged truck freely through all 6 3D Chapter courses with live suspension flex!</div>
+      <button class="btn sm" id="battlebtn" style="margin-top:8px;background:linear-gradient(180deg,#ff8a5a,#e0563a)">⚔️ 2-Player Bump Battle</button>
       <div style="color:#ffd9c4;font-size:11px;max-width:250px">Two players, one screen — bonk your friend's driver to score. First to 3 wins!</div>
     </div>
   </div>`;
@@ -1690,6 +1822,7 @@ function startDrive(){
       const t=$("#trkname"); if(t) t.textContent=trkLabel(driveTrack);
     });
     const bb=$("#battlebtn"); if(bb) bb.onclick=()=>{ SFX.tap(); startBattle(); };
+    const c3b=$("#chapters3dbtn"); if(c3b) c3b.onclick=()=>{ SFX.tap(); start3DChapterMode(); };
     draf=requestAnimationFrame(driveFrame);
   });
 }
@@ -2157,6 +2290,349 @@ function stopBattle(){
   if(braf){ cancelAnimationFrame(braf); braf=null; }
   unbindBattleInput(); BATTLE=null;
 }
+
+/* ================= 3D OFF-ROAD OUTLAWS CHAPTERS (6 ROOMS) =================
+   Full 3D Free-Roam Driving & Trail Checkpoint Mode across all 6 Blender-built
+   Chapter Environments with real-time 4-wheel suspension articulation, steering,
+   coins/checkpoints, and camera follow! */
+const CHAPTERS_3D = [
+  { id:"chapter_01_ranch",     num:1, name:"Ch 1: Ranch Trail",   emoji:"🏡", glb:"assets/models/chapters/chapter_01_ranch.glb",     mode:"ranch",     skyTop:"#3a7bd5", skyBot:"#bde0fe", baseZ:0.18 },
+  { id:"chapter_02_mudbog",    num:2, name:"Ch 2: Mud Bog Creek", emoji:"🌲", glb:"assets/models/chapters/chapter_02_mudbog.glb",    mode:"mudbog",    skyTop:"#2c4d63", skyBot:"#a8c7db", baseZ:0.12 },
+  { id:"chapter_03_redrock",   num:3, name:"Ch 3: Red Rock Crawl",emoji:"🏜️", glb:"assets/models/chapters/chapter_03_redrock.glb",   mode:"redrock",   skyTop:"#c85a32", skyBot:"#ffe0b2", baseZ:0.42 },
+  { id:"chapter_04_dunes",     num:4, name:"Ch 4: Baja Dunes",    emoji:"🏖️", glb:"assets/models/chapters/chapter_04_dunes.glb",     mode:"dunes",     skyTop:"#1d9bf0", skyBot:"#fff1cf", baseZ:0.32 },
+  { id:"chapter_05_nightcity", num:5, name:"Ch 5: Night City",    emoji:"🌃", glb:"assets/models/chapters/chapter_05_nightcity.glb", mode:"nightcity", skyTop:"#090d24", skyBot:"#311c5c", baseZ:0.25 },
+  { id:"chapter_06_arena",     num:6, name:"Ch 6: Monster Arena", emoji:"🏟️", glb:"assets/models/chapters/chapter_06_arena.glb",     mode:"arena",     skyTop:"#ff8c3b", skyBot:"#ffeacc", baseZ:0.48 }
+];
+
+let CH3D = null;
+const chEnvCache = {};
+
+function evalChapterTerrainY(mode, x, z){
+  // Note: Blender (x, y) mapped to Three.js (x, -z) -> y_bl = -z
+  const y = -z;
+  const r = Math.hypot(x, y);
+  if(mode==="ranch"){
+    let h = 0.18*Math.cos(x*0.35)*Math.cos(y*0.35) + 0.35*Math.sin(x*0.12+0.5)*Math.sin(y*0.12);
+    if(r>10) h += (r-10)*0.12*(0.6+0.4*Math.sin(Math.atan2(y,x)*4));
+    return h;
+  } else if(mode==="mudbog"){
+    const trench = -0.18*Math.exp(-(y*y)/14.0)*Math.cos(x*0.25);
+    const banks  = 0.28*(1.0 - Math.exp(-(y*y)/18.0)) + 0.12*Math.sin(x*0.2);
+    return Math.max(-0.04, trench + banks - 0.06);
+  } else if(mode==="redrock"){
+    const base = 0.42*Math.exp(-((x-0.4)*(x-0.4)+(y+0.3)*(y+0.3))/9.0);
+    let steps = 0.22*Math.floor((0.5*Math.sin(x*0.18)+0.5*Math.cos(y*0.18))*3.0);
+    if(Math.abs(y)>9.0) steps += (Math.abs(y)-9.0)*0.32;
+    return base + Math.max(0.0, steps*0.35);
+  } else if(mode==="dunes"){
+    return 0.38*Math.sin(x*0.22+y*0.10+0.8) + 0.24*Math.cos(x*0.14-y*0.22) + 0.12;
+  } else if(mode==="nightcity"){
+    return 0.25*Math.exp(-(x*x+y*y)/16.0);
+  } else if(mode==="arena"){
+    const tabletop = 0.52*Math.exp(-(x*x+y*y)/12.0);
+    const bowl = Math.max(0.0, (r-14.0)*0.22);
+    return tabletop + bowl;
+  }
+  return 0.0;
+}
+
+function chapter3DScreen(){
+  const chBtns = CHAPTERS_3D.map((c,i)=>`<button class="dchip" data-ch3d="${i}" style="pointer-events:auto;cursor:pointer;font-size:12px;padding:5px 9px;background:${i===0?'rgba(54,201,138,.85)':'rgba(8,12,30,.72)'}">${c.emoji} Ch${c.num}</button>`).join("");
+  return `<div id="driveroot">
+    <div id="ch3dstage" style="width:100%;height:100%;position:relative"></div>
+    <div class="dhud" style="flex-direction:column;gap:6px">
+      <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
+        <div class="dstatrow">
+          <span class="dchip" id="ch3dtitle" style="background:rgba(47,143,255,.75)">🏡 Ch 1: Ranch Trail</span>
+          <span class="dchip">🚩 Gates <b id="ch3dgates">0/6</b></span>
+          <span class="dchip">🪙 <b id="ch3dcoins">0</b></span>
+          <span class="dchip" id="ch3dlift" style="pointer-events:auto;cursor:pointer;background:rgba(255,140,26,.75)">⬆️ Lift: ON</span>
+        </div>
+        <button class="dchip" id="ch3dexit" style="pointer-events:auto;cursor:pointer">✕</button>
+      </div>
+      <div class="dstatrow" id="ch3dbar">${chBtns}</div>
+    </div>
+    <div class="flipmsg" id="flipmsg"></div>
+    <div style="position:absolute;left:16px;bottom:20px;display:flex;gap:10px;z-index:4">
+      <button class="dctrl" id="c3left" style="position:static;width:76px;height:76px;font-size:28px">◀</button>
+      <button class="dctrl" id="c3right" style="position:static;width:76px;height:76px;font-size:28px">▶</button>
+    </div>
+    <div style="position:absolute;right:16px;bottom:20px;display:flex;gap:10px;z-index:4">
+      <button class="dctrl" id="c3rev" style="position:static;width:76px;height:76px;font-size:24px;border-color:rgba(255,120,120,.8)">⬇️</button>
+      <button class="dctrl" id="c3gas" style="position:static;width:86px;height:86px;font-size:30px;border-color:rgba(91,255,155,.9)">⛽</button>
+    </div>
+  </div>`;
+}
+
+function start3DChapterMode(initialIdx){
+  stopDrive(); stopBattle(); stop3DChapterMode();
+  if(!window.THREE || !THREE.GLTFLoader){ toast("3D engine unavailable"); return; }
+  $("#screen").innerHTML = chapter3DScreen();
+  const stage = $("#ch3dstage");
+  const w = stage.clientWidth || window.innerWidth, h = stage.clientHeight || window.innerHeight;
+
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+  renderer.setSize(w, h);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  if("outputEncoding" in renderer) renderer.outputEncoding = THREE.sRGBEncoding;
+  if("toneMapping" in renderer){ renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.08; }
+  stage.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, w/h, 0.1, 220);
+  camera.position.set(-7.5, 3.6, 5.5);
+
+  try{
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new THREE.RoomEnvironment(renderer), 0.04).texture;
+  }catch(e){}
+
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x334466, 0.95);
+  scene.add(hemi);
+  const sun = new THREE.DirectionalLight(0xfff6e5, 1.3);
+  sun.position.set(12, 22, 14);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.near = 1; sun.shadow.camera.far = 65;
+  sun.shadow.camera.left = -22; sun.shadow.camera.right = 22;
+  sun.shadow.camera.top = 22; sun.shadow.camera.bottom = -22;
+  scene.add(sun);
+
+  const envGroup = new THREE.Group();
+  const carHolder = new THREE.Group();
+  const gateGroup = new THREE.Group();
+  scene.add(envGroup); scene.add(carHolder); scene.add(gateGroup);
+
+  // Use the player's current vehicle config (or Trail Crawler 4x4 if they want realistic suspension articulation)
+  const vType = (state.current==="crawler" || CAR_MODELS[state.current]) ? state.current : "crawler";
+  const vCfg = Object.assign({}, cfg(state.current));
+  if(vCfg.lift===undefined) vCfg.lift = true;
+  placeModel(carHolder, vType, vCfg, gltfCache[CAR_MODELS[vType]] || new THREE.Group());
+  if(!gltfCache[CAR_MODELS[vType]]){
+    loadCarModel(carHolder, vType, vCfg, CAR_MODELS[vType]);
+  }
+
+  CH3D = {
+    renderer, scene, camera, envGroup, carHolder, gateGroup, vType, vCfg,
+    chIdx: initialIdx || 0,
+    x: 0, z: 0, y: 0.2, heading: 0, speed: 0, steer: 0, wheelSpin: 0,
+    pitch: 0, roll: 0, coins: 0, gatesHit: 0,
+    input: {gas:false, rev:false, left:false, right:false},
+    checkpoints: [],
+    raf: null, last: 0
+  };
+
+  const buildGates = (mode)=>{
+    while(gateGroup.children.length) gateGroup.remove(gateGroup.children[0]);
+    const pts = [[8,0],[13,-7],[2,-13],[-12,-7],[-11,8],[2,11]];
+    CH3D.checkpoints = pts.map((p,idx)=>{
+      const gy = evalChapterTerrainY(mode, p[0], p[1]);
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(1.35, 0.12, 10, 24),
+        new THREE.MeshStandardMaterial({color:0xffd14d, emissive:0xff9900, emissiveIntensity:0.8, roughness:0.2})
+      );
+      ring.position.set(p[0], gy + 1.35, p[1]);
+      gateGroup.add(ring);
+      return {x:p[0], z:p[1], y:gy, mesh:ring, taken:false, idx};
+    });
+    CH3D.gatesHit = 0;
+    const gEl = $("#ch3dgates"); if(gEl) gEl.textContent = "0/" + CH3D.checkpoints.length;
+  };
+
+  const loadChapterRoom = (idx)=>{
+    if(!CH3D) return;
+    const ch = CHAPTERS_3D[idx] || CHAPTERS_3D[0];
+    CH3D.chIdx = idx;
+    CH3D.x = 0; CH3D.z = 0; CH3D.heading = 0; CH3D.speed = 0;
+    stage.style.background = `linear-gradient(180deg, ${ch.skyTop} 0%, ${ch.skyBot} 100%)`;
+    renderer.setClearColor(new THREE.Color(ch.skyTop), 0.0);
+    const tEl = $("#ch3dtitle"); if(tEl) tEl.textContent = `${ch.emoji} ${ch.name}`;
+    document.querySelectorAll("[data-ch3d]").forEach(b=>{
+      b.style.background = (+b.dataset.ch3d===idx) ? "rgba(54,201,138,.88)" : "rgba(8,12,30,.72)";
+    });
+    while(envGroup.children.length) envGroup.remove(envGroup.children[0]);
+    buildGates(ch.mode);
+
+    const mount = (sc)=>{
+      const cl = sc.clone(true);
+      cl.traverse(o=>{ if(o.isMesh){ o.receiveShadow=true; o.castShadow=true; } });
+      envGroup.add(cl);
+    };
+    if(chEnvCache[ch.glb]){ mount(chEnvCache[ch.glb]); }
+    else {
+      new THREE.GLTFLoader().load(ch.glb, gltf=>{
+        chEnvCache[ch.glb] = gltf.scene;
+        mount(gltf.scene);
+      });
+    }
+    showMsg(ch.emoji+" "+ch.name, 1100);
+  };
+
+  document.querySelectorAll("[data-ch3d]").forEach(b=>{
+    b.onclick = ()=>{ SFX.tap(); loadChapterRoom(+b.dataset.ch3d); };
+  });
+
+  const liftBtn = $("#ch3dlift");
+  if(liftBtn){
+    liftBtn.textContent = "⬆️ Lift: " + (vCfg.lift?"ON":"OFF");
+    liftBtn.onclick = ()=>{
+      vCfg.lift = !vCfg.lift;
+      cfg(state.current).lift = vCfg.lift; save();
+      liftBtn.textContent = "⬆️ Lift: " + (vCfg.lift?"ON":"OFF");
+      SFX.tap();
+    };
+  }
+
+  const ex = $("#ch3dexit");
+  if(ex) ex.onclick = ()=>{ stop3DChapterMode(); setScreen("garage"); };
+
+  const bindBtn = (sel, k)=>{
+    const b = $(sel); if(!b) return;
+    b.onpointerdown = e=>{ e.preventDefault(); if(CH3D) CH3D.input[k]=true; };
+    b.onpointerup = b.onpointerleave = b.onpointercancel = ()=>{ if(CH3D) CH3D.input[k]=false; };
+  };
+  bindBtn("#c3gas","gas"); bindBtn("#c3rev","rev"); bindBtn("#c3left","left"); bindBtn("#c3right","right");
+
+  CH3D._kd = e=>{
+    if(!CH3D) return;
+    if(["ArrowUp","w","W"," "].includes(e.key)){ CH3D.input.gas=true; e.preventDefault(); }
+    if(["ArrowDown","s","S"].includes(e.key)){ CH3D.input.rev=true; e.preventDefault(); }
+    if(["ArrowLeft","a","A"].includes(e.key)){ CH3D.input.left=true; e.preventDefault(); }
+    if(["ArrowRight","d","D"].includes(e.key)){ CH3D.input.right=true; e.preventDefault(); }
+  };
+  CH3D._ku = e=>{
+    if(!CH3D) return;
+    if(["ArrowUp","w","W"," "].includes(e.key)) CH3D.input.gas=false;
+    if(["ArrowDown","s","S"].includes(e.key)) CH3D.input.rev=false;
+    if(["ArrowLeft","a","A"].includes(e.key)) CH3D.input.left=false;
+    if(["ArrowRight","d","D"].includes(e.key)) CH3D.input.right=false;
+  };
+  document.addEventListener("keydown", CH3D._kd);
+  document.addEventListener("keyup", CH3D._ku);
+
+  loadChapterRoom(CH3D.chIdx);
+  CH3D.raf = requestAnimationFrame(step3DChapterFrame);
+}
+
+function stop3DChapterMode(){
+  if(!CH3D) return;
+  if(CH3D.raf) cancelAnimationFrame(CH3D.raf);
+  if(CH3D._kd) document.removeEventListener("keydown", CH3D._kd);
+  if(CH3D._ku) document.removeEventListener("keyup", CH3D._ku);
+  CH3D = null;
+}
+
+function step3DChapterFrame(now){
+  if(!CH3D) return;
+  CH3D.raf = requestAnimationFrame(step3DChapterFrame);
+  if(!CH3D.last) CH3D.last = now;
+  const dt = Math.min((now - CH3D.last)/1000, 0.05);
+  CH3D.last = now;
+
+  const ch = CHAPTERS_3D[CH3D.chIdx] || CHAPTERS_3D[0];
+  const inp = CH3D.input;
+  const st = carStats(state.current, CH3D.vCfg);
+  const maxSpd = 9.5 + st.speed * 0.045;
+  const accel  = 11.0 + st.power * 0.06;
+
+  if(inp.gas) CH3D.speed += accel * dt;
+  else if(inp.rev) CH3D.speed -= accel * 0.85 * dt;
+  else CH3D.speed *= (1 - 2.2 * dt);
+
+  CH3D.speed = Math.max(-maxSpd*0.55, Math.min(maxSpd, CH3D.speed));
+
+  const targetSteer = (inp.left ? 0.52 : 0) + (inp.right ? -0.52 : 0);
+  CH3D.steer += (targetSteer - CH3D.steer) * Math.min(1, dt * 10);
+
+  if(Math.abs(CH3D.speed) > 0.15){
+    CH3D.heading += CH3D.steer * (CH3D.speed / maxSpd) * 2.1 * dt;
+  }
+
+  CH3D.x += Math.cos(CH3D.heading) * CH3D.speed * dt;
+  CH3D.z -= Math.sin(CH3D.heading) * CH3D.speed * dt;
+  // Keep inside 40m x 40m course bounds
+  CH3D.x = Math.max(-19.5, Math.min(19.5, CH3D.x));
+  CH3D.z = Math.max(-19.5, Math.min(19.5, CH3D.z));
+
+  CH3D.wheelSpin = (CH3D.wheelSpin + CH3D.speed * 2.1 * dt) % (Math.PI * 2);
+
+  // Sample terrain height at all 4 wheel hubs in world space for authentic 4x4 articulation
+  const chCos = Math.cos(CH3D.heading), chSin = Math.sin(CH3D.heading);
+  const wWorld = (lx, lz)=>[
+    CH3D.x + lx*chCos + lz*chSin,
+    CH3D.z - lx*chSin + lz*chCos
+  ];
+  const pFL = wWorld( 1.42, -0.98), pFR = wWorld( 1.42,  0.98);
+  const pRL = wWorld(-1.42, -0.98), pRR = wWorld(-1.42,  0.98);
+  const hFL = evalChapterTerrainY(ch.mode, pFL[0], pFL[1]);
+  const hFR = evalChapterTerrainY(ch.mode, pFR[0], pFR[1]);
+  const hRL = evalChapterTerrainY(ch.mode, pRL[0], pRL[1]);
+  const hRR = evalChapterTerrainY(ch.mode, pRR[0], pRR[1]);
+
+  const avgH = (hFL + hFR + hRL + hRR) * 0.25;
+  const targetPitch = Math.atan2(((hFL+hFR)*0.5) - ((hRL+hRR)*0.5), 2.84);
+  const targetRoll  = Math.atan2(((hFR+hRR)*0.5) - ((hFL+hRL)*0.5), 1.96);
+
+  CH3D.y += (avgH - CH3D.y) * Math.min(1, dt * 12);
+  CH3D.pitch += (targetPitch - CH3D.pitch) * Math.min(1, dt * 10);
+  CH3D.roll  += (targetRoll  - CH3D.roll)  * Math.min(1, dt * 10);
+
+  CH3D.carHolder.position.set(CH3D.x, CH3D.y, CH3D.z);
+  CH3D.carHolder.rotation.order = "YXZ";
+  CH3D.carHolder.rotation.y = CH3D.heading;
+  CH3D.carHolder.rotation.z = CH3D.pitch;
+  CH3D.carHolder.rotation.x = CH3D.roll;
+
+  // Articulate individual suspension nodes on rigged truck
+  const rig = CH3D.carHolder.userData && CH3D.carHolder.userData.rig;
+  if(rig){
+    const fTrav = Math.max(-0.14, Math.min(0.14, ((hFL+hFR)*0.5 - avgH)*1.4));
+    const rTrav = Math.max(-0.14, Math.min(0.14, ((hRL+hRR)*0.5 - avgH)*1.4));
+    const axleTwist = Math.max(-0.24, Math.min(0.24, ((hFL - hFR) - (hRL - hRR))*0.65 + Math.sin(now*0.006)*Math.abs(CH3D.speed)*0.012));
+    applyRiggedPose(rig, CH3D.steer, CH3D.wheelSpin, fTrav, rTrav, axleTwist, !!CH3D.vCfg.lift);
+  }
+
+  // Checkpoints & rewards
+  CH3D.checkpoints.forEach(cp=>{
+    if(!cp.taken){
+      cp.mesh.rotation.y += dt * 1.8;
+      const d = Math.hypot(CH3D.x - cp.x, CH3D.z - cp.z);
+      if(d < 2.3){
+        cp.taken = true;
+        cp.mesh.visible = false;
+        CH3D.gatesHit++;
+        CH3D.coins += 15;
+        addCoins(15); addXP(10);
+        const gEl = $("#ch3dgates"); if(gEl) gEl.textContent = CH3D.gatesHit + "/" + CH3D.checkpoints.length;
+        const cEl = $("#ch3dcoins"); if(cEl) cEl.textContent = CH3D.coins;
+        if(CH3D.gatesHit >= CH3D.checkpoints.length){
+          SFX.level();
+          addCoins(50); addXP(35);
+          const nextIdx = (CH3D.chIdx + 1) % CHAPTERS_3D.length;
+          showMsg("🏆 CHAPTER CLEAR! +🪙50 → Next Chapter!", 1600);
+          setTimeout(()=>{ if(CH3D) document.querySelector(`[data-ch3d="${nextIdx}"]`)?.click(); }, 1500);
+        } else {
+          showMsg("🚩 CHECKPOINT! +🪙15", 700);
+        }
+      }
+    }
+  });
+
+  // Smooth chase camera behind truck
+  const camDist = 7.4, camHeight = 3.2;
+  const tx = CH3D.x - Math.cos(CH3D.heading) * camDist;
+  const tz = CH3D.z + Math.sin(CH3D.heading) * camDist;
+  const ty = CH3D.y + camHeight;
+  CH3D.camera.position.x += (tx - CH3D.camera.position.x) * Math.min(1, dt * 6);
+  CH3D.camera.position.z += (tz - CH3D.camera.position.z) * Math.min(1, dt * 6);
+  CH3D.camera.position.y += (ty - CH3D.camera.position.y) * Math.min(1, dt * 6);
+  CH3D.camera.lookAt(CH3D.x + Math.cos(CH3D.heading)*1.8, CH3D.y + 0.95, CH3D.z - Math.sin(CH3D.heading)*1.8);
+
+  CH3D.renderer.render(CH3D.scene, CH3D.camera);
+}
+
 
 let _bkd=null,_bku=null;
 function bindBattleInput(){

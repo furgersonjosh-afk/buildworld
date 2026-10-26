@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0.0",
+  "chapterNumber": 5,
+  "chapterId": "chapter_05_nightcity",
+  "title": "Chapter 5: Night City Neon Overpass & Industrial Yard",
+  "subtitle": "Level 5 \u00b7 Neon Cyber-Pylons, Shipping Container Ramps & Wet Asphalt",
+  "unlockLevel": 5,
+  "buildworldTrackKey": "night",
+  "environmentGlb": "assets/models/chapters/chapter_05_nightcity.glb",
+  "heroVehicleGlb": "assets/models/jax_test_crawler_01.glb",
+  "heroVehicleSpec": "assets/models/jax_test_crawler_01.json",
+  "environmentTriangles": 3104,
+  "skyGradientHex": [
+    "#090d24",
+    "#19133d",
+    "#311c5c"
+  ],
+  "groundColorHex": "#1c1f29",
+  "accentColorHex": "#f226d1",
+  "terrainMode": "nightcity",
+  "defaultTruckCustomization": {
+    "paint": "#9b5bff",
+    "wheel": "#c2c7d1",
+    "beadlock": "#00e5ff",
+    "finish": "metallic",
+    "lift": true,
+    "tint": true
+  },
+  "spawnPointThreeJS": [
+    0.0,
+    0.25,
+    0.0
+  ],
+  "checkpointsThreeJS": [
+    [
+      8.0,
+      0.0,
+      0.0
+    ],
+    [
+      14.0,
+      0.0,
+      -8.0
+    ],
+    [
+      0.0,
+      0.0,
+      -14.0
+    ],
+    [
+      -14.0,
+      0.0,
+      -6.0
+    ],
+    [
+      -10.0,
+      0.0,
+      10.0
+    ],
+    [
+      4.0,
+      0.0,
+      12.0
+    ]
+  ]
+}

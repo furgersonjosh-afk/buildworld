@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0.0",
+  "chapterNumber": 2,
+  "chapterId": "chapter_02_mudbog",
+  "title": "Chapter 2: Mud Bog Creek & Timber Crossing",
+  "subtitle": "Level 2 \u00b7 Deep Mud Trench, Water Pit, Log Bridges & Pine Woods",
+  "unlockLevel": 2,
+  "buildworldTrackKey": "offroad",
+  "environmentGlb": "assets/models/chapters/chapter_02_mudbog.glb",
+  "heroVehicleGlb": "assets/models/jax_test_crawler_01.glb",
+  "heroVehicleSpec": "assets/models/jax_test_crawler_01.json",
+  "environmentTriangles": 4776,
+  "skyGradientHex": [
+    "#2c4d63",
+    "#58829e",
+    "#a8c7db"
+  ],
+  "groundColorHex": "#2e1f14",
+  "accentColorHex": "#245726",
+  "terrainMode": "mudbog",
+  "defaultTruckCustomization": {
+    "paint": "#2f8fff",
+    "wheel": "#2b2f3a",
+    "beadlock": "#37c46a",
+    "finish": "metallic",
+    "lift": true,
+    "tint": false
+  },
+  "spawnPointThreeJS": [
+    0.0,
+    -0.06,
+    0.0
+  ],
+  "checkpointsThreeJS": [
+    [
+      8.0,
+      0.0,
+      0.0
+    ],
+    [
+      14.0,
+      0.0,
+      -8.0
+    ],
+    [
+      0.0,
+      0.0,
+      -14.0
+    ],
+    [
+      -14.0,
+      0.0,
+      -6.0
+    ],
+    [
+      -10.0,
+      0.0,
+      10.0
+    ],
+    [
+      4.0,
+      0.0,
+      12.0
+    ]
+  ]
+}

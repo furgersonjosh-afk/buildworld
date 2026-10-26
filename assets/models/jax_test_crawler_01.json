@@ -1,0 +1,555 @@
+{
+  "schemaVersion": "1.0.0",
+  "vehicleId": "jax_test_crawler_01",
+  "displayName": "Trail Crawler 4x4",
+  "buildworldType": "truck",
+  "category": "offroad_crawler",
+  "modelPath": "assets/models/jax_test_crawler_01.glb",
+  "exportedFrom": "Blender 4.5.15 LTS (Isolated JaxBuildWorld)",
+  "geometryStats": {
+    "totalTriangles": 18448,
+    "totalVertices": 12392,
+    "meshObjectCount": 20,
+    "mobileBudgetStatus": "PASS (Target: 15,000 - 50,000 tris)"
+  },
+  "buildworldStats": {
+    "name": "Trail Crawler 4x4",
+    "emoji": "\ud83d\udefb",
+    "level": 3,
+    "cost": 380,
+    "weight": 175,
+    "grip": 78,
+    "parts": [
+      "lights",
+      "roofrack",
+      "flatbed",
+      "crane",
+      "tank"
+    ]
+  },
+  "dimensionsMeters": {
+    "length": 4.46,
+    "width": 2.34,
+    "height": 2.08,
+    "wheelbase": 2.84,
+    "trackWidth": 1.96,
+    "wheelRadius": 0.48,
+    "groundClearance": 0.48
+  },
+  "hierarchyNodes": {
+    "root": "Truck_Root",
+    "body": "Body_Shell",
+    "chassis": "Chassis_Frame",
+    "axles": {
+      "front": "Axle_Front",
+      "rear": "Axle_Rear"
+    },
+    "shocks": {
+      "FL": "Shock_FL",
+      "FR": "Shock_FR",
+      "RL": "Shock_RL",
+      "RR": "Shock_RR"
+    },
+    "springs": {
+      "FL": "Spring_FL",
+      "FR": "Spring_FR",
+      "RL": "Spring_RL",
+      "RR": "Spring_RR"
+    },
+    "links": {
+      "FL": "ControlArm_FL",
+      "FR": "ControlArm_FR",
+      "RL": "TrailingArm_RL",
+      "RR": "TrailingArm_RR"
+    },
+    "wheels": {
+      "FL": {
+        "node": "Wheel_FL",
+        "steerable": true,
+        "driven": true,
+        "side": "left",
+        "hubThreeJS": [
+          1.42,
+          0.48,
+          -0.98
+        ]
+      },
+      "FR": {
+        "node": "Wheel_FR",
+        "steerable": true,
+        "driven": true,
+        "side": "right",
+        "hubThreeJS": [
+          1.42,
+          0.48,
+          0.98
+        ]
+      },
+      "RL": {
+        "node": "Wheel_RL",
+        "steerable": false,
+        "driven": true,
+        "side": "left",
+        "hubThreeJS": [
+          -1.42,
+          0.48,
+          -0.98
+        ]
+      },
+      "RR": {
+        "node": "Wheel_RR",
+        "steerable": false,
+        "driven": true,
+        "side": "right",
+        "hubThreeJS": [
+          -1.42,
+          0.48,
+          0.98
+        ]
+      }
+    }
+  },
+  "customizableMaterials": {
+    "primaryPaint": {
+      "materialName": "Truck_Paint_Primary",
+      "defaultHex": "#eb4214",
+      "supportsFinish": [
+        "gloss",
+        "metallic",
+        "matte",
+        "chrome"
+      ]
+    },
+    "trimPaint": {
+      "materialName": "Truck_Paint_Trim",
+      "defaultHex": "#1a1c21"
+    },
+    "windowGlass": {
+      "materialName": "Window_Glass",
+      "defaultHex": "#141f29",
+      "tintedHex": "#080b10",
+      "defaultOpacity": 0.78,
+      "tintedOpacity": 0.92
+    },
+    "rimColor": {
+      "materialName": "Rim_Alloy",
+      "defaultHex": "#c2c7d1"
+    },
+    "beadlockColor": {
+      "materialName": "Beadlock_Ring",
+      "defaultHex": "#f2ad1a"
+    },
+    "springColor": {
+      "materialName": "Powdercoat_Spring",
+      "defaultHex": "#f22e1f"
+    }
+  },
+  "suspensionTuning": {
+    "liftKitOffsetMeters": 0.16,
+    "liftKitWheelScale": 1.12,
+    "maxSteerAngleDeg": 34.0,
+    "frontTravelMeters": 0.24,
+    "rearTravelMeters": 0.26,
+    "maxAxleRollDeg": 14.0,
+    "springRestLengthMeters": 0.5,
+    "springStiffness": 42000,
+    "dampingCompression": 4200,
+    "dampingRebound": 4800
+  },
+  "attachmentSockets": {
+    "lights": {
+      "parent": "Body_Shell",
+      "positionThreeJS": [
+        0.52,
+        2.04,
+        0.0
+      ]
+    },
+    "roofrack": {
+      "parent": "Body_Shell",
+      "positionThreeJS": [
+        -0.05,
+        2.02,
+        0.0
+      ]
+    },
+    "flatbed": {
+      "parent": "Body_Shell",
+      "positionThreeJS": [
+        -1.42,
+        0.98,
+        0.0
+      ]
+    },
+    "winch": {
+      "parent": "Body_Shell",
+      "positionThreeJS": [
+        2.25,
+        0.88,
+        0.0
+      ]
+    }
+  },
+  "nodeInspection": {
+    "Body_Shell": {
+      "blender_origin_xyz": [
+        0.0,
+        0.0,
+        0.85
+      ],
+      "threejs_origin_xyz": [
+        0.0,
+        0.85,
+        -0.0
+      ],
+      "triangles": 4720,
+      "vertices": 2504,
+      "materials": [
+        "Truck_Paint_Primary",
+        "Truck_Paint_Trim",
+        "Window_Glass",
+        "Chrome_Bumper",
+        "Bed_Liner",
+        "Headlight_Emissive",
+        "Taillight_Emissive"
+      ]
+    },
+    "Chassis_Frame": {
+      "blender_origin_xyz": [
+        0.0,
+        0.0,
+        0.72
+      ],
+      "threejs_origin_xyz": [
+        0.0,
+        0.72,
+        -0.0
+      ],
+      "triangles": 1060,
+      "vertices": 568,
+      "materials": [
+        "Chassis_Steel"
+      ]
+    },
+    "Axle_Front": {
+      "blender_origin_xyz": [
+        1.42,
+        0.0,
+        0.48
+      ],
+      "threejs_origin_xyz": [
+        1.42,
+        0.48,
+        -0.0
+      ],
+      "triangles": 460,
+      "vertices": 244,
+      "materials": [
+        "Axle_CastIron",
+        "Suspension_Link"
+      ]
+    },
+    "Axle_Rear": {
+      "blender_origin_xyz": [
+        -1.42,
+        0.0,
+        0.48
+      ],
+      "threejs_origin_xyz": [
+        -1.42,
+        0.48,
+        -0.0
+      ],
+      "triangles": 344,
+      "vertices": 180,
+      "materials": [
+        "Axle_CastIron",
+        "Suspension_Link"
+      ]
+    },
+    "Shock_FL": {
+      "blender_origin_xyz": [
+        1.42,
+        0.56,
+        1.02
+      ],
+      "threejs_origin_xyz": [
+        1.42,
+        1.02,
+        -0.56
+      ],
+      "triangles": 140,
+      "vertices": 76,
+      "materials": [
+        "Shock_Anodized",
+        "Chrome_Bumper"
+      ]
+    },
+    "Spring_FL": {
+      "blender_origin_xyz": [
+        1.42,
+        0.56,
+        1.02
+      ],
+      "threejs_origin_xyz": [
+        1.42,
+        1.02,
+        -0.56
+      ],
+      "triangles": 1272,
+      "vertices": 1248,
+      "materials": [
+        "Powdercoat_Spring"
+      ]
+    },
+    "Shock_FR": {
+      "blender_origin_xyz": [
+        1.42,
+        -0.56,
+        1.02
+      ],
+      "threejs_origin_xyz": [
+        1.42,
+        1.02,
+        0.56
+      ],
+      "triangles": 140,
+      "vertices": 76,
+      "materials": [
+        "Shock_Anodized",
+        "Chrome_Bumper"
+      ]
+    },
+    "Spring_FR": {
+      "blender_origin_xyz": [
+        1.42,
+        -0.56,
+        1.02
+      ],
+      "threejs_origin_xyz": [
+        1.42,
+        1.02,
+        0.56
+      ],
+      "triangles": 1272,
+      "vertices": 1248,
+      "materials": [
+        "Powdercoat_Spring"
+      ]
+    },
+    "Shock_RL": {
+      "blender_origin_xyz": [
+        -1.42,
+        0.56,
+        1.02
+      ],
+      "threejs_origin_xyz": [
+        -1.42,
+        1.02,
+        -0.56
+      ],
+      "triangles": 140,
+      "vertices": 76,
+      "materials": [
+        "Shock_Anodized",
+        "Chrome_Bumper"
+      ]
+    },
+    "Spring_RL": {
+      "blender_origin_xyz": [
+        -1.42,
+        0.56,
+        1.02
+      ],
+      "threejs_origin_xyz": [
+        -1.42,
+        1.02,
+        -0.56
+      ],
+      "triangles": 1272,
+      "vertices": 1248,
+      "materials": [
+        "Powdercoat_Spring"
+      ]
+    },
+    "Shock_RR": {
+      "blender_origin_xyz": [
+        -1.42,
+        -0.56,
+        1.02
+      ],
+      "threejs_origin_xyz": [
+        -1.42,
+        1.02,
+        0.56
+      ],
+      "triangles": 140,
+      "vertices": 76,
+      "materials": [
+        "Shock_Anodized",
+        "Chrome_Bumper"
+      ]
+    },
+    "Spring_RR": {
+      "blender_origin_xyz": [
+        -1.42,
+        -0.56,
+        1.02
+      ],
+      "threejs_origin_xyz": [
+        -1.42,
+        1.02,
+        0.56
+      ],
+      "triangles": 1272,
+      "vertices": 1248,
+      "materials": [
+        "Powdercoat_Spring"
+      ]
+    },
+    "ControlArm_FL": {
+      "blender_origin_xyz": [
+        0.45,
+        0.46,
+        0.62
+      ],
+      "threejs_origin_xyz": [
+        0.45,
+        0.62,
+        -0.46
+      ],
+      "triangles": 100,
+      "vertices": 56,
+      "materials": [
+        "Suspension_Link"
+      ]
+    },
+    "ControlArm_FR": {
+      "blender_origin_xyz": [
+        0.45,
+        -0.46,
+        0.62
+      ],
+      "threejs_origin_xyz": [
+        0.45,
+        0.62,
+        0.46
+      ],
+      "triangles": 100,
+      "vertices": 56,
+      "materials": [
+        "Suspension_Link"
+      ]
+    },
+    "TrailingArm_RL": {
+      "blender_origin_xyz": [
+        -0.35,
+        0.46,
+        0.62
+      ],
+      "threejs_origin_xyz": [
+        -0.35,
+        0.62,
+        -0.46
+      ],
+      "triangles": 88,
+      "vertices": 48,
+      "materials": [
+        "Suspension_Link"
+      ]
+    },
+    "TrailingArm_RR": {
+      "blender_origin_xyz": [
+        -0.35,
+        -0.46,
+        0.62
+      ],
+      "threejs_origin_xyz": [
+        -0.35,
+        0.62,
+        0.46
+      ],
+      "triangles": 88,
+      "vertices": 48,
+      "materials": [
+        "Suspension_Link"
+      ]
+    },
+    "Wheel_FL": {
+      "blender_origin_xyz": [
+        1.42,
+        0.98,
+        0.48
+      ],
+      "threejs_origin_xyz": [
+        1.42,
+        0.48,
+        -0.98
+      ],
+      "triangles": 1460,
+      "vertices": 848,
+      "materials": [
+        "Tire_Rubber",
+        "Rim_Alloy",
+        "Beadlock_Ring"
+      ]
+    },
+    "Wheel_FR": {
+      "blender_origin_xyz": [
+        1.42,
+        -0.98,
+        0.48
+      ],
+      "threejs_origin_xyz": [
+        1.42,
+        0.48,
+        0.98
+      ],
+      "triangles": 1460,
+      "vertices": 848,
+      "materials": [
+        "Tire_Rubber",
+        "Rim_Alloy",
+        "Beadlock_Ring"
+      ]
+    },
+    "Wheel_RL": {
+      "blender_origin_xyz": [
+        -1.42,
+        0.98,
+        0.48
+      ],
+      "threejs_origin_xyz": [
+        -1.42,
+        0.48,
+        -0.98
+      ],
+      "triangles": 1460,
+      "vertices": 848,
+      "materials": [
+        "Tire_Rubber",
+        "Rim_Alloy",
+        "Beadlock_Ring"
+      ]
+    },
+    "Wheel_RR": {
+      "blender_origin_xyz": [
+        -1.42,
+        -0.98,
+        0.48
+      ],
+      "threejs_origin_xyz": [
+        -1.42,
+        0.48,
+        0.98
+      ],
+      "triangles": 1460,
+      "vertices": 848,
+      "materials": [
+        "Tire_Rubber",
+        "Rim_Alloy",
+        "Beadlock_Ring"
+      ]
+    }
+  }
+}

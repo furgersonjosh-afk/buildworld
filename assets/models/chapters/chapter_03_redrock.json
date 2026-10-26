@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0.0",
+  "chapterNumber": 3,
+  "chapterId": "chapter_03_redrock",
+  "title": "Chapter 3: Red Rock Canyon & Boulder Crawl",
+  "subtitle": "Level 3 \u00b7 Steep Sandstone Ledges, Moab Slabs & Technical Articulation",
+  "unlockLevel": 3,
+  "buildworldTrackKey": "offroad",
+  "environmentGlb": "assets/models/chapters/chapter_03_redrock.glb",
+  "heroVehicleGlb": "assets/models/jax_test_crawler_01.glb",
+  "heroVehicleSpec": "assets/models/jax_test_crawler_01.json",
+  "environmentTriangles": 3060,
+  "skyGradientHex": [
+    "#c85a32",
+    "#f29b52",
+    "#ffe0b2"
+  ],
+  "groundColorHex": "#94381c",
+  "accentColorHex": "#c25729",
+  "terrainMode": "redrock",
+  "defaultTruckCustomization": {
+    "paint": "#ffd14d",
+    "wheel": "#2b2f3a",
+    "beadlock": "#e23b3b",
+    "finish": "gloss",
+    "lift": true,
+    "tint": true
+  },
+  "spawnPointThreeJS": [
+    0.0,
+    0.42,
+    0.0
+  ],
+  "checkpointsThreeJS": [
+    [
+      8.0,
+      0.0,
+      0.0
+    ],
+    [
+      14.0,
+      0.0,
+      -8.0
+    ],
+    [
+      0.0,
+      0.0,
+      -14.0
+    ],
+    [
+      -14.0,
+      0.0,
+      -6.0
+    ],
+    [
+      -10.0,
+      0.0,
+      10.0
+    ],
+    [
+      4.0,
+      0.0,
+      12.0
+    ]
+  ]
+}

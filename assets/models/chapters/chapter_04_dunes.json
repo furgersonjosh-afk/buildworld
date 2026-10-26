@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0.0",
+  "chapterNumber": 4,
+  "chapterId": "chapter_04_dunes",
+  "title": "Chapter 4: Coastal Beach & Baja Sand Dunes",
+  "subtitle": "Level 4 \u00b7 High-Speed Whoops, Mega Dune Jumps, Palms & Ocean Surf",
+  "unlockLevel": 4,
+  "buildworldTrackKey": "beach",
+  "environmentGlb": "assets/models/chapters/chapter_04_dunes.glb",
+  "heroVehicleGlb": "assets/models/jax_test_crawler_01.glb",
+  "heroVehicleSpec": "assets/models/jax_test_crawler_01.json",
+  "environmentTriangles": 2972,
+  "skyGradientHex": [
+    "#22a6f2",
+    "#7de2ff",
+    "#fff1cf"
+  ],
+  "groundColorHex": "#d1ad70",
+  "accentColorHex": "#1494ad",
+  "terrainMode": "dunes",
+  "defaultTruckCustomization": {
+    "paint": "#0fb9b1",
+    "wheel": "#f2f2f2",
+    "beadlock": "#ff8c1a",
+    "finish": "gloss",
+    "lift": true,
+    "tint": true
+  },
+  "spawnPointThreeJS": [
+    0.0,
+    0.36,
+    0.0
+  ],
+  "checkpointsThreeJS": [
+    [
+      8.0,
+      0.0,
+      0.0
+    ],
+    [
+      14.0,
+      0.0,
+      -8.0
+    ],
+    [
+      0.0,
+      0.0,
+      -14.0
+    ],
+    [
+      -14.0,
+      0.0,
+      -6.0
+    ],
+    [
+      -10.0,
+      0.0,
+      10.0
+    ],
+    [
+      4.0,
+      0.0,
+      12.0
+    ]
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0.0",
+  "chapterNumber": 6,
+  "chapterId": "chapter_06_arena",
+  "title": "Chapter 6: Monster Stunt Arena & Bump Battle Bowl",
+  "subtitle": "Level 6 \u00b7 Stadium Bowl, Double Backflip Ramps, Crush Cars & Ring of Fire",
+  "unlockLevel": 6,
+  "buildworldTrackKey": "race",
+  "environmentGlb": "assets/models/chapters/chapter_06_arena.glb",
+  "heroVehicleGlb": "assets/models/jax_test_crawler_01.glb",
+  "heroVehicleSpec": "assets/models/jax_test_crawler_01.json",
+  "environmentTriangles": 3716,
+  "skyGradientHex": [
+    "#ff8c3b",
+    "#ffc478",
+    "#ffeacc"
+  ],
+  "groundColorHex": "#614026",
+  "accentColorHex": "#f2a61f",
+  "terrainMode": "arena",
+  "defaultTruckCustomization": {
+    "paint": "#e23b3b",
+    "wheel": "#ffd14d",
+    "beadlock": "#ffd14d",
+    "finish": "metallic",
+    "lift": true,
+    "tint": true
+  },
+  "spawnPointThreeJS": [
+    0.0,
+    0.52,
+    0.0
+  ],
+  "checkpointsThreeJS": [
+    [
+      8.0,
+      0.0,
+      0.0
+    ],
+    [
+      14.0,
+      0.0,
+      -8.0
+    ],
+    [
+      0.0,
+      0.0,
+      -14.0
+    ],
+    [
+      -14.0,
+      0.0,
+      -6.0
+    ],
+    [
+      -10.0,
+      0.0,
+      10.0
+    ],
+    [
+      4.0,
+      0.0,
+      12.0
+    ]
+  ]
+}

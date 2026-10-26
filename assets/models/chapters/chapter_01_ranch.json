@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0.0",
+  "chapterNumber": 1,
+  "chapterId": "chapter_01_ranch",
+  "title": "Chapter 1: Homestead Ranch & Dirt Track",
+  "subtitle": "Level 1 \u00b7 Rolling Dirt Berms, Wooden Barn & Starter Trail",
+  "unlockLevel": 1,
+  "buildworldTrackKey": "offroad",
+  "environmentGlb": "assets/models/chapters/chapter_01_ranch.glb",
+  "heroVehicleGlb": "assets/models/jax_test_crawler_01.glb",
+  "heroVehicleSpec": "assets/models/jax_test_crawler_01.json",
+  "environmentTriangles": 4180,
+  "skyGradientHex": [
+    "#4a8fe7",
+    "#8ec5ff",
+    "#d9eeff"
+  ],
+  "groundColorHex": "#573b21",
+  "accentColorHex": "#387a29",
+  "terrainMode": "ranch",
+  "defaultTruckCustomization": {
+    "paint": "#eb4214",
+    "wheel": "#c2c7d1",
+    "beadlock": "#f2ad1a",
+    "finish": "gloss",
+    "lift": false,
+    "tint": false
+  },
+  "spawnPointThreeJS": [
+    0.0,
+    0.18,
+    0.0
+  ],
+  "checkpointsThreeJS": [
+    [
+      8.0,
+      0.0,
+      0.0
+    ],
+    [
+      14.0,
+      0.0,
+      -8.0
+    ],
+    [
+      0.0,
+      0.0,
+      -14.0
+    ],
+    [
+      -14.0,
+      0.0,
+      -6.0
+    ],
+    [
+      -10.0,
+      0.0,
+      10.0
+    ],
+    [
+      4.0,
+      0.0,
+      12.0
+    ]
+  ]
+}
