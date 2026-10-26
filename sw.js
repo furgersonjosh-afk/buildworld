@@ -1,6 +1,6 @@
-﻿/* BUILD WORLD service worker â€” makes the app installable and work offline.
+/* BUILD WORLD service worker — makes the app installable and work offline.
    Bump CACHE when you change the cached library assets. */
-const CACHE = "buildworld-v7";
+const CACHE = "buildworld-v8";
 const ASSETS = [
   "./", "./index.html", "./manifest.json",
   "./lib/three.min.js", "./lib/RoundedBoxGeometry.js", "./lib/OrbitControls.js",

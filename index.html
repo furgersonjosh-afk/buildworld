@@ -229,8 +229,10 @@ const VEHICLES = {
   supercar:{name:"Apex GT",    emoji:"🏎️", level:2, cost:240, weight:88,  grip:64, parts:["spoiler","lights"]},
   muscle:  {name:"Brawler V8", emoji:"🚙", level:3, cost:300, weight:124, grip:58, parts:["spoiler","lights"]},
   police:  {name:"Police Cruiser", emoji:"🚓", level:3, cost:350, weight:112, grip:62, parts:["spoiler","lights"]},
-  crawler: {name:"Trail Crawler 4x4", emoji:"🛻", level:1, cost:0,   weight:175, grip:78, parts:["bullbar","stinger","winch","shackles","lights","pillars","underglow","snorkel","stacks","roofrack","spare","rollcage","toolbox","flatbed","tank","crane"]},
-  bouncer: {name:"Viper Rock Bouncer",emoji:"🦂", level:1, cost:0,   weight:152, grip:88, parts:["bullbar","stinger","winch","shackles","lights","pillars","underglow","snorkel","stacks","roofrack","spare","toolbox","crane"]},
+  crawler:   {name:"TRX Predator 4x4",     emoji:"🛻", level:1, cost:0,   weight:175, grip:82, parts:["bullbar","stinger","winch","shackles","lights","pillars","underglow","snorkel","stacks","roofrack","spare","rollcage","toolbox","flatbed","tank","crane"]},
+  bouncer:   {name:"Viper Rock Bouncer",   emoji:"🦂", level:1, cost:0,   weight:152, grip:90, parts:["bullbar","stinger","winch","shackles","lights","pillars","underglow","snorkel","stacks","roofrack","spare","toolbox","crane"]},
+  classic70: {name:"'78 Outlaw Squarebody",emoji:"🤠", level:1, cost:0,   weight:168, grip:84, parts:["bullbar","stinger","winch","shackles","lights","pillars","underglow","snorkel","stacks","roofrack","spare","rollcage","toolbox","flatbed"]},
+  outlaw69:  {name:"'69 Trail Mustang 4x4",emoji:"🐎", level:1, cost:0,   weight:146, grip:86, parts:["bullbar","stinger","winch","shackles","lights","pillars","underglow","snorkel","stacks","roofrack","spare","spoiler"]},
   truck:   {name:"Pickup HD",  emoji:"🛻", level:2, cost:160, weight:155, grip:54, parts:["bullbar","winch","snorkel","stacks","roofrack","spare","toolbox","flatbed","tank","crane","lights"]},
   armored: {name:"Armored Pickup", emoji:"🚙", level:3, cost:280, weight:180, grip:60, parts:["lights"]},
   dump:    {name:"Dump Truck", emoji:"🚚", level:3, cost:320, weight:230, grip:56, parts:["lights"]},
@@ -322,8 +324,8 @@ const DEFAULT_STATE = {
   coins:80,
   xp:0,
   level:1,
-  owned:["car","crawler","bouncer"],   // vehicle types owned
-  current:"car",             // vehicle in the garage
+  owned:["crawler","bouncer","classic70","outlaw69","car"],   // vehicle types owned
+  current:"crawler",         // vehicle in the garage
   configs:{                  // per-vehicle customization
     car:{paint:"#e23b3b", wheel:"#c9ccd6", parts:[], rim:"sport", lift:false, tint:false, engine:"stock"}
   },
@@ -346,7 +348,7 @@ function load(){
     const raw = localStorage.getItem("buildworld");
     if(raw){
       const st = Object.assign(structuredClone(DEFAULT_STATE), JSON.parse(raw));
-      if(Array.isArray(st.owned)){ if(!st.owned.includes("crawler")) st.owned.push("crawler"); if(!st.owned.includes("bouncer")) st.owned.push("bouncer"); }
+      if(Array.isArray(st.owned)){ ["crawler","bouncer","classic70","outlaw69"].forEach(k=>{ if(!st.owned.includes(k)) st.owned.push(k); }); }
       return st;
     }
   }catch(e){}
@@ -355,7 +357,7 @@ function load(){
 function save(){ try{ localStorage.setItem("buildworld", JSON.stringify(state)); }catch(e){} }
 
 function cfg(type){
-  const defPaint = type==="bouncer" ? "#24c757" : (type==="crawler" ? "#eb4214" : "#2f8fff");
+  const defPaint = type==="bouncer" ? "#24c757" : (type==="crawler" ? "#eb4214" : (type==="classic70" ? "#d9822b" : (type==="outlaw69" ? "#2f8fff" : "#e23b3b")));
   if(!state.configs[type]) state.configs[type] = {paint:defPaint, wheel:"#c9ccd6", parts:[]};
   const c = state.configs[type];
   if(!c.parts) c.parts=[];
@@ -375,6 +377,7 @@ function cfg(type){
   if(c.tireWidth===undefined)  c.tireWidth  = (type==="bouncer") ? 1.18 : 1.05;
   if(c.tirePsi===undefined)    c.tirePsi    = 18;
   if(c.mudLevel===undefined)   c.mudLevel   = 0;
+  if(!c.decal) c.decal = "none";
   if(!state.ownedEngines) state.ownedEngines=["stock"];
   if(!state.barnFinds) state.barnFinds=[];
   if(!state.brainStreak) state.brainStreak=0;
@@ -715,8 +718,10 @@ function carSpec3D(type){
     case "muscle":  return {len:4.1,wid:1.80,bodyH:0.56,cabinH:0.46,cabinLen:1.55,cabinX:-0.15,wheelR:0.48,axleF:1.32,axleR:-1.3};
     case "police":  return {len:4.2,wid:1.84,bodyH:0.54,cabinH:0.46,cabinLen:1.60,cabinX:-0.10,wheelR:0.47,axleF:1.34,axleR:-1.32};
     case "fire":    return {len:4.8,wid:2.05,bodyH:0.95,cabinH:0.78,cabinLen:1.25,cabinX:1.35,wheelR:0.52,axleF:1.60,axleR:-1.45,bed:true};
-    case "crawler": return {len:4.46,wid:2.34,bodyH:0.78,cabinH:0.64,cabinLen:1.36,cabinX:0.05,wheelR:0.48,axleF:1.42,axleR:-1.42,bed:true};
-    case "bouncer": return {len:4.42,wid:2.42,bodyH:0.74,cabinH:0.62,cabinLen:1.32,cabinX:0.02,wheelR:0.52,axleF:1.42,axleR:-1.42,bed:true};
+    case "crawler":   return {len:4.46,wid:2.34,bodyH:0.78,cabinH:0.64,cabinLen:1.36,cabinX:0.05,wheelR:0.48,axleF:1.42,axleR:-1.42,bed:true};
+    case "bouncer":   return {len:4.42,wid:2.42,bodyH:0.74,cabinH:0.62,cabinLen:1.32,cabinX:0.02,wheelR:0.52,axleF:1.42,axleR:-1.42,bed:true};
+    case "classic70": return {len:4.52,wid:2.30,bodyH:0.80,cabinH:0.64,cabinLen:1.15,cabinX:0.18,wheelR:0.49,axleF:1.42,axleR:-1.42,bed:true};
+    case "outlaw69":  return {len:4.38,wid:2.28,bodyH:0.68,cabinH:0.54,cabinLen:1.38,cabinX:-0.08,wheelR:0.48,axleF:1.42,axleR:-1.42,bed:false};
     case "truck":   return {len:4.2,wid:1.92,bodyH:0.70,cabinH:0.62,cabinLen:1.30,cabinX:0.55,wheelR:0.52,axleF:1.36,axleR:-1.34,bed:true};
     case "monster": return {len:4.3,wid:2.05,bodyH:0.80,cabinH:0.66,cabinLen:1.35,cabinX:0.30,wheelR:0.92,axleF:1.45,axleR:-1.45,bed:true};
     case "armored": return {len:4.3,wid:1.95,bodyH:0.75,cabinH:0.64,cabinLen:1.30,cabinX:0.55,wheelR:0.54,axleF:1.36,axleR:-1.34,bed:true};
@@ -761,9 +766,41 @@ function showroomInit(){
       }, undefined, function(){/* offline/failed: keep procedural env */});
     }
   }catch(e){}
-  const ground=new THREE.Mesh(new THREE.CircleGeometry(11,64),
-    new THREE.MeshStandardMaterial({color:0x0e1330, roughness:0.38, metalness:0.25, envMapIntensity:0.7}));
-  ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
+  // Off-Road Outlaws Industrial Concrete Floor + Diamond-Plate Steel Platform + Shop Props
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(34,34),
+    new THREE.MeshStandardMaterial({color:0x1b2028, roughness:0.65, metalness:0.20}));
+  floor.rotation.x=-Math.PI/2; floor.position.y=-0.06; floor.receiveShadow=true; scene.add(floor);
+
+  const plat=new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.12, 3.9),
+    new THREE.MeshStandardMaterial({color:0x4a5260, roughness:0.32, metalness:0.82}));
+  plat.position.set(0, -0.04, 0); plat.receiveShadow=true; scene.add(plat);
+
+  // Yellow & Black Hazard Border around Platform
+  const hazMat=new THREE.MeshStandardMaterial({color:0xf5b800, emissive:0x332400, roughness:0.4, metalness:0.3});
+  [[0, 1.98, 6.3, 0.08],[0, -1.98, 6.3, 0.08],[3.12, 0, 0.08, 3.9],[-3.12, 0, 0.08, 3.9]].forEach(b=>{
+    const hm=new THREE.Mesh(new THREE.BoxGeometry(b[2], 0.13, b[3]), hazMat);
+    hm.position.set(b[0], -0.035, b[1]); scene.add(hm);
+  });
+
+  // Back Industrial Shop Wall, Rolled-Steel Bay Door, Red Tool Chests & Tire Rack
+  const wallMat=new THREE.MeshStandardMaterial({color:0x232936, roughness:0.7, metalness:0.25});
+  const backWall=new THREE.Mesh(new THREE.BoxGeometry(20, 7.5, 0.4), wallMat);
+  backWall.position.set(0, 3.6, -6.2); scene.add(backWall);
+  const bayDoor=new THREE.Mesh(new THREE.BoxGeometry(6.8, 4.6, 0.48),
+    new THREE.MeshStandardMaterial({color:0x394150, roughness:0.45, metalness:0.70}));
+  bayDoor.position.set(0, 2.25, -6.15); scene.add(bayDoor);
+  // Red Mechanic Tool Chests
+  const chestMat=new THREE.MeshStandardMaterial({color:0xd92b2b, roughness:0.30, metalness:0.60});
+  [-4.8, 4.8].forEach(x=>{
+    const tc=new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.45, 0.85), chestMat);
+    tc.position.set(x, 0.68, -5.4); tc.castShadow=true; scene.add(tc);
+  });
+  // Overhead Industrial Shop LED Strip Lights
+  const shopLedMat=new THREE.MeshBasicMaterial({color:0xfffbe6});
+  [-2.2, 2.2].forEach(z=>{
+    const lbar=new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.08, 0.28), shopLedMat);
+    lbar.position.set(0, 4.8, z); scene.add(lbar);
+  });
   const controls=new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableDamping=true; controls.dampingFactor=0.08;
   controls.autoRotate=true; controls.autoRotateSpeed=1.5;
@@ -822,8 +859,10 @@ const CAR_PROFILE = {
 //   supercar: "assets/models/apex-gt.glb"
 // (get one free from Meshy.ai, or buy from Sketchfab — see docs/PROJECT-MAP.md)
 const CAR_MODELS = {
-  crawler: "assets/models/jax_test_crawler_01.glb", // Jax's Build World Rigged 4x4 Crawler (GLB + JSON)
-  bouncer: "assets/models/jax_bouncer_02.glb",      // Viper Rock Bouncer 4x4 (GLB + JSON)
+  crawler:   "assets/models/jax_test_crawler_01.glb",
+  bouncer:   "assets/models/jax_bouncer_02.glb",
+  classic70: "assets/models/jax_classic_70s_03.glb",
+  outlaw69:  "assets/models/jax_muscle_outlaw_04.glb",
   truck:   "assets/models/pickup-quaternius.glb",   // CC0 Quaternius pickup
   armored: "assets/models/pickup-armored.glb",      // CC0 Quaternius armored pickup
   dump:    "assets/models/dump-truck.glb",          // CC-BY "jeremy"
@@ -981,6 +1020,54 @@ function attachRiggedAddons(bodyNode, c){
     post.position.set(-1.05, 0.65, 0); bodyNode.add(post);
     const boom = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.12, 0.12), new THREE.MeshStandardMaterial({color:0xffae33, metalness:0.4, roughness:0.35}));
     boom.position.set(-1.50, 1.12, 0); boom.rotation.z = -0.18; bodyNode.add(boom);
+  }
+  // 3D Decals & Liveries on Body_Shell
+  const dec = c.decal || "none";
+  if(dec === "stripes"){
+    const sMat = new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.2, metalness:0.3});
+    [-0.18, 0.18].forEach(z=>{
+      const hoodS = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.02, 0.14), sMat);
+      hoodS.position.set(1.38, 0.62, z); bodyNode.add(hoodS);
+      const roofS = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.02, 0.14), sMat);
+      roofS.position.set(-0.02, 1.16, z); bodyNode.add(roofS);
+    });
+  } else if(dec === "flames"){
+    const fMat1 = new THREE.MeshStandardMaterial({color:0xffb800, emissive:0x663300, roughness:0.25});
+    const fMat2 = new THREE.MeshStandardMaterial({color:0xff2a00, emissive:0x550800, roughness:0.25});
+    [-0.95, 0.95].forEach(z=>{
+      [0.45, 0.18, -0.05].forEach((yOff, idx)=>{
+        const fl = new THREE.Mesh(new THREE.ConeGeometry(0.11 - idx*0.02, 1.25 - idx*0.18, 6), idx%2===0?fMat1:fMat2);
+        fl.rotation.z = Math.PI/2;
+        fl.position.set(0.95 - idx*0.22, 0.35 + idx*0.08, z);
+        bodyNode.add(fl);
+      });
+    });
+  } else if(dec === "stars"){
+    const starMat = new THREE.MeshStandardMaterial({color:0xffd14d, emissive:0x553b00, metalness:0.7, roughness:0.2});
+    [-0.96, 0.96].forEach(z=>{
+      const st = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.03, 5), starMat);
+      st.rotation.x = Math.PI/2; st.position.set(0.10, 0.36, z); bodyNode.add(st);
+    });
+  } else if(dec === "skull"){
+    const skMat = new THREE.MeshStandardMaterial({color:0xeef2f7, roughness:0.3, metalness:0.5});
+    const sk = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.04, 16), skMat);
+    sk.position.set(1.38, 0.63, 0); bodyNode.add(sk);
+  } else if(dec === "camo"){
+    const cMat1 = new THREE.MeshStandardMaterial({color:0x4b5d3b, roughness:0.85});
+    const cMat2 = new THREE.MeshStandardMaterial({color:0x8c734b, roughness:0.85});
+    [-0.95, 0.95].forEach(z=>{
+      const p1 = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.28, 0.03), cMat1);
+      p1.position.set(0.55, 0.36, z); bodyNode.add(p1);
+      const p2 = new THREE.Mesh(new THREE.BoxGeometry(0.70, 0.26, 0.03), cMat2);
+      p2.position.set(-0.65, 0.34, z); bodyNode.add(p2);
+    });
+  }
+  if(dec === "mud" || (c.mudLevel||0) > 0.15){
+    const mudMat = new THREE.MeshStandardMaterial({color:0x4a321c, roughness:0.95, metalness:0.05});
+    [-0.96, 0.96].forEach(z=>{
+      const m1 = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.24, 0.04), mudMat);
+      m1.position.set(0.0, 0.16, z); bodyNode.add(m1);
+    });
   }
 }
 
@@ -1320,7 +1407,7 @@ function garageScreen(){
   const type = state.current, c = cfg(type), v = VEHICLES[type];
   const vtiles = Object.keys(VEHICLES).map(k=>{
     const vv=VEHICLES[k], owned=state.owned.includes(k), locked=state.level<vv.level;
-    const is3D = (k==="crawler"||k==="bouncer");
+    const is3D = (k==="crawler"||k==="bouncer"||k==="classic70"||k==="outlaw69");
     const cls = "tile "+(k===type?"sel ":"")+(owned?"owned ":"")+(locked?"locked":"");
     const badge3d = is3D ? `<div style="font-size:9px;background:#1f9e69;color:#fff;border-radius:6px;padding:1px 5px;display:inline-block;margin-top:2px">3D RIGGED</div>` : "";
     const foot = owned ? badge3d : (locked ? `<div class="lock">🔒 Lv${vv.level}</div>` : `<div class="price">🪙${vv.cost}</div>`);
@@ -1371,8 +1458,11 @@ function garageScreen(){
 
   return `
     <div class="row" style="justify-content:space-between;align-items:center;margin:2px 0 10px">
-      <h2 class="title" style="margin:0">🔧 Off-Road Build Shop</h2>
-      <button class="btn sm green" id="openbrain" style="padding:8px 13px">🧠 Brain Boost (+🪙40)</button>
+      <h2 class="title" style="margin:0">🔧 Off-Road Outlaws Garage</h2>
+      <div class="row" style="gap:6px">
+        <button class="btn sm gold" id="carshowbtn" style="padding:8px 11px">🏆 Car Show</button>
+        <button class="btn sm green" id="openbrain" style="padding:8px 11px">🧠 Brain Boost</button>
+      </div>
     </div>
     <div id="stage"><div class="spinhint">drag to spin • pinch/scroll to zoom • live 3D suspension flex</div></div>
     <div class="card" style="margin-top:14px">
@@ -1448,7 +1538,13 @@ function garageScreen(){
     </div>
 
     <div class="card">
-      <b>⑥ Paint &amp; Finish</b>
+      <b>⑥ 🔥 Decals, Wraps &amp; Paint Shop</b>
+      <div class="sub">Equip an Off-Road Outlaws livery wrap or decal badge for +Style at the Car Show!</div>
+      <div class="grid g4" style="margin:8px 0 12px">
+        ${[["none","Clean","🧼"],["flames","Flames","🔥"],["stars","Outlaw Star","⭐"],["stripes","Stripes","🏁"],["skull","Skull Hood","💀"],["camo","Camo Wrap","🪖"],["mud","Mud Coat","💦"]]
+          .map(d=>`<button class="tile palitem ${(c.decal||'none')===d[0]?'sel':''}" data-decal="${d[0]}"><span class="emoji">${d[2]}</span>${d[1]}</button>`).join("")}
+      </div>
+      <b>Paint Swatches</b>
       <div class="swatches" id="paints" style="margin:8px 0 10px">${paintSw}</div>
       <div class="row" style="align-items:center;gap:10px;margin-bottom:12px">
         <label class="btn sm gray" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
@@ -1527,6 +1623,31 @@ function wireGarage(){
     cfg(state.current).paint=h; SFX.buy(); save(); render();
   };
   document.querySelectorAll("[data-finish]").forEach(b=>b.onclick=()=>{ cfg(state.current).finish=b.dataset.finish; SFX.tap(); save(); render(); });
+  document.querySelectorAll("[data-decal]").forEach(b=>b.onclick=()=>{
+    cfg(state.current).decal=b.dataset.decal;
+    if(b.dataset.decal==="mud") cfg(state.current).mudLevel=0.8;
+    SFX.tap(); save(); render();
+  });
+  const csb=$("#carshowbtn"); if(csb) csb.onclick=()=>openCarShowModal();
+}
+
+function openCarShowModal(){
+  const type = state.current, c = cfg(type), v = VEHICLES[type];
+  const st = carStats(type, c);
+  const partsCount = (c.parts||[]).length;
+  const hasDecal = (c.decal && c.decal!=="none") ? 0.45 : 0;
+  const rawStars = Math.min(5.0, 2.8 + partsCount*0.18 + (st.power/130)*0.7 + hasDecal + (c.lift?0.25:0));
+  const stars = rawStars.toFixed(1);
+  const prize = Math.round(rawStars * 18);
+  addCoins(prize); addXP(20); SFX.level(); confettiBurst();
+  showModal(`
+    <div class="big-emoji">🏆</div>
+    <h3>Off-Road Outlaws Car Show!</h3>
+    <p>Judges inspected your <b>${v.emoji} ${v.name}</b> (${partsCount} custom parts · ${(c.decal||'clean').toUpperCase()} livery)</p>
+    <div style="font-size:28px;font-weight:900;color:#ffd14d;margin:8px 0">⭐ ${stars} / 5.0 STARS</div>
+    <p style="color:var(--good);font-weight:800">Trophy Prize Awarded: +🪙${prize} · +⭐20 XP!</p>
+    <button class="btn green" onclick="closeModal()">Awesome!</button>
+  `);
 }
 
 function selectEngine(k){
@@ -2930,85 +3051,126 @@ window.checkBrainAnswer = function(){
   }
 };
 
-/* ================= 3D OFF-ROAD OUTLAWS CHAPTERS (6 ROOMS) =================
-   Full 3D Free-Roam Driving, Drivetrain Controls (4WD / LOW GEAR / DIFF LOCK /
-   3D ELECTRIC WINCH), Hidden Money Crates, Barn Finds & Trail Checkpoints! */
+/* ================= 3D OFF-ROAD OUTLAWS CHAPTERS (360m x 360m OPEN WORLD) =================
+   Massive 360m x 360m Off-Road Park, Raycast Ramps & Bridges, Solid Tree/Building Collisions,
+   Smashable Fences/Crates, Crush Cars, Big Air Jump Meter, Trail Missions & Live Map Builder! */
 const CHAPTERS_3D = [
-  { id:"chapter_01_ranch",     num:1, name:"Ch 1: Ranch Trail",   emoji:"🏡", glb:"assets/models/chapters/chapter_01_ranch.glb",     mode:"ranch",     skyTop:"#3a7bd5", skyBot:"#bde0fe", baseZ:0.18, anchor:[6.5, 1.2, 3.8],  barn:[ -9.5,  8.5] },
-  { id:"chapter_02_mudbog",    num:2, name:"Ch 2: Mud Bog Creek", emoji:"🌲", glb:"assets/models/chapters/chapter_02_mudbog.glb",    mode:"mudbog",    skyTop:"#2c4d63", skyBot:"#a8c7db", baseZ:0.12, anchor:[5.5, 1.6, 5.8],  barn:[ -8.5,  6.2] },
-  { id:"chapter_03_redrock",   num:3, name:"Ch 3: Red Rock Crawl",emoji:"🏜️", glb:"assets/models/chapters/chapter_03_redrock.glb",   mode:"redrock",   skyTop:"#c85a32", skyBot:"#ffe0b2", baseZ:0.42, anchor:[2.5, 2.8, -7.8], barn:[ -7.5, -7.2] },
-  { id:"chapter_04_dunes",     num:4, name:"Ch 4: Baja Dunes",    emoji:"🏖️", glb:"assets/models/chapters/chapter_04_dunes.glb",     mode:"dunes",     skyTop:"#1d9bf0", skyBot:"#fff1cf", baseZ:0.32, anchor:[4.5, 2.2, -6.2], barn:[-10.5,  6.5] },
-  { id:"chapter_05_nightcity", num:5, name:"Ch 5: Night City",    emoji:"🌃", glb:"assets/models/chapters/chapter_05_nightcity.glb", mode:"nightcity", skyTop:"#090d24", skyBot:"#311c5c", baseZ:0.25, anchor:[5.8, 2.5, 3.2],  barn:[ -8.0, -6.5] },
-  { id:"chapter_06_arena",     num:6, name:"Ch 6: Monster Arena", emoji:"🏟️", glb:"assets/models/chapters/chapter_06_arena.glb",     mode:"arena",     skyTop:"#ff8c3b", skyBot:"#ffeacc", baseZ:0.48, anchor:[6.2, 2.0, 0.0],  barn:[-11.0,  7.0] }
+  { id:"chapter_01_ranch",     num:1, name:"Ch 1: Ranch Trail",   emoji:"🏡", glb:"assets/models/chapters/chapter_01_ranch.glb",     mode:"ranch",     skyTop:"#3a7bd5", skyBot:"#bde0fe", gndCol:0x4d7c38, anchor:[12.5, 1.4, 8.8],  barn:[-28.0, 24.0] },
+  { id:"chapter_02_mudbog",    num:2, name:"Ch 2: Mud Bog Creek", emoji:"🌲", glb:"assets/models/chapters/chapter_02_mudbog.glb",    mode:"mudbog",    skyTop:"#2c4d63", skyBot:"#a8c7db", gndCol:0x3d5232, anchor:[10.5, 1.6, 11.8], barn:[-26.0, 20.0] },
+  { id:"chapter_03_redrock",   num:3, name:"Ch 3: Red Rock Crawl",emoji:"🏜️", glb:"assets/models/chapters/chapter_03_redrock.glb",   mode:"redrock",   skyTop:"#c85a32", skyBot:"#ffe0b2", gndCol:0xb55933, anchor:[8.5, 2.8, -14.8], barn:[-25.0,-24.0] },
+  { id:"chapter_04_dunes",     num:4, name:"Ch 4: Baja Dunes",    emoji:"🏖️", glb:"assets/models/chapters/chapter_04_dunes.glb",     mode:"dunes",     skyTop:"#1d9bf0", skyBot:"#fff1cf", gndCol:0xd9a86c, anchor:[11.5, 2.2, -12.2],barn:[-32.0, 22.0] },
+  { id:"chapter_05_nightcity", num:5, name:"Ch 5: Night City",    emoji:"🌃", glb:"assets/models/chapters/chapter_05_nightcity.glb", mode:"nightcity", skyTop:"#090d24", skyBot:"#311c5c", gndCol:0x242938, anchor:[12.8, 2.5, 8.2],  barn:[-24.0,-22.0] },
+  { id:"chapter_06_arena",     num:6, name:"Ch 6: Monster Arena", emoji:"🏟️", glb:"assets/models/chapters/chapter_06_arena.glb",     mode:"arena",     skyTop:"#ff8c3b", skyBot:"#ffeacc", gndCol:0x785638, anchor:[14.2, 2.0, 0.0],  barn:[-30.0, 24.0] }
 ];
 
 let CH3D = null;
 const chEnvCache = {};
+const STAR_RIGS = ["crawler","bouncer","classic70","outlaw69"];
 
 function evalChapterTerrainY(mode, x, z){
   const y = -z;
   const r = Math.hypot(x, y);
+  let baseH = 0;
   if(mode==="ranch"){
-    let h = 0.18*Math.cos(x*0.35)*Math.cos(y*0.35) + 0.35*Math.sin(x*0.12+0.5)*Math.sin(y*0.12);
-    if(r>10) h += (r-10)*0.12*(0.6+0.4*Math.sin(Math.atan2(y,x)*4));
-    return h;
+    baseH = 0.22*Math.cos(x*0.18)*Math.cos(y*0.18) + 0.45*Math.sin(x*0.06+0.5)*Math.sin(y*0.06);
   } else if(mode==="mudbog"){
-    const trench = -0.18*Math.exp(-(y*y)/14.0)*Math.cos(x*0.25);
-    const banks  = 0.28*(1.0 - Math.exp(-(y*y)/18.0)) + 0.12*Math.sin(x*0.2);
-    return Math.max(-0.04, trench + banks - 0.06);
+    const trench = -0.35*Math.exp(-(y*y)/36.0)*Math.cos(x*0.12);
+    const banks  = 0.32*(1.0 - Math.exp(-(y*y)/45.0)) + 0.16*Math.sin(x*0.10);
+    baseH = trench + banks - 0.06;
   } else if(mode==="redrock"){
-    const base = 0.42*Math.exp(-((x-0.4)*(x-0.4)+(y+0.3)*(y+0.3))/9.0);
-    let steps = 0.22*Math.floor((0.5*Math.sin(x*0.18)+0.5*Math.cos(y*0.18))*3.0);
-    if(Math.abs(y)>9.0) steps += (Math.abs(y)-9.0)*0.32;
-    return base + Math.max(0.0, steps*0.35);
+    const mesa = 0.55*Math.exp(-((x-2)*(x-2)+(y+2)*(y+2))/45.0);
+    const steps = 0.35*Math.sin(x*0.09)*Math.cos(y*0.09);
+    baseH = mesa + Math.max(0.0, steps);
   } else if(mode==="dunes"){
-    return 0.38*Math.sin(x*0.22+y*0.10+0.8) + 0.24*Math.cos(x*0.14-y*0.22) + 0.12;
+    baseH = 1.15*Math.sin(x*0.08+y*0.05+0.8) + 0.75*Math.cos(x*0.06-y*0.09) + 0.25;
   } else if(mode==="nightcity"){
-    return 0.25*Math.exp(-(x*x+y*y)/16.0);
+    baseH = 0.18*Math.exp(-(x*x+y*y)/90.0);
   } else if(mode==="arena"){
-    const tabletop = 0.52*Math.exp(-(x*x+y*y)/12.0);
-    const bowl = Math.max(0.0, (r-14.0)*0.22);
-    return tabletop + bowl;
+    baseH = 0.42*Math.exp(-(x*x+y*y)/55.0);
   }
-  return 0.0;
+  // Outer Off-Road Park Zones (360m x 360m):
+  // 1) North-East High Mountain Summit Peak at (x=58, z=-58) climbing up to +18m!
+  const dPeak = Math.hypot(x - 58, z + 58);
+  if(dPeak < 42){
+    baseH += 16.5 * Math.pow(1 - dPeak/42, 1.65);
+  }
+  // 2) South-West Deep Mud Bog Trench around (x=-38, z=38)
+  const dMud = Math.hypot(x + 38, z - 38);
+  if(dMud < 22){
+    baseH -= 0.75 * Math.pow(1 - dMud/22, 2);
+  }
+  // 3) Outer Canyon Rim Bowl beyond r > 95m
+  if(r > 95){
+    baseH += Math.min(22.0, (r - 95) * 0.32 * (0.7 + 0.3*Math.sin(Math.atan2(y,x)*6)));
+  }
+  return baseH;
 }
 
 function chapter3DScreen(){
-  const chBtns = CHAPTERS_3D.map((c,i)=>`<button class="dchip" data-ch3d="${i}" style="pointer-events:auto;cursor:pointer;font-size:11.5px;padding:5px 8px;background:${i===0?'rgba(54,201,138,.88)':'rgba(8,12,30,.72)'}">${c.emoji} Ch${c.num}</button>`).join("");
+  const chBtns = CHAPTERS_3D.map((c,i)=>`<button class="dchip" data-ch3d="${i}" style="pointer-events:auto;cursor:pointer;font-size:11px;padding:4px 7px;background:${i===0?'rgba(54,201,138,.92)':'rgba(8,12,30,.75)'}">${c.emoji} Ch${c.num}</button>`).join("");
   return `<div id="driveroot">
     <div id="ch3dstage" style="width:100%;height:100%;position:relative"></div>
-    <div class="dhud" style="flex-direction:column;gap:6px">
-      <div style="display:flex;justify-content:space-between;width:100%;align-items:center;flex-wrap:wrap;gap:6px">
-        <div class="dstatrow">
-          <span class="dchip" id="ch3dtitle" style="background:rgba(47,143,255,.82)">🏡 Ch 1: Ranch Trail</span>
-          <span class="dchip">🚩 Gates <b id="ch3dgates">0/6</b></span>
-          <span class="dchip">📦 Crates <b id="ch3dcrates">0/3</b></span>
-          <span class="dchip">🏚️ Barn Find <b id="ch3dbarn">0/1</b></span>
-          <span class="dchip">🪙 <b id="ch3dcoins">0</b></span>
-        </div>
-        <div class="dstatrow">
-          <button class="dchip" id="ch3drigswap" style="pointer-events:auto;cursor:pointer;background:rgba(155,91,255,.82)">🛻 Switch Rig</button>
-          <button class="dchip" id="ch3dexit" style="pointer-events:auto;cursor:pointer">✕</button>
+
+    <!-- COMPACT SINGLE-STRIP TOP HUD (Fits Mobile 390px cleanly!) -->
+    <div class="dhud" id="outlaws_hud" style="flex-direction:column;gap:4px;padding:6px 8px;pointer-events:none">
+      <div style="display:flex;justify-content:space-between;width:100%;align-items:center;gap:4px;flex-wrap:nowrap;overflow-x:auto">
+        <div style="display:flex;gap:3px;align-items:center" id="ch3dbar">${chBtns}</div>
+        <div style="display:flex;gap:4px;align-items:center">
+          <button class="dchip" id="btn_mapbuilder" style="pointer-events:auto;cursor:pointer;font-size:11px;padding:4px 8px;background:rgba(255,140,26,.9)">🛠️ Build Map</button>
+          <button class="dchip" id="ch3drigswap" style="pointer-events:auto;cursor:pointer;font-size:11px;padding:4px 8px;background:rgba(155,91,255,.9)">🛻 Switch Rig</button>
+          <button class="dchip" id="btn_cam" style="pointer-events:auto;cursor:pointer;font-size:11px;padding:4px 7px;background:rgba(47,143,255,.85)">🎥 Cam</button>
+          <button class="dchip" id="ch3dexit" style="pointer-events:auto;cursor:pointer;font-size:11px;padding:4px 8px;background:rgba(226,59,59,.88)">✕</button>
         </div>
       </div>
-      <!-- OFF-ROAD OUTLAWS DRIVETRAIN & WINCH BAR -->
-      <div class="dstatrow" id="outlaws_hud">
-        <button class="dchip" id="btn_4wd"   style="pointer-events:auto;cursor:pointer;background:rgba(55,196,106,.88);border-color:#5bff9b">🛞 4WD: ON</button>
-        <button class="dchip" id="btn_low"   style="pointer-events:auto;cursor:pointer;background:rgba(8,12,30,.78)">⚙️ GEAR: HIGH</button>
-        <button class="dchip" id="btn_diff"  style="pointer-events:auto;cursor:pointer;background:rgba(8,12,30,.78)">🔒 DIFF LOCK: OFF</button>
-        <button class="dchip" id="btn_winch" style="pointer-events:auto;cursor:pointer;background:rgba(226,59,59,.85);border-color:#ff8a8a">🪝 WINCH: PULL</button>
-        <button class="dchip" id="ch3dlift"  style="pointer-events:auto;cursor:pointer;background:rgba(255,140,26,.82)">⬆️ LIFT: ON</button>
+
+      <!-- COMPACT MISSION & STUNT TICKER STRIP -->
+      <div style="display:flex;justify-content:space-between;align-items:center;width:100%;gap:4px">
+        <span class="dchip" id="ch3dmission" style="font-size:11px;padding:3px 8px;background:rgba(12,20,48,.82);border-color:#5bff9b">🎯 Mission: Hit Stunt Ramp or Climb Summit Peak!</span>
+        <div style="display:flex;gap:4px">
+          <span class="dchip" style="font-size:11px;padding:3px 7px">🚀 Best Air: <b id="ch3dair">0 ft</b></span>
+          <span class="dchip" style="font-size:11px;padding:3px 7px">🏚️ Barn <b id="ch3dbarn">0/1</b></span>
+          <span class="dchip" style="font-size:11px;padding:3px 7px">🪙 <b id="ch3dcoins">0</b></span>
+        </div>
       </div>
-      <div class="dstatrow" id="ch3dbar">${chBtns}</div>
+
+      <!-- TOGGLEABLE LIVE 3D MAP BUILDER BAR -->
+      <div id="mapbuilder_bar" style="display:none;gap:5px;flex-wrap:wrap;background:rgba(8,12,30,.90);padding:6px 8px;border-radius:10px;border:1px solid #ff8c1a;pointer-events:auto">
+        <b style="font-size:11px;color:#ffd14d;align-self:center">🛠️ Drop Ahead:</b>
+        <button class="dchip" data-drop="ramp" style="cursor:pointer;font-size:11px;padding:4px 7px;background:#d96b1f">📐 +Big Ramp</button>
+        <button class="dchip" data-drop="crush" style="cursor:pointer;font-size:11px;padding:4px 7px;background:#c92a2a">🚗 +Crush Cars</button>
+        <button class="dchip" data-drop="boulder" style="cursor:pointer;font-size:11px;padding:4px 7px;background:#5c6470">🪨 +Rock Crawl</button>
+        <button class="dchip" data-drop="mud" style="cursor:pointer;font-size:11px;padding:4px 7px;background:#5c3a1e">💦 +Mud Bog</button>
+        <button class="dchip" data-drop="crates" style="cursor:pointer;font-size:11px;padding:4px 7px;background:#2b8a3e">📦 +Smash Crates</button>
+      </div>
     </div>
+
     <div class="flipmsg" id="flipmsg"></div>
-    <div style="position:absolute;left:16px;bottom:20px;display:flex;gap:10px;z-index:4">
-      <button class="dctrl" id="c3left" style="position:static;width:76px;height:76px;font-size:28px">◀</button>
-      <button class="dctrl" id="c3right" style="position:static;width:76px;height:76px;font-size:28px">▶</button>
+
+    <!-- BOTTOM-LEFT STEERING + COMPACT OUTLAWS DRIVETRAIN PILLS -->
+    <div style="position:absolute;left:12px;bottom:14px;display:flex;flex-direction:column;gap:6px;z-index:4">
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="dchip" id="btn_4wd"   style="pointer-events:auto;cursor:pointer;font-size:10px;padding:3px 6px;background:rgba(55,196,106,.88)">4WD</button>
+        <button class="dchip" id="btn_low"   style="pointer-events:auto;cursor:pointer;font-size:10px;padding:3px 6px;background:rgba(8,12,30,.82)">LOW</button>
+        <button class="dchip" id="btn_diff"  style="pointer-events:auto;cursor:pointer;font-size:10px;padding:3px 6px;background:rgba(8,12,30,.82)">DIFF</button>
+        <button class="dchip" id="btn_winch" style="pointer-events:auto;cursor:pointer;font-size:10px;padding:3px 6px;background:rgba(226,59,59,.88)">🪝 WINCH</button>
+        <button class="dchip" id="ch3dlift"  style="pointer-events:auto;cursor:pointer;font-size:10px;padding:3px 6px;background:rgba(255,140,26,.85)">LIFT</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="dctrl" id="c3left" style="position:static;width:68px;height:68px;font-size:26px">◀</button>
+        <button class="dctrl" id="c3right" style="position:static;width:68px;height:68px;font-size:26px">▶</button>
+      </div>
     </div>
-    <div style="position:absolute;right:16px;bottom:20px;display:flex;gap:10px;z-index:4">
-      <button class="dctrl" id="c3rev" style="position:static;width:76px;height:76px;font-size:24px;border-color:rgba(255,120,120,.8)">⬇️</button>
-      <button class="dctrl" id="c3gas" style="position:static;width:86px;height:86px;font-size:30px;border-color:rgba(91,255,155,.9)">⛽</button>
+
+    <!-- BOTTOM-RIGHT SPEEDOMETER + NITRO + BRAKE/GAS -->
+    <div style="position:absolute;right:12px;bottom:14px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;z-index:4">
+      <div style="display:flex;gap:6px;align-items:center">
+        <span class="dchip" style="font-size:12px;padding:4px 9px;background:rgba(8,12,30,.88);border-color:#00e5ff"><b id="ch3dmph" style="color:#00e5ff;font-size:14px">0</b> MPH</span>
+        <button class="dchip" id="c3nitro" style="pointer-events:auto;cursor:pointer;font-size:12px;padding:5px 10px;background:linear-gradient(180deg,#ff5f00,#d91b1b);border-color:#ffd14d;font-weight:900">🔥 NITRO</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <button class="dctrl" id="c3rev" style="position:static;width:68px;height:68px;font-size:22px;border-color:rgba(255,120,120,.8)">⬇️</button>
+        <button class="dctrl" id="c3gas" style="position:static;width:78px;height:78px;font-size:28px;border-color:rgba(91,255,155,.9)">⛽</button>
+      </div>
     </div>
   </div>`;
 }
@@ -3030,8 +3192,9 @@ function start3DChapterMode(initialIdx){
   stage.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(45, w/h, 0.1, 220);
-  camera.position.set(-7.5, 3.6, 5.5);
+  scene.fog = new THREE.FogExp2(0x9ab8d4, 0.0045);
+  const camera = new THREE.PerspectiveCamera(48, w/h, 0.1, 420);
+  camera.position.set(-8.5, 3.8, 5.5);
 
   try{
     const pmrem = new THREE.PMREMGenerator(renderer);
@@ -3040,27 +3203,35 @@ function start3DChapterMode(initialIdx){
 
   const hemi = new THREE.HemisphereLight(0xffffff, 0x334466, 0.95);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xfff6e5, 1.3);
-  sun.position.set(12, 22, 14);
+  const sun = new THREE.DirectionalLight(0xfff6e5, 1.35);
+  sun.position.set(28, 48, 28);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
-  sun.shadow.camera.near = 1; sun.shadow.camera.far = 65;
-  sun.shadow.camera.left = -22; sun.shadow.camera.right = 22;
-  sun.shadow.camera.top = 22; sun.shadow.camera.bottom = -22;
+  sun.shadow.camera.near = 1; sun.shadow.camera.far = 160;
+  sun.shadow.camera.left = -45; sun.shadow.camera.right = 45;
+  sun.shadow.camera.top = 45; sun.shadow.camera.bottom = -45;
   scene.add(sun);
 
   const envGroup  = new THREE.Group();
+  const parkGroup = new THREE.Group();
   const carHolder = new THREE.Group();
-  const gateGroup = new THREE.Group();
-  scene.add(envGroup); scene.add(carHolder); scene.add(gateGroup);
+  scene.add(envGroup); scene.add(parkGroup); scene.add(carHolder);
 
-  // 3D Winch Cable Line + Anchor Marker
+  // 3D Directional Mission Arrow above Truck
+  const arrowGrp = new THREE.Group();
+  const arrCone = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.75, 8), new THREE.MeshStandardMaterial({color:0x5bff9b, emissive:0x1f9e69, roughness:0.2}));
+  arrCone.rotation.z = -Math.PI/2; arrCone.position.x = 0.25; arrowGrp.add(arrCone);
+  const arrShaft = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.14, 0.14), new THREE.MeshStandardMaterial({color:0x5bff9b, emissive:0x1f9e69}));
+  arrShaft.position.x = -0.15; arrowGrp.add(arrShaft);
+  scene.add(arrowGrp);
+
+  // 3D Winch Cable Line
   const winchGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0.8,0), new THREE.Vector3(5,1.2,0)]);
   const winchLine = new THREE.Line(winchGeo, new THREE.LineBasicMaterial({color:0xffd14d, linewidth:3}));
   winchLine.visible = false;
   scene.add(winchLine);
 
-  const vType = (state.current==="bouncer" || state.current==="crawler" || CAR_MODELS[state.current]) ? state.current : "crawler";
+  const vType = STAR_RIGS.includes(state.current) || CAR_MODELS[state.current] ? state.current : "crawler";
   const vCfg = Object.assign({}, cfg(vType));
   if(vCfg.lift===undefined) vCfg.lift = true;
 
@@ -3077,94 +3248,280 @@ function start3DChapterMode(initialIdx){
   mountActiveRig(vType);
 
   CH3D = {
-    renderer, scene, camera, envGroup, carHolder, gateGroup, winchLine, vType, vCfg,
+    renderer, scene, camera, envGroup, parkGroup, carHolder, arrowGrp, winchLine, vType, vCfg,
     chIdx: initialIdx || 0,
-    x: 0, z: 0, y: 0.2, heading: 0, speed: 0, steer: 0, wheelSpin: 0,
-    pitch: 0, roll: 0, coins: 0, gatesHit: 0, cratesHit: 0, barnFound: false,
+    x: 0, z: 0, y: 0.2, vy: 0, airborne: false, jumpStartPos: null, bestAirFt: 0,
+    heading: 0, speed: 0, steer: 0, wheelSpin: 0, camMode: 0, shakeTime: 0,
+    pitch: 0, roll: 0, coins: 0, barnFound: false,
     fourWD: true, lowGear: false, diffLock: false, winchActive: false,
-    anchorPos: new THREE.Vector3(6.5, 1.2, 3.8),
-    input: {gas:false, rev:false, left:false, right:false},
-    checkpoints: [], crates: [], barnMesh: null,
+    anchorPos: new THREE.Vector3(12.5, 1.4, 8.8),
+    input: {gas:false, rev:false, left:false, right:false, nitro:false},
+    rideableMeshes: [], obstacleColliders: [], smashables: [], crushCars: [], mudZones: [],
+    missions: [], missionIdx: 0, barnMesh: null,
+    raycaster: new THREE.Raycaster(),
     raf: null, last: 0
   };
 
-  const buildGatesAndSecrets = (ch)=>{
-    const mode = ch.mode;
-    while(gateGroup.children.length) gateGroup.remove(gateGroup.children[0]);
-    const pts = [[8,0],[13,-7],[2,-13],[-12,-7],[-11,8],[2,11]];
-    CH3D.checkpoints = pts.map((p,idx)=>{
-      const gy = evalChapterTerrainY(mode, p[0], p[1]);
-      const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(1.35, 0.12, 10, 24),
-        new THREE.MeshStandardMaterial({color:0xffd14d, emissive:0xff9900, emissiveIntensity:0.8, roughness:0.2})
-      );
-      ring.position.set(p[0], gy + 1.35, p[1]);
-      gateGroup.add(ring);
-      return {x:p[0], z:p[1], y:gy, mesh:ring, taken:false, idx};
-    });
+  const addRideableRamp = (x, z, rotY, len, wid, h, col)=>{
+    const gy = evalChapterTerrainY(CHAPTERS_3D[CH3D.chIdx].mode, x, z);
+    const rGrp = new THREE.Group();
+    rGrp.position.set(x, gy, z);
+    rGrp.rotation.y = rotY;
+    const slope = Math.atan2(h, len);
+    const deck = new THREE.Mesh(
+      new THREE.BoxGeometry(len, 0.28, wid),
+      new THREE.MeshStandardMaterial({color:col||0xc87a28, roughness:0.75})
+    );
+    deck.position.set(0, h*0.48, 0);
+    deck.rotation.z = slope;
+    deck.castShadow = true; deck.receiveShadow = true;
+    rGrp.add(deck);
+    parkGroup.add(rGrp);
+    rGrp.updateMatrixWorld(true);
+    CH3D.rideableMeshes.push(deck);
+  };
 
-    // 3 Hidden Off-Road Money Crates per Chapter
-    const cratePts = [[6, -8], [-7, 6], [11, 7]];
-    CH3D.crates = cratePts.map(p=>{
-      const gy = evalChapterTerrainY(mode, p[0], p[1]);
+  const addCrushCarRow = (x, z, rotY)=>{
+    const gy = evalChapterTerrainY(CHAPTERS_3D[CH3D.chIdx].mode, x, z);
+    const cols = [0xbf2c2c, 0x2c6ebf, 0xd99b26, 0x4b8b3b];
+    for(let i=-1;i<=1;i++){
+      const cMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(1.75, 0.85, 3.4),
+        new THREE.MeshStandardMaterial({color:cols[(i+1)%cols.length], roughness:0.55, metalness:0.4})
+      );
+      const cx = x + i*2.05*Math.cos(rotY), cz = z - i*2.05*Math.sin(rotY);
+      const cy = evalChapterTerrainY(CHAPTERS_3D[CH3D.chIdx].mode, cx, cz);
+      cMesh.position.set(cx, cy + 0.42, cz);
+      cMesh.rotation.y = rotY;
+      cMesh.castShadow = true; cMesh.receiveShadow = true;
+      parkGroup.add(cMesh);
+      CH3D.rideableMeshes.push(cMesh);
+      CH3D.crushCars.push({mesh:cMesh, x:cx, z:cz, crushed:false});
+    }
+  };
+
+  const addSmashCrateCluster = (x, z)=>{
+    const mode = CHAPTERS_3D[CH3D.chIdx].mode;
+    [[-0.9,0],[0.9,0],[0,0.9]].forEach(off=>{
+      const cx = x + off[0], cz = z + off[1];
+      const cy = evalChapterTerrainY(mode, cx, cz);
       const box = new THREE.Mesh(
         new THREE.BoxGeometry(0.95, 0.95, 0.95),
-        new THREE.MeshStandardMaterial({color:0xd9822b, emissive:0x552800, roughness:0.6})
+        new THREE.MeshStandardMaterial({color:0xd9822b, emissive:0x331600, roughness:0.65})
       );
-      box.position.set(p[0], gy + 0.5, p[1]);
-      gateGroup.add(box);
-      return {x:p[0], z:p[1], y:gy, mesh:box, taken:false};
+      box.position.set(cx, cy + 0.48, cz);
+      box.castShadow = true;
+      parkGroup.add(box);
+      CH3D.smashables.push({mesh:box, x:cx, y:cy+0.48, z:cz, vx:0, vy:0, vz:0, hit:false, label:"📦 SUPPLY CRATE"});
+    });
+  };
+
+  const buildOpenWorldParkAndMissions = (ch)=>{
+    const mode = ch.mode;
+    while(parkGroup.children.length) parkGroup.remove(parkGroup.children[0]);
+    CH3D.rideableMeshes = [];
+    CH3D.obstacleColliders = [];
+    CH3D.smashables = [];
+    CH3D.crushCars = [];
+    CH3D.mudZones = [{x:-38, z:38, r:20}, {x:0, z:18, r:10}];
+
+    // 1. Massive 360m x 360m Continuous Outer Off-Road Park Terrain Mesh
+    const gGeo = new THREE.PlaneGeometry(340, 340, 110, 110);
+    gGeo.rotateX(-Math.PI/2);
+    const pos = gGeo.attributes.position;
+    for(let i=0;i<pos.count;i++){
+      const vx = pos.getX(i), vz = pos.getZ(i);
+      const hy = evalChapterTerrainY(mode, vx, vz);
+      // Slightly depress central 38m so chapter GLB sits flush without z-fighting
+      const cDist = Math.max(Math.abs(vx), Math.abs(vz));
+      const blend = cDist < 22 ? -0.06 : 0.0;
+      pos.setY(i, hy + blend);
+    }
+    gGeo.computeVertexNormals();
+    const gMat = new THREE.MeshStandardMaterial({color:ch.gndCol||0x4d7c38, roughness:0.90, metalness:0.05});
+    const gMesh = new THREE.Mesh(gGeo, gMat);
+    gMesh.receiveShadow = true;
+    parkGroup.add(gMesh);
+
+    // 2. Stunt Park Ramps & Crush Car Rows (Right ahead of spawn + around park!)
+    addRideableRamp(13.5, 0.0, 0.0, 6.5, 4.2, 1.85, 0xd97324);          // Launch ramp straight ahead!
+    addCrushCarRow(22.0, 0.0, 0.0);                                      // Crush cars right past ramp!
+    addRideableRamp(32.0, 0.0, Math.PI, 6.5, 4.2, 1.85, 0xd97324);       // Return jump ramp
+    addRideableRamp(-18.0, -22.0, 0.65, 7.5, 4.6, 2.35, 0xc94a29);       // Mega Stunt Ramp NW
+    addRideableRamp(25.0, 28.0, -0.8, 7.0, 4.5, 2.15, 0xd97324);         // SE Tabletop Ramp
+
+    // 3. Rideable Rock Crawl Boulders Slab Garden at (x=24, z=-24)
+    for(let i=0;i<10;i++){
+      const rx = 20 + (i%4)*3.2, rz = -20 - Math.floor(i/4)*3.4;
+      const ry = evalChapterTerrainY(mode, rx, rz);
+      const rk = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(1.45 + (i%3)*0.35, 1),
+        new THREE.MeshStandardMaterial({color:0x6c7078, roughness:0.88})
+      );
+      rk.scale.set(1.3, 0.62, 1.2);
+      rk.position.set(rx, ry + 0.35, rz);
+      rk.castShadow = true; rk.receiveShadow = true;
+      parkGroup.add(rk);
+      rk.updateMatrixWorld(true);
+      CH3D.rideableMeshes.push(rk);
+    }
+
+    // 4. Deep Mud Bog Water Surface at (-38, 38)
+    const mudSurf = new THREE.Mesh(
+      new THREE.CircleGeometry(19, 32),
+      new THREE.MeshStandardMaterial({color:0x3b2614, roughness:0.18, metalness:0.25})
+    );
+    mudSurf.rotation.x = -Math.PI/2;
+    mudSurf.position.set(-38, evalChapterTerrainY(mode, -38, 38) + 0.32, 38);
+    parkGroup.add(mudSurf);
+
+    // 5. Solid Pine Trees & Perimeter Rock Pillars (True Solid Collisions!)
+    const trunkMat = new THREE.MeshStandardMaterial({color:0x5c3d24, roughness:0.9});
+    const leafMat  = new THREE.MeshStandardMaterial({color:0x2d5a27, roughness:0.8});
+    const treeCoords = [
+      [18,16],[-18,16],[18,-16],[-18,-16],[36,18],[-36,-18],[42,-15],[-45,14],
+      [12,38],[-15,42],[48,42],[-52,-42],[68,22],[-68,25],[30,-48],[-32,-48]
+    ];
+    treeCoords.forEach(tc=>{
+      const tx = tc[0], tz = tc[1], ty = evalChapterTerrainY(mode, tx, tz);
+      const tGrp = new THREE.Group();
+      const trk = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.45, 2.6, 8), trunkMat);
+      trk.position.y = 1.3; tGrp.add(trk);
+      const crn = new THREE.Mesh(new THREE.ConeGeometry(1.85, 4.5, 8), leafMat);
+      crn.position.y = 4.2; tGrp.add(crn);
+      tGrp.position.set(tx, ty, tz);
+      parkGroup.add(tGrp);
+      CH3D.obstacleColliders.push({x:tx, z:tz, r:1.05, label:"🌲 Pine Tree"});
     });
 
-    // 1 Rusty Abandoned Barn Find Project Chassis per Chapter
-    const bp = ch.barn || [-9.5, 8.0];
+    // 6. Smashable Wooden Fences & Supply Crate Stacks
+    [[-8, 12],[8, 12],[-14,-10],[16, -12],[28, 12],[-26, 12]].forEach(fp=>{
+      const fx = fp[0], fz = fp[1], fy = evalChapterTerrainY(mode, fx, fz);
+      const fence = new THREE.Mesh(
+        new THREE.BoxGeometry(2.6, 0.9, 0.22),
+        new THREE.MeshStandardMaterial({color:0x8c6239, roughness:0.85})
+      );
+      fence.position.set(fx, fy + 0.45, fz);
+      parkGroup.add(fence);
+      CH3D.smashables.push({mesh:fence, x:fx, y:fy+0.45, z:fz, vx:0, vy:0, vz:0, hit:false, label:"🚧 WOOD FENCE"});
+    });
+    addSmashCrateCluster(10, -10);
+    addSmashCrateCluster(-16, 14);
+    addSmashCrateCluster(38, -22);
+
+    // 7. Summit Peak Beacon at (+58, -58) + Abandoned Barn Find + Winch Anchor
+    const sumY = evalChapterTerrainY(mode, 58, -58);
+    const sumBeacon = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.45, 0.45, 8.0, 12),
+      new THREE.MeshBasicMaterial({color:0xff9f1a, transparent:true, opacity:0.75})
+    );
+    sumBeacon.position.set(58, sumY + 4.0, -58);
+    parkGroup.add(sumBeacon);
+
+    const bp = ch.barn || [-28.0, 24.0];
     const bgy = evalChapterTerrainY(mode, bp[0], bp[1]);
     const barnGrp = new THREE.Group();
-    const rustMat = new THREE.MeshStandardMaterial({color:0x8c3b20, roughness:0.85, metalness:0.35});
-    const rBody = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.85, 1.35), rustMat);
+    const rBody = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.95, 1.5), new THREE.MeshStandardMaterial({color:0x8c3b20, roughness:0.85, metalness:0.35}));
     rBody.position.y = 0.55; barnGrp.add(rBody);
-    const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.6, 10),
-      new THREE.MeshBasicMaterial({color:0x5bff9b, transparent:true, opacity:0.65}));
-    beacon.position.y = 1.4; barnGrp.add(beacon);
+    const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 4.5, 10), new THREE.MeshBasicMaterial({color:0x5bff9b, transparent:true, opacity:0.7}));
+    beacon.position.y = 2.25; barnGrp.add(beacon);
     barnGrp.position.set(bp[0], bgy, bp[1]);
-    gateGroup.add(barnGrp);
+    parkGroup.add(barnGrp);
     CH3D.barnMesh = {x:bp[0], z:bp[1], mesh:barnGrp, taken:false};
 
-    // Winch Anchor Post
-    const ap = ch.anchor || [6.5, 1.2, 3.8];
+    const ap = ch.anchor || [12.5, 1.4, 8.8];
     const agy = evalChapterTerrainY(mode, ap[0], ap[2]);
     CH3D.anchorPos.set(ap[0], agy + 0.9, ap[2]);
-    const ancMesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.18, 0.18, 1.8, 12),
-      new THREE.MeshStandardMaterial({color:0xe23b3b, emissive:0x660000, roughness:0.4})
-    );
-    ancMesh.position.set(ap[0], agy + 0.9, ap[2]);
-    gateGroup.add(ancMesh);
+    const ancMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 2.0, 12), new THREE.MeshStandardMaterial({color:0xe23b3b, emissive:0x660000}));
+    ancMesh.position.set(ap[0], agy + 1.0, ap[2]);
+    parkGroup.add(ancMesh);
 
-    CH3D.gatesHit = 0; CH3D.cratesHit = 0; CH3D.barnFound = false;
-    $("#ch3dgates").textContent = "0/6";
-    $("#ch3dcrates").textContent = "0/3";
+    // 8. Live Off-Road Outlaws Trail Missions (Guided by 3D Arrow!)
+    CH3D.missions = [
+      {title:"🚀 Hit the Stunt Ramp & Crush Cars Ahead!", x:18.0, z:0.0, r:5.5, reward:35, done:false},
+      {title:"🪨 Crawl the Boulder Slab Garden (NE)!",   x:23.0, z:-23.0, r:5.5, reward:40, done:false},
+      {title:"🏚️ Discover the Rusty Barn Find Chassis!", x:bp[0], z:bp[1], r:5.0, reward:60, done:false},
+      {title:"💦 Power Through the Deep Mud Bog (SW)!",  x:-38.0, z:38.0, r:7.0, reward:50, done:false},
+      {title:"🏔️ Climb High Mountain Summit Peak (+18m)!",x:58.0, z:-58.0, r:6.5, reward:80, done:false}
+    ];
+    CH3D.missionIdx = 0;
+    CH3D.barnFound = false;
     $("#ch3dbarn").textContent = "0/1";
+    const mEl = $("#ch3dmission");
+    if(mEl) mEl.textContent = "🎯 " + CH3D.missions[0].title;
+  };
+
+  // Live 3D Map Builder: Drop ramps, crush cars, boulders, mud pits, or crates right in front of Jax's truck!
+  const dropCustomObstacle = (kind)=>{
+    if(!CH3D) return;
+    const dist = 9.5;
+    const dx = CH3D.x + Math.cos(CH3D.heading)*dist;
+    const dz = CH3D.z - Math.sin(CH3D.heading)*dist;
+    SFX.buy();
+    if(kind==="ramp"){
+      addRideableRamp(dx, dz, CH3D.heading, 6.5, 4.4, 2.05, 0xff8c1a);
+      showMsg("📐 BIG STUNT RAMP DROPPED AHEAD!", 900);
+    } else if(kind==="crush"){
+      addCrushCarRow(dx, dz, CH3D.heading);
+      showMsg("🚗 CRUSH CAR ROW DROPPED AHEAD!", 900);
+    } else if(kind==="boulder"){
+      for(let i=-1;i<=1;i++){
+        const bx = dx + i*1.6*Math.sin(CH3D.heading), bz = dz + i*1.6*Math.cos(CH3D.heading);
+        const by = evalChapterTerrainY(CHAPTERS_3D[CH3D.chIdx].mode, bx, bz);
+        const rk = new THREE.Mesh(new THREE.DodecahedronGeometry(1.5,1), new THREE.MeshStandardMaterial({color:0x747b86, roughness:0.85}));
+        rk.scale.set(1.3, 0.65, 1.2); rk.position.set(bx, by+0.35, bz);
+        parkGroup.add(rk); rk.updateMatrixWorld(true);
+        CH3D.rideableMeshes.push(rk);
+      }
+      showMsg("🪨 ROCK CRAWL LEDGE DROPPED AHEAD!", 900);
+    } else if(kind==="mud"){
+      const my = evalChapterTerrainY(CHAPTERS_3D[CH3D.chIdx].mode, dx, dz);
+      const mp = new THREE.Mesh(new THREE.CircleGeometry(7.5, 24), new THREE.MeshStandardMaterial({color:0x3b2512, roughness:0.15, metalness:0.3}));
+      mp.rotation.x = -Math.PI/2; mp.position.set(dx, my+0.08, dz);
+      parkGroup.add(mp);
+      CH3D.mudZones.push({x:dx, z:dz, r:7.5});
+      showMsg("💦 DEEP MUD BOG DROPPED AHEAD!", 900);
+    } else if(kind==="crates"){
+      addSmashCrateCluster(dx, dz);
+      showMsg("📦 SMASH CRATES DROPPED AHEAD!", 900);
+    }
   };
 
   const loadChapterRoom = (idx)=>{
     if(!CH3D) return;
     const ch = CHAPTERS_3D[idx] || CHAPTERS_3D[0];
     CH3D.chIdx = idx;
-    CH3D.x = 0; CH3D.z = 0; CH3D.heading = 0; CH3D.speed = 0; CH3D.winchActive = false;
+    CH3D.x = 0; CH3D.z = 0; CH3D.y = evalChapterTerrainY(ch.mode, 0, 0);
+    CH3D.vy = 0; CH3D.airborne = false; CH3D.heading = 0; CH3D.speed = 0; CH3D.winchActive = false;
     winchLine.visible = false;
     stage.style.background = `linear-gradient(180deg, ${ch.skyTop} 0%, ${ch.skyBot} 100%)`;
     renderer.setClearColor(new THREE.Color(ch.skyTop), 0.0);
-    const tEl = $("#ch3dtitle"); if(tEl) tEl.textContent = `${ch.emoji} ${ch.name}`;
     document.querySelectorAll("[data-ch3d]").forEach(b=>{
-      b.style.background = (+b.dataset.ch3d===idx) ? "rgba(54,201,138,.88)" : "rgba(8,12,30,.72)";
+      b.style.background = (+b.dataset.ch3d===idx) ? "rgba(54,201,138,.92)" : "rgba(8,12,30,.75)";
     });
     while(envGroup.children.length) envGroup.remove(envGroup.children[0]);
-    buildGatesAndSecrets(ch);
+    buildOpenWorldParkAndMissions(ch);
 
     const mount = (sc)=>{
       const cl = sc.clone(true);
-      cl.traverse(o=>{ if(o.isMesh){ o.receiveShadow=true; o.castShadow=true; } });
+      cl.scale.set(1.45, 1.15, 1.45);
+      cl.updateMatrixWorld(true);
+      cl.traverse(o=>{
+        if(o.isMesh){
+          o.receiveShadow=true; o.castShadow=true;
+          const box = new THREE.Box3().setFromObject(o);
+          const sz = box.getSize(new THREE.Vector3());
+          const ctr = box.getCenter(new THREE.Vector3());
+          // Skip giant base terrain slab; classify props as solid colliders vs rideable ramps/bridges/rocks
+          if(sz.x < 34 && sz.z < 34){
+            if(sz.y > 2.35 && Math.hypot(ctr.x, ctr.z) > 4.0){
+              CH3D.obstacleColliders.push({x:ctr.x, z:ctr.z, r:Math.min(2.4, Math.max(sz.x, sz.z)*0.38), label:"🏔️ Obstacle"});
+            } else if(sz.y > 0.15 && sz.y <= 2.35){
+              CH3D.rideableMeshes.push(o);
+            }
+          }
+        }
+      });
       envGroup.add(cl);
     };
     if(chEnvCache[ch.glb]){ mount(chEnvCache[ch.glb]); }
@@ -3174,58 +3531,80 @@ function start3DChapterMode(initialIdx){
         mount(gltf.scene);
       });
     }
-    showMsg(ch.emoji+" "+ch.name, 1100);
+    showMsg(ch.emoji+" "+ch.name+" (360m Open Park)", 1100);
   };
 
   document.querySelectorAll("[data-ch3d]").forEach(b=>{
     b.onclick = ()=>{ SFX.tap(); loadChapterRoom(+b.dataset.ch3d); };
   });
 
+  // Toggle Map Builder Toolbar
+  const bMap = $("#btn_mapbuilder");
+  if(bMap) bMap.onclick = ()=>{
+    const bar = $("#mapbuilder_bar");
+    if(!bar) return;
+    const show = bar.style.display === "none";
+    bar.style.display = show ? "flex" : "none";
+    SFX.tap();
+  };
+  document.querySelectorAll("[data-drop]").forEach(b=>{
+    b.onclick = ()=>dropCustomObstacle(b.dataset.drop);
+  });
+
+  // Camera Mode Cycle
+  const bCam = $("#btn_cam");
+  if(bCam) bCam.onclick = ()=>{
+    CH3D.camMode = (CH3D.camMode + 1) % 3;
+    const names = ["Chase Cam", "Wide Action Cam", "Close Crawl Cam"];
+    SFX.tap(); showMsg("🎥 " + names[CH3D.camMode], 750);
+  };
+
   // Wire Off-Road Outlaws Drivetrain Controls
   const b4 = $("#btn_4wd");
   if(b4) b4.onclick = ()=>{
     CH3D.fourWD = !CH3D.fourWD; SFX.tap();
-    b4.textContent = "🛞 " + (CH3D.fourWD ? "4WD: ON" : "2WD: RWD");
-    b4.style.background = CH3D.fourWD ? "rgba(55,196,106,.88)" : "rgba(8,12,30,.78)";
+    b4.textContent = CH3D.fourWD ? "4WD" : "2WD";
+    b4.style.background = CH3D.fourWD ? "rgba(55,196,106,.88)" : "rgba(8,12,30,.82)";
   };
   const bLow = $("#btn_low");
   if(bLow) bLow.onclick = ()=>{
     CH3D.lowGear = !CH3D.lowGear; SFX.tap();
-    bLow.textContent = "⚙️ GEAR: " + (CH3D.lowGear ? "LOW CRAWL" : "HIGH");
-    bLow.style.background = CH3D.lowGear ? "rgba(255,140,26,.88)" : "rgba(8,12,30,.78)";
-    showMsg(CH3D.lowGear ? "⚙️ LOW RANGE CRAWL ENGAGED (2.4x Torque)" : "⚙️ HIGH RANGE ENGAGED", 900);
+    bLow.style.background = CH3D.lowGear ? "rgba(255,140,26,.92)" : "rgba(8,12,30,.82)";
+    showMsg(CH3D.lowGear ? "⚙️ LOW RANGE CRAWL (2.5x Torque)" : "⚙️ HIGH RANGE GEAR", 850);
   };
   const bDiff = $("#btn_diff");
   if(bDiff) bDiff.onclick = ()=>{
     CH3D.diffLock = !CH3D.diffLock; SFX.tap();
-    bDiff.textContent = "🔒 DIFF LOCK: " + (CH3D.diffLock ? "LOCKED" : "OFF");
-    bDiff.style.background = CH3D.diffLock ? "rgba(47,143,255,.88)" : "rgba(8,12,30,.78)";
-    showMsg(CH3D.diffLock ? "🔒 FRONT & REAR AXLES LOCKED" : "🔓 DIFFS OPEN", 800);
+    bDiff.style.background = CH3D.diffLock ? "rgba(47,143,255,.92)" : "rgba(8,12,30,.82)";
+    showMsg(CH3D.diffLock ? "🔒 AXLE DIFFS LOCKED" : "🔓 DIFFS OPEN", 800);
   };
   const bWinch = $("#btn_winch");
   if(bWinch) bWinch.onclick = ()=>{
     CH3D.winchActive = !CH3D.winchActive; SFX.tap();
     winchLine.visible = CH3D.winchActive;
-    bWinch.textContent = CH3D.winchActive ? "🪝 WINCH: PULLING!" : "🪝 WINCH: PULL";
-    bWinch.style.background = CH3D.winchActive ? "rgba(55,196,106,.92)" : "rgba(226,59,59,.85)";
-    if(CH3D.winchActive) showMsg("🪝 WINCH HOOKED TO TRAIL ANCHOR!", 900);
+    bWinch.textContent = CH3D.winchActive ? "🪝 PULLING" : "🪝 WINCH";
+    bWinch.style.background = CH3D.winchActive ? "rgba(55,196,106,.92)" : "rgba(226,59,59,.88)";
+    if(CH3D.winchActive) showMsg("🪝 WINCH HOOKED TO ANCHOR!", 900);
   };
 
+  // Switch across all 4 Star Rigs!
   const bSwap = $("#ch3drigswap");
   if(bSwap) bSwap.onclick = ()=>{
-    const nextRig = (CH3D.vType==="crawler") ? "bouncer" : "crawler";
+    const curIdx = STAR_RIGS.indexOf(CH3D.vType);
+    const nextRig = STAR_RIGS[(curIdx + 1) % STAR_RIGS.length];
     state.current = nextRig; save(); SFX.buy();
     mountActiveRig(nextRig);
-    showMsg((nextRig==="bouncer"?"🦂 Viper Rock Bouncer":"🛻 Trail Crawler 4x4")+" Deployed!", 1000);
+    const vObj = VEHICLES[nextRig];
+    showMsg(`${vObj.emoji} ${vObj.name} Deployed!`, 1000);
   };
 
   const liftBtn = $("#ch3dlift");
   if(liftBtn){
-    liftBtn.textContent = "⬆️ LIFT: " + (vCfg.lift?"ON":"OFF");
+    liftBtn.style.background = vCfg.lift ? "rgba(255,140,26,.92)" : "rgba(8,12,30,.82)";
     liftBtn.onclick = ()=>{
       CH3D.vCfg.lift = !CH3D.vCfg.lift;
       cfg(CH3D.vType).lift = CH3D.vCfg.lift; save();
-      liftBtn.textContent = "⬆️ LIFT: " + (CH3D.vCfg.lift?"ON":"OFF");
+      liftBtn.style.background = CH3D.vCfg.lift ? "rgba(255,140,26,.92)" : "rgba(8,12,30,.82)";
       SFX.tap();
     };
   }
@@ -3238,7 +3617,7 @@ function start3DChapterMode(initialIdx){
     b.onpointerdown = e=>{ e.preventDefault(); if(CH3D) CH3D.input[k]=true; };
     b.onpointerup = b.onpointerleave = b.onpointercancel = ()=>{ if(CH3D) CH3D.input[k]=false; };
   };
-  bindBtn("#c3gas","gas"); bindBtn("#c3rev","rev"); bindBtn("#c3left","left"); bindBtn("#c3right","right");
+  bindBtn("#c3gas","gas"); bindBtn("#c3rev","rev"); bindBtn("#c3left","left"); bindBtn("#c3right","right"); bindBtn("#c3nitro","nitro");
 
   CH3D._kd = e=>{
     if(!CH3D) return;
@@ -3246,6 +3625,7 @@ function start3DChapterMode(initialIdx){
     if(["ArrowDown","s","S"].includes(e.key)){ CH3D.input.rev=true; e.preventDefault(); }
     if(["ArrowLeft","a","A"].includes(e.key)){ CH3D.input.left=true; e.preventDefault(); }
     if(["ArrowRight","d","D"].includes(e.key)){ CH3D.input.right=true; e.preventDefault(); }
+    if(["Shift","n","N"].includes(e.key)){ CH3D.input.nitro=true; }
   };
   CH3D._ku = e=>{
     if(!CH3D) return;
@@ -3253,6 +3633,7 @@ function start3DChapterMode(initialIdx){
     if(["ArrowDown","s","S"].includes(e.key)) CH3D.input.rev=false;
     if(["ArrowLeft","a","A"].includes(e.key)) CH3D.input.left=false;
     if(["ArrowRight","d","D"].includes(e.key)) CH3D.input.right=false;
+    if(["Shift","n","N"].includes(e.key)) CH3D.input.nitro=false;
   };
   document.addEventListener("keydown", CH3D._kd);
   document.addEventListener("keyup", CH3D._ku);
@@ -3269,6 +3650,18 @@ function stop3DChapterMode(){
   CH3D = null;
 }
 
+function sampleWheelHeight3D(mode, wx, wz){
+  let h = evalChapterTerrainY(mode, wx, wz);
+  if(CH3D && CH3D.rideableMeshes.length){
+    CH3D.raycaster.set(new THREE.Vector3(wx, h + 12.0, wz), new THREE.Vector3(0, -1, 0));
+    const hits = CH3D.raycaster.intersectObjects(CH3D.rideableMeshes, true);
+    if(hits.length > 0 && hits[0].point.y > h && hits[0].point.y < h + 6.5){
+      h = hits[0].point.y;
+    }
+  }
+  return h;
+}
+
 function step3DChapterFrame(now){
   if(!CH3D) return;
   CH3D.raf = requestAnimationFrame(step3DChapterFrame);
@@ -3280,31 +3673,40 @@ function step3DChapterFrame(now){
   const inp = CH3D.input;
   const st = carStats(CH3D.vType, CH3D.vCfg);
 
-  // Off-Road Outlaws Drivetrain Physics Modifiers (4WD, Low Gear, Diff Lock, Winch)
-  const lowMultSpd = CH3D.lowGear ? 0.52 : 1.0;
-  const lowMultAcc = CH3D.lowGear ? 1.85 : 1.0;
-  const fourMult   = CH3D.fourWD  ? 1.25 : 0.85;
-  const diffMult   = CH3D.diffLock? 1.18 : 1.0;
+  // Check if inside a Deep Mud Bog Zone
+  let inMud = false;
+  for(const mz of CH3D.mudZones){
+    if(Math.hypot(CH3D.x - mz.x, CH3D.z - mz.z) < mz.r){ inMud = true; break; }
+  }
+  const mudDrag = inMud ? (CH3D.fourWD ? (CH3D.diffLock ? 0.82 : 0.65) : 0.35) : 1.0;
+  if(inMud && Math.abs(CH3D.speed) > 1.5){
+    CH3D.vCfg.mudLevel = Math.min(1.0, (CH3D.vCfg.mudLevel||0) + dt*0.2);
+  }
 
-  const maxSpd = (9.5 + st.speed * 0.045) * lowMultSpd;
-  const accel  = (11.0 + st.power * 0.06) * lowMultAcc * fourMult * diffMult;
+  const nitroMult  = inp.nitro ? 1.65 : 1.0;
+  const lowMultSpd = CH3D.lowGear ? 0.58 : 1.0;
+  const lowMultAcc = CH3D.lowGear ? 1.95 : 1.0;
+  const fourMult   = CH3D.fourWD  ? 1.25 : 0.88;
+  const diffMult   = CH3D.diffLock? 1.20 : 1.0;
 
-  if(inp.gas) CH3D.speed += accel * dt;
+  const maxSpd = (14.5 + st.speed * 0.065) * lowMultSpd * nitroMult * mudDrag;
+  const accel  = (15.5 + st.power * 0.085) * lowMultAcc * fourMult * diffMult * nitroMult;
+
+  if(inp.gas || inp.nitro) CH3D.speed += accel * dt;
   else if(inp.rev) CH3D.speed -= accel * 0.85 * dt;
-  else CH3D.speed *= (1 - 2.2 * dt);
+  else CH3D.speed *= (1 - (inMud ? 4.2 : 2.0) * dt);
 
-  // Winch Pull Force toward Chapter Anchor Point
   if(CH3D.winchActive){
     const ax = CH3D.anchorPos.x - CH3D.x, az = CH3D.anchorPos.z - CH3D.z;
     const adist = Math.hypot(ax, az);
-    if(adist > 1.8){
-      CH3D.x += (ax / adist) * 5.2 * dt;
-      CH3D.z += (az / adist) * 5.2 * dt;
+    if(adist > 2.0){
+      CH3D.x += (ax / adist) * 7.5 * dt;
+      CH3D.z += (az / adist) * 7.5 * dt;
       CH3D.heading = Math.atan2(-az, ax);
     } else {
       CH3D.winchActive = false;
       CH3D.winchLine.visible = false;
-      const bw = $("#btn_winch"); if(bw){ bw.textContent="🪝 WINCH: PULL"; bw.style.background="rgba(226,59,59,.85)"; }
+      const bw = $("#btn_winch"); if(bw){ bw.textContent="🪝 WINCH"; bw.style.background="rgba(226,59,59,.88)"; }
       showMsg("✅ WINCH RECOVERY COMPLETE!", 900);
     }
     const posArr = CH3D.winchLine.geometry.attributes.position;
@@ -3314,41 +3716,99 @@ function step3DChapterFrame(now){
   }
 
   CH3D.speed = Math.max(-maxSpd*0.55, Math.min(maxSpd, CH3D.speed));
+  const mphEl = $("#ch3dmph");
+  if(mphEl) mphEl.textContent = Math.round(Math.abs(CH3D.speed) * 3.4);
 
-  const steerLimit = CH3D.diffLock ? 0.40 : 0.54;
+  const steerLimit = CH3D.diffLock ? 0.42 : 0.56;
   const targetSteer = (inp.left ? steerLimit : 0) + (inp.right ? -steerLimit : 0);
   CH3D.steer += (targetSteer - CH3D.steer) * Math.min(1, dt * 10);
 
   if(Math.abs(CH3D.speed) > 0.15){
-    CH3D.heading += CH3D.steer * (CH3D.speed / maxSpd) * 2.1 * dt;
+    CH3D.heading += CH3D.steer * (CH3D.speed / Math.max(8, maxSpd)) * 2.15 * dt;
   }
 
-  CH3D.x += Math.cos(CH3D.heading) * CH3D.speed * dt;
-  CH3D.z -= Math.sin(CH3D.heading) * CH3D.speed * dt;
-  CH3D.x = Math.max(-19.5, Math.min(19.5, CH3D.x));
-  CH3D.z = Math.max(-19.5, Math.min(19.5, CH3D.z));
+  const prevY = CH3D.y;
+  let nextX = CH3D.x + Math.cos(CH3D.heading) * CH3D.speed * dt;
+  let nextZ = CH3D.z - Math.sin(CH3D.heading) * CH3D.speed * dt;
 
+  // Solid Obstacle Collisions (Trees, Buildings, Rock Pillars - No Ghosting Through!)
+  const truckR = 1.65;
+  for(const ob of CH3D.obstacleColliders){
+    const dx = nextX - ob.x, dz = nextZ - ob.z;
+    const dist = Math.hypot(dx, dz), minD = truckR + ob.r;
+    if(dist < minD && dist > 0.001){
+      const nx = dx / dist, nz = dz / dist;
+      nextX = ob.x + nx * (minD + 0.08);
+      nextZ = ob.z + nz * (minD + 0.08);
+      if(Math.abs(CH3D.speed) > 3.0){
+        SFX.crash();
+        CH3D.shakeTime = 0.28;
+        showMsg(`💥 CRUNCH! Hit ${ob.label}!`, 700);
+      }
+      CH3D.speed *= -0.35;
+    }
+  }
+
+  // Open-World 360m Boundary (±162m Canyon Rim)
+  CH3D.x = Math.max(-162, Math.min(162, nextX));
+  CH3D.z = Math.max(-162, Math.min(162, nextZ));
   CH3D.wheelSpin = (CH3D.wheelSpin + CH3D.speed * 2.1 * dt) % (Math.PI * 2);
 
+  // 4-Wheel Downward Raycast Height Sampling (Climbs Ramps, Boulders, Bridges & Crush Cars!)
   const chCos = Math.cos(CH3D.heading), chSin = Math.sin(CH3D.heading);
-  const wWorld = (lx, lz)=>[
-    CH3D.x + lx*chCos + lz*chSin,
-    CH3D.z - lx*chSin + lz*chCos
-  ];
+  const wWorld = (lx, lz)=>[CH3D.x + lx*chCos + lz*chSin, CH3D.z - lx*chSin + lz*chCos];
   const pFL = wWorld( 1.42, -0.98), pFR = wWorld( 1.42,  0.98);
   const pRL = wWorld(-1.42, -0.98), pRR = wWorld(-1.42,  0.98);
-  const hFL = evalChapterTerrainY(ch.mode, pFL[0], pFL[1]);
-  const hFR = evalChapterTerrainY(ch.mode, pFR[0], pFR[1]);
-  const hRL = evalChapterTerrainY(ch.mode, pRL[0], pRL[1]);
-  const hRR = evalChapterTerrainY(ch.mode, pRR[0], pRR[1]);
+  const hFL = sampleWheelHeight3D(ch.mode, pFL[0], pFL[1]);
+  const hFR = sampleWheelHeight3D(ch.mode, pFR[0], pFR[1]);
+  const hRL = sampleWheelHeight3D(ch.mode, pRL[0], pRL[1]);
+  const hRR = sampleWheelHeight3D(ch.mode, pRR[0], pRR[1]);
 
-  const avgH = (hFL + hFR + hRL + hRR) * 0.25;
+  const groundH = (hFL + hFR + hRL + hRR) * 0.25;
   const targetPitch = Math.atan2(((hFL+hFR)*0.5) - ((hRL+hRR)*0.5), 2.84);
   const targetRoll  = Math.atan2(((hFR+hRR)*0.5) - ((hFL+hRL)*0.5), 1.96);
 
-  CH3D.y += (avgH - CH3D.y) * Math.min(1, dt * 12);
-  CH3D.pitch += (targetPitch - CH3D.pitch) * Math.min(1, dt * 10);
-  CH3D.roll  += (targetRoll  - CH3D.roll)  * Math.min(1, dt * 10);
+  // Real Vertical Launch & Big Air Gravity Physics!
+  if(!CH3D.airborne){
+    const slopeVy = (groundH - prevY) / Math.max(dt, 0.008);
+    if(CH3D.y > groundH + 0.32 && CH3D.vy > 1.2){
+      CH3D.airborne = true;
+      CH3D.jumpStartPos = {x:CH3D.x, z:CH3D.z};
+    } else {
+      CH3D.y = groundH;
+      CH3D.vy = Math.max(0, slopeVy) + (Math.abs(CH3D.speed) * Math.max(0, Math.sin(CH3D.pitch)) * 0.85);
+      if(CH3D.pitch > 0.16 && Math.abs(CH3D.speed) > 9.0){
+        CH3D.vy = Math.abs(CH3D.speed) * Math.sin(CH3D.pitch) * 1.25;
+      }
+    }
+  }
+  if(CH3D.airborne){
+    CH3D.vy -= 21.0 * dt;
+    CH3D.y  += CH3D.vy * dt;
+    CH3D.pitch *= (1 - 1.2*dt);
+    if(CH3D.y <= groundH){
+      CH3D.y = groundH;
+      CH3D.vy = 0;
+      CH3D.airborne = false;
+      if(CH3D.jumpStartPos){
+        const jumpFt = Math.round(Math.hypot(CH3D.x - CH3D.jumpStartPos.x, CH3D.z - CH3D.jumpStartPos.z) * 3.28);
+        if(jumpFt >= 18){
+          const bonus = Math.min(80, Math.round(jumpFt * 0.6));
+          CH3D.coins += bonus; addCoins(bonus); addXP(15); SFX.coin();
+          if(jumpFt > CH3D.bestAirFt){
+            CH3D.bestAirFt = jumpFt;
+            const aEl = $("#ch3dair"); if(aEl) aEl.textContent = jumpFt + " ft";
+          }
+          $("#ch3dcoins").textContent = CH3D.coins;
+          showMsg(`🚀 ${jumpFt} FT BIG AIR JUMP! +🪙${bonus}`, 1300);
+        }
+        CH3D.jumpStartPos = null;
+      }
+    }
+  } else {
+    CH3D.pitch += (targetPitch - CH3D.pitch) * Math.min(1, dt * 11);
+    CH3D.roll  += (targetRoll  - CH3D.roll)  * Math.min(1, dt * 11);
+  }
 
   CH3D.carHolder.position.set(CH3D.x, CH3D.y, CH3D.z);
   CH3D.carHolder.rotation.order = "YXZ";
@@ -3358,74 +3818,99 @@ function step3DChapterFrame(now){
 
   const rig = CH3D.carHolder.userData && CH3D.carHolder.userData.rig;
   if(rig){
-    const flexFactor = (CH3D.vCfg.suspType==="solid") ? 1.55 : 1.15;
-    const fTrav = Math.max(-0.16, Math.min(0.16, ((hFL+hFR)*0.5 - avgH)*flexFactor));
-    const rTrav = Math.max(-0.16, Math.min(0.16, ((hRL+hRR)*0.5 - avgH)*flexFactor));
-    const axleTwist = Math.max(-0.26, Math.min(0.26, ((hFL - hFR) - (hRL - hRR))*0.75 + Math.sin(now*0.006)*Math.abs(CH3D.speed)*0.012));
+    const flexFactor = (CH3D.vCfg.suspType==="solid") ? 1.65 : 1.20;
+    const fTrav = CH3D.airborne ? -0.14 : Math.max(-0.18, Math.min(0.18, ((hFL+hFR)*0.5 - groundH)*flexFactor));
+    const rTrav = CH3D.airborne ? -0.14 : Math.max(-0.18, Math.min(0.18, ((hRL+hRR)*0.5 - groundH)*flexFactor));
+    const axleTwist = CH3D.airborne ? 0 : Math.max(-0.28, Math.min(0.28, ((hFL - hFR) - (hRL - hRR))*0.78 + Math.sin(now*0.006)*Math.abs(CH3D.speed)*0.012));
     applyRiggedPose(rig, CH3D.steer, CH3D.wheelSpin, fTrav, rTrav, axleTwist, !!CH3D.vCfg.lift);
   }
 
-  // Checkpoints
-  CH3D.checkpoints.forEach(cp=>{
-    if(!cp.taken){
-      cp.mesh.rotation.y += dt * 1.8;
-      if(Math.hypot(CH3D.x - cp.x, CH3D.z - cp.z) < 2.35){
-        cp.taken = true; cp.mesh.visible = false;
-        CH3D.gatesHit++; CH3D.coins += 15;
-        addCoins(15); addXP(10);
-        $("#ch3dgates").textContent = CH3D.gatesHit + "/" + CH3D.checkpoints.length;
+  // Smashable Fences & Crates Physics
+  CH3D.smashables.forEach(sm=>{
+    if(!sm.hit){
+      if(Math.hypot(CH3D.x - sm.x, CH3D.z - sm.z) < 2.35){
+        sm.hit = true;
+        sm.vx = Math.cos(CH3D.heading) * Math.max(8, Math.abs(CH3D.speed)*1.2) + (Math.random()-0.5)*4;
+        sm.vz = -Math.sin(CH3D.heading) * Math.max(8, Math.abs(CH3D.speed)*1.2) + (Math.random()-0.5)*4;
+        sm.vy = 6.5 + Math.random()*3.5;
+        CH3D.coins += 15; addCoins(15); addXP(10); SFX.buy();
         $("#ch3dcoins").textContent = CH3D.coins;
-        if(CH3D.gatesHit >= CH3D.checkpoints.length){
-          SFX.level(); addCoins(50); addXP(35);
-          const nextIdx = (CH3D.chIdx + 1) % CHAPTERS_3D.length;
-          showMsg("🏆 CHAPTER CLEAR! +🪙50 → Next Chapter!", 1600);
-          setTimeout(()=>{ if(CH3D) document.querySelector(`[data-ch3d="${nextIdx}"]`)?.click(); }, 1500);
-        } else {
-          showMsg("🚩 CHECKPOINT! +🪙15", 700);
-        }
+        showMsg(`💥 ${sm.label} SMASHED! +🪙15`, 850);
       }
+    } else if(sm.mesh.visible){
+      sm.vy -= 19.0 * dt;
+      sm.mesh.position.x += sm.vx * dt;
+      sm.mesh.position.y += sm.vy * dt;
+      sm.mesh.position.z += sm.vz * dt;
+      sm.mesh.rotation.x += 5.0 * dt;
+      sm.mesh.rotation.z += 4.0 * dt;
+      if(sm.mesh.position.y < -4.0) sm.mesh.visible = false;
     }
   });
 
-  // Hidden Money Crates
-  CH3D.crates.forEach(cr=>{
-    if(!cr.taken){
-      cr.mesh.rotation.y += dt * 1.2;
-      if(Math.hypot(CH3D.x - cr.x, CH3D.z - cr.z) < 2.1){
-        cr.taken = true; cr.mesh.visible = false;
-        CH3D.cratesHit++; CH3D.coins += 30;
-        addCoins(30); addXP(20); SFX.buy();
-        $("#ch3dcrates").textContent = CH3D.cratesHit + "/3";
-        $("#ch3dcoins").textContent = CH3D.coins;
-        showMsg("📦 MONEY CRATE SMASHED! +🪙30", 950);
-      }
+  // Crush Cars Flattening when driven over!
+  CH3D.crushCars.forEach(cc=>{
+    if(!cc.crushed && Math.hypot(CH3D.x - cc.x, CH3D.z - cc.z) < 2.4 && CH3D.y > cc.mesh.position.y - 0.2){
+      cc.crushed = true;
+      cc.mesh.scale.y = 0.38;
+      cc.mesh.position.y -= 0.26;
+      cc.mesh.updateMatrixWorld(true);
+      CH3D.coins += 20; addCoins(20); addXP(15); SFX.crash();
+      $("#ch3dcoins").textContent = CH3D.coins;
+      showMsg("🚗 MONSTER CAR CRUSH! +🪙20", 950);
     }
   });
 
   // Hidden Barn Find Discovery
   if(CH3D.barnMesh && !CH3D.barnMesh.taken){
-    if(Math.hypot(CH3D.x - CH3D.barnMesh.x, CH3D.z - CH3D.barnMesh.z) < 2.8){
+    if(Math.hypot(CH3D.x - CH3D.barnMesh.x, CH3D.z - CH3D.barnMesh.z) < 3.6){
       CH3D.barnMesh.taken = true;
       CH3D.barnMesh.mesh.visible = false;
-      CH3D.coins += 75;
-      addCoins(75); addXP(45); SFX.level(); confettiBurst();
+      CH3D.coins += 75; addCoins(75); addXP(45); SFX.level(); confettiBurst();
       $("#ch3dbarn").textContent = "1/1";
       $("#ch3dcoins").textContent = CH3D.coins;
       showMsg("🏚️ BARN FIND DISCOVERED! +🪙75 · +⭐45 XP!", 1600);
     }
   }
 
-  const camDist = 7.4, camHeight = 3.2;
-  const tx = CH3D.x - Math.cos(CH3D.heading) * camDist;
-  const tz = CH3D.z + Math.sin(CH3D.heading) * camDist;
-  const ty = CH3D.y + camHeight;
-  CH3D.camera.position.x += (tx - CH3D.camera.position.x) * Math.min(1, dt * 6);
-  CH3D.camera.position.z += (tz - CH3D.camera.position.z) * Math.min(1, dt * 6);
-  CH3D.camera.position.y += (ty - CH3D.camera.position.y) * Math.min(1, dt * 6);
-  CH3D.camera.lookAt(CH3D.x + Math.cos(CH3D.heading)*1.8, CH3D.y + 0.95, CH3D.z - Math.sin(CH3D.heading)*1.8);
+  // Active Trail Mission & 3D Directional Arrow above Truck
+  const curM = CH3D.missions[CH3D.missionIdx];
+  if(curM){
+    CH3D.arrowGrp.visible = true;
+    CH3D.arrowGrp.position.set(CH3D.x, CH3D.y + 2.55 + Math.sin(now*0.005)*0.12, CH3D.z);
+    const mAng = Math.atan2(-(curM.z - CH3D.z), curM.x - CH3D.x);
+    CH3D.arrowGrp.rotation.y = mAng;
+    if(Math.hypot(CH3D.x - curM.x, CH3D.z - curM.z) < curM.r){
+      curM.done = true;
+      CH3D.coins += curM.reward; addCoins(curM.reward); addXP(25); SFX.level();
+      $("#ch3dcoins").textContent = CH3D.coins;
+      CH3D.missionIdx = (CH3D.missionIdx + 1) % CH3D.missions.length;
+      const nxt = CH3D.missions[CH3D.missionIdx];
+      const mEl = $("#ch3dmission");
+      if(mEl) mEl.textContent = "🎯 " + nxt.title;
+      showMsg(`🏆 MISSION COMPLETE! +🪙${curM.reward} → Next: ${nxt.title}`, 1500);
+    }
+  }
+
+  // Camera Modes + Impact Shake
+  const camPresets = [[8.0, 3.3], [12.5, 5.2], [5.4, 2.2]];
+  const cp = camPresets[CH3D.camMode || 0];
+  const tx = CH3D.x - Math.cos(CH3D.heading) * cp[0];
+  const tz = CH3D.z + Math.sin(CH3D.heading) * cp[0];
+  const ty = CH3D.y + cp[1];
+  CH3D.camera.position.x += (tx - CH3D.camera.position.x) * Math.min(1, dt * 7);
+  CH3D.camera.position.z += (tz - CH3D.camera.position.z) * Math.min(1, dt * 7);
+  CH3D.camera.position.y += (ty - CH3D.camera.position.y) * Math.min(1, dt * 7);
+  if(CH3D.shakeTime > 0){
+    CH3D.shakeTime -= dt;
+    CH3D.camera.position.x += (Math.random()-0.5)*0.35;
+    CH3D.camera.position.y += (Math.random()-0.5)*0.35;
+  }
+  CH3D.camera.lookAt(CH3D.x + Math.cos(CH3D.heading)*2.2, CH3D.y + 1.0, CH3D.z - Math.sin(CH3D.heading)*2.2);
 
   CH3D.renderer.render(CH3D.scene, CH3D.camera);
 }
+
 
 let _bkd=null,_bku=null;
 function bindBattleInput(){
