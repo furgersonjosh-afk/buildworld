@@ -750,7 +750,7 @@ function showroomInit(){
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
   renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   if("outputEncoding" in renderer) renderer.outputEncoding=THREE.sRGBEncoding;
-  if("toneMapping" in renderer){ renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.05; }
+  if("toneMapping" in renderer){ renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.84; }
   const scene=new THREE.Scene();
   const camera=new THREE.PerspectiveCamera(40,1,0.1,100);
   camera.position.set(5.4,2.5,6.0);
@@ -773,42 +773,52 @@ function showroomInit(){
       }, undefined, function(){/* offline/failed: keep procedural env */});
     }
   }catch(e){}
-  // Off-Road Outlaws Industrial Concrete Floor + Diamond-Plate Steel Platform + Shop Props
+  // Off-Road Outlaws Industrial Speed-Shop Bay (Textured Floor, Diamond-Plate Lift Platform, 4 Enclosed Walls & 4-Post Lift)
+  renderer.setClearColor(0x090d18, 1.0);
+  const fTex = (typeof makeRealisticTexture==="function") ? makeRealisticTexture("asphalt_plate", 14, 14) : null;
   const floor=new THREE.Mesh(new THREE.PlaneGeometry(34,34),
-    new THREE.MeshStandardMaterial({color:0x1b2028, roughness:0.65, metalness:0.20}));
+    new THREE.MeshStandardMaterial({map:fTex, bumpMap:fTex, bumpScale:0.04, color:0x384254, roughness:0.55, metalness:0.35, envMapIntensity:0.25}));
   floor.rotation.x=-Math.PI/2; floor.position.y=-0.06; floor.receiveShadow=true; scene.add(floor);
 
+  const dTex = (typeof makeRealisticTexture==="function") ? makeRealisticTexture("asphalt_plate", 6, 4) : null;
   const plat=new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.12, 3.9),
-    new THREE.MeshStandardMaterial({color:0x4a5260, roughness:0.32, metalness:0.82}));
+    new THREE.MeshStandardMaterial({map:dTex, bumpMap:dTex, bumpScale:0.05, color:0x526078, roughness:0.32, metalness:0.82, envMapIntensity:0.45}));
   plat.position.set(0, -0.04, 0); plat.receiveShadow=true; scene.add(plat);
 
-  // Yellow & Black Hazard Border around Platform
-  const hazMat=new THREE.MeshStandardMaterial({color:0xf5b800, emissive:0x332400, roughness:0.4, metalness:0.3});
-  [[0, 1.98, 6.3, 0.08],[0, -1.98, 6.3, 0.08],[3.12, 0, 0.08, 3.9],[-3.12, 0, 0.08, 3.9]].forEach(b=>{
+  // Yellow & Black Hazard Border + 4 Orange Heavy-Duty Hydraulic Lift Posts at Platform Corners
+  const hazMat=new THREE.MeshStandardMaterial({color:0xf5b800, emissive:0x443000, roughness:0.35, metalness:0.3});
+  [[0, 1.98, 6.3, 0.09],[0, -1.98, 6.3, 0.09],[3.12, 0, 0.09, 3.9],[-3.12, 0, 0.09, 3.9]].forEach(b=>{
     const hm=new THREE.Mesh(new THREE.BoxGeometry(b[2], 0.13, b[3]), hazMat);
     hm.position.set(b[0], -0.035, b[1]); scene.add(hm);
   });
+  const postMat=new THREE.MeshStandardMaterial({color:0xd9480f, roughness:0.35, metalness:0.65, envMapIntensity:0.4});
+  [[-2.95,-1.82],[2.95,-1.82],[-2.95,1.82],[2.95,1.82]].forEach(p=>{
+    const post=new THREE.Mesh(new THREE.BoxGeometry(0.22, 3.4, 0.22), postMat);
+    post.position.set(p[0], 1.65, p[1]); post.castShadow=true; scene.add(post);
+  });
 
-  // Back Industrial Shop Wall, Rolled-Steel Bay Door, Red Tool Chests & Tire Rack
-  const wallMat=new THREE.MeshStandardMaterial({color:0x232936, roughness:0.7, metalness:0.25});
-  const backWall=new THREE.Mesh(new THREE.BoxGeometry(20, 7.5, 0.4), wallMat);
-  backWall.position.set(0, 3.6, -6.2); scene.add(backWall);
+  // 4-Wall Enclosed Industrial Speed Shop + Rolled-Steel Bay Door + Detailed Tool Chests with Chrome Drawers
+  const wTex = (typeof makeRealisticTexture==="function") ? makeRealisticTexture("rock_cliff", 8, 3) : null;
+  const wallMat=new THREE.MeshStandardMaterial({map:wTex, color:0x222938, roughness:0.75, metalness:0.20, envMapIntensity:0.18});
+  [[0, 3.6, -7.2, 22, 7.5, 0.4],[0, 3.6, 8.5, 22, 7.5, 0.4],[-8.5, 3.6, 0, 0.4, 7.5, 20],[8.5, 3.6, 0, 0.4, 7.5, 20]].forEach(w=>{
+    const wm=new THREE.Mesh(new THREE.BoxGeometry(w[3], w[4], w[5]), wallMat);
+    wm.position.set(w[0], w[1], w[2]); scene.add(wm);
+  });
   const bayDoor=new THREE.Mesh(new THREE.BoxGeometry(6.8, 4.6, 0.48),
-    new THREE.MeshStandardMaterial({color:0x394150, roughness:0.45, metalness:0.70}));
-  bayDoor.position.set(0, 2.25, -6.15); scene.add(bayDoor);
-  // Red Mechanic Tool Chests
-  const chestMat=new THREE.MeshStandardMaterial({color:0xd92b2b, roughness:0.30, metalness:0.60});
-  [-4.8, 4.8].forEach(x=>{
-    const tc=new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.45, 0.85), chestMat);
-    tc.position.set(x, 0.68, -5.4); tc.castShadow=true; scene.add(tc);
+    new THREE.MeshStandardMaterial({map:dTex, color:0x323b4c, roughness:0.42, metalness:0.72, envMapIntensity:0.35}));
+  bayDoor.position.set(0, 2.25, -7.05); scene.add(bayDoor);
+
+  const chestMat=new THREE.MeshStandardMaterial({color:0xb81d1d, roughness:0.28, metalness:0.65, envMapIntensity:0.4});
+  const drawerMat=new THREE.MeshStandardMaterial({color:0xd8e0ec, roughness:0.2, metalness:0.9});
+  [-4.6, 4.6].forEach(x=>{
+    const tc=new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.45, 0.85), chestMat);
+    tc.position.set(x, 0.68, -6.2); tc.castShadow=true; scene.add(tc);
+    for(let dy=0.25; dy<=1.20; dy+=0.24){
+      const dr=new THREE.Mesh(new THREE.BoxGeometry(1.48, 0.05, 0.88), drawerMat);
+      dr.position.set(x, dy, -6.2); scene.add(dr);
+    }
   });
-  // Overhead Industrial Shop LED Strip Lights
-  const shopLedMat=new THREE.MeshBasicMaterial({color:0xfffbe6});
-  [-2.2, 2.2].forEach(z=>{
-    const lbar=new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.08, 0.28), shopLedMat);
-    lbar.position.set(0, 4.8, z); scene.add(lbar);
-  });
-  const controls=new THREE.OrbitControls(camera, renderer.domElement);
+    const controls=new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableDamping=true; controls.dampingFactor=0.08;
   controls.autoRotate=true; controls.autoRotateSpeed=1.5;
   controls.enablePan=false; controls.minDistance=4.2; controls.maxDistance=12;
@@ -3259,20 +3269,146 @@ window.checkBrainAnswer = function(){
 };
 
 /* ================= 3D OFF-ROAD OUTLAWS CHAPTERS (360m x 360m OPEN WORLD) =================
-   Live AI Rival 4x4 Trucks, Head-to-Head Boss Races, Articulated 3D Trailer Hitch & Hauling,
-   Barn Find Wreck Towing, Raycast Ramps, Solid Collisions, Smashables & Live Map Builder! */
+   Rich Multi-Scale Procedural Textures (Deep Forest Grass, Rutted Dirt Trail, Wet Mud, Granite Rock, Cedar Wood),
+   3-Tier Ponderosa Pines, 3D Grass Tufts, Live AI Rivals, Boss Races & Articulated 3D Trailer Hauling! */
 const CHAPTERS_3D = [
-  { id:"chapter_01_ranch",     num:1, name:"Ch 1: Ranch Trail",   emoji:"🏡", glb:"assets/models/chapters/chapter_01_ranch.glb",     mode:"ranch",     skyTop:"#3a7bd5", skyBot:"#bde0fe", gndCol:0x4d7c38, anchor:[12.5, 1.4, 8.8],  barn:[-22.0, 18.0] },
-  { id:"chapter_02_mudbog",    num:2, name:"Ch 2: Mud Bog Creek", emoji:"🌲", glb:"assets/models/chapters/chapter_02_mudbog.glb",    mode:"mudbog",    skyTop:"#2c4d63", skyBot:"#a8c7db", gndCol:0x3d5232, anchor:[10.5, 1.6, 11.8], barn:[-22.0, 16.0] },
-  { id:"chapter_03_redrock",   num:3, name:"Ch 3: Red Rock Crawl",emoji:"🏜️", glb:"assets/models/chapters/chapter_03_redrock.glb",   mode:"redrock",   skyTop:"#c85a32", skyBot:"#ffe0b2", gndCol:0xb55933, anchor:[8.5, 2.8, -14.8], barn:[-22.0,-18.0] },
-  { id:"chapter_04_dunes",     num:4, name:"Ch 4: Baja Dunes",    emoji:"🏖️", glb:"assets/models/chapters/chapter_04_dunes.glb",     mode:"dunes",     skyTop:"#1d9bf0", skyBot:"#fff1cf", gndCol:0xd9a86c, anchor:[11.5, 2.2, -12.2],barn:[-24.0, 18.0] },
-  { id:"chapter_05_nightcity", num:5, name:"Ch 5: Night City",    emoji:"🌃", glb:"assets/models/chapters/chapter_05_nightcity.glb", mode:"nightcity", skyTop:"#090d24", skyBot:"#311c5c", gndCol:0x242938, anchor:[12.8, 2.5, 8.2],  barn:[-20.0,-18.0] },
-  { id:"chapter_06_arena",     num:6, name:"Ch 6: Monster Arena", emoji:"🏟️", glb:"assets/models/chapters/chapter_06_arena.glb",     mode:"arena",     skyTop:"#ff8c3b", skyBot:"#ffeacc", gndCol:0x785638, anchor:[14.2, 2.0, 0.0],  barn:[-24.0, 18.0] }
+  { id:"chapter_01_ranch",     num:1, name:"Ch 1: Ranch Trail",   emoji:"🏡", glb:"assets/models/chapters/chapter_01_ranch.glb",     mode:"ranch",     skyTop:"#0a3875", skyBot:"#3b7dd8", fogCol:0x143d1b, gndCol:0x143812, anchor:[12.5, 1.4, 8.8],  barn:[-22.0, 18.0] },
+  { id:"chapter_02_mudbog",    num:2, name:"Ch 2: Mud Bog Creek", emoji:"🌲", glb:"assets/models/chapters/chapter_02_mudbog.glb",    mode:"mudbog",    skyTop:"#091e2e", skyBot:"#29485c", fogCol:0x162b1e, gndCol:0x113011, anchor:[10.5, 1.6, 11.8], barn:[-22.0, 16.0] },
+  { id:"chapter_03_redrock",   num:3, name:"Ch 3: Red Rock Crawl",emoji:"🏜️", glb:"assets/models/chapters/chapter_03_redrock.glb",   mode:"redrock",   skyTop:"#4a1508", skyBot:"#9e471e", fogCol:0x4a2214, gndCol:0x6e2816, anchor:[8.5, 2.8, -14.8], barn:[-22.0,-18.0] },
+  { id:"chapter_04_dunes",     num:4, name:"Ch 4: Baja Dunes",    emoji:"🏖️", glb:"assets/models/chapters/chapter_04_dunes.glb",     mode:"dunes",     skyTop:"#083666", skyBot:"#3874a6", fogCol:0x4a523e, gndCol:0x8c5e2c, anchor:[11.5, 2.2, -12.2],barn:[-24.0, 18.0] },
+  { id:"chapter_05_nightcity", num:5, name:"Ch 5: Night City",    emoji:"🌃", glb:"assets/models/chapters/chapter_05_nightcity.glb", mode:"nightcity", skyTop:"#03040d", skyBot:"#120b29", fogCol:0x090c18, gndCol:0x12151f, anchor:[12.8, 2.5, 8.2],  barn:[-20.0,-18.0] },
+  { id:"chapter_06_arena",     num:6, name:"Ch 6: Monster Arena", emoji:"🏟️", glb:"assets/models/chapters/chapter_06_arena.glb",     mode:"arena",     skyTop:"#5c2206", skyBot:"#9e541e", fogCol:0x382415, gndCol:0x3d2514, anchor:[14.2, 2.0, 0.0],  barn:[-24.0, 18.0] }
 ];
 
 let CH3D = null;
 const chEnvCache = {};
 const STAR_RIGS = ["crawler","bouncer","classic70","outlaw69","barn72"];
+const _REAL_TEX_CACHE = {};
+
+function makeRealisticTexture(kind, repX, repY){
+  const key = `${kind}_${repX||1}_${repY||1}`;
+  if(_REAL_TEX_CACHE[key]) return _REAL_TEX_CACHE[key];
+  const cv = document.createElement("canvas");
+  cv.width = 512; cv.height = 512;
+  const ctx = cv.getContext("2d");
+
+  let s = 1337;
+  const rnd = ()=>{ s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+
+  if(kind === "grass_dark"){
+    // sRGB-Calibrated Rich Deep Forest & Emerald Pasture Grass (Renders at #1b5e20..#2e7d32 under ACESFilmic!)
+    const bg = ctx.createLinearGradient(0,0,512,512);
+    bg.addColorStop(0, "#1b5920"); bg.addColorStop(0.5, "#236b28"); bg.addColorStop(1, "#164d1b");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0,0,512,512);
+    // 1) Bold macro forest & meadow turf patches
+    for(let i=0;i<65;i++){
+      const x = rnd()*512, y = rnd()*512, r = 40 + rnd()*85;
+      ctx.fillStyle = (i%3===0) ? "rgba(12,44,15,0.55)" : (i%3===1 ? "rgba(44,122,50,0.48)" : "rgba(26,84,32,0.48)");
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+    }
+    // 2) Rich emerald, hunter & pine-needle grass blade clusters
+    const clumpCols = ["#114015","#1a571f","#246e29","#2f8235","#154a1a","#39913f"];
+    ctx.lineWidth = 3.6;
+    for(let i=0;i<2400;i++){
+      const x = rnd()*512, y = rnd()*512;
+      const h = 12 + rnd()*18, dx = (rnd()-0.5)*12;
+      ctx.strokeStyle = clumpCols[i % clumpCols.length];
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + dx, y - h); ctx.stroke();
+    }
+    ctx.lineWidth = 2.0;
+    for(let i=0;i<3500;i++){
+      const x = rnd()*512, y = rnd()*512;
+      const h = 6 + rnd()*10, dx = (rnd()-0.5)*6;
+      ctx.strokeStyle = clumpCols[(i+2) % clumpCols.length];
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + dx, y - h); ctx.stroke();
+    }
+  } else if(kind === "dirt_trail"){
+    // sRGB-Calibrated Rich Chocolate-Brown & Warm Sienna Rutted Dirt Trail
+    ctx.fillStyle = "#6e482b";
+    ctx.fillRect(0,0,512,512);
+    for(let i=0;i<120;i++){
+      const x = rnd()*512, y = rnd()*512, r = 20 + rnd()*52;
+      ctx.fillStyle = (i%2===0) ? "rgba(56,34,18,0.52)" : "rgba(138,92,56,0.45)";
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.fillStyle = "rgba(42,25,12,0.58)";
+    for(let y=0;y<512;y+=24){
+      ctx.fillRect(85, y, 68, 11); ctx.fillRect(355, y+12, 68, 11);
+    }
+    for(let i=0;i<900;i++){
+      ctx.fillStyle = (i%3===0) ? "#3d2412" : (i%3===1 ? "#855836" : "#996844");
+      const sz = 3 + rnd()*7;
+      ctx.fillRect(rnd()*512, rnd()*512, sz, sz*0.8);
+    }
+  } else if(kind === "mud_bog"){
+    ctx.fillStyle = "#3d2514"; ctx.fillRect(0,0,512,512);
+    for(let i=0;i<160;i++){
+      ctx.fillStyle = (i%2===0) ? "rgba(28,16,8,0.55)" : "rgba(78,48,26,0.48)";
+      ctx.beginPath(); ctx.arc(rnd()*512, rnd()*512, 18+rnd()*42, 0, Math.PI*2); ctx.fill();
+    }
+  } else if(kind === "rock_cliff"){
+    ctx.fillStyle = "#5c6472"; ctx.fillRect(0,0,512,512);
+    for(let i=0;i<220;i++){
+      ctx.fillStyle = (i%3===0) ? "rgba(42,46,54,0.52)" : (i%3===1 ? "rgba(112,120,134,0.45)" : "rgba(88,80,72,0.45)");
+      ctx.fillRect(rnd()*512, rnd()*512, 24+rnd()*58, 12+rnd()*28);
+    }
+    ctx.strokeStyle = "rgba(28,32,38,0.65)"; ctx.lineWidth = 3;
+    for(let i=0;i<75;i++){
+      const x = rnd()*512, y = rnd()*512;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x+(rnd()-0.5)*110, y+(rnd()-0.5)*45); ctx.stroke();
+    }
+  } else if(kind === "wood_grain"){
+    ctx.fillStyle = "#7a4928"; ctx.fillRect(0,0,512,512);
+    for(let y=0;y<512;y+=64){
+      ctx.fillStyle = (y%128===0) ? "#6e4022" : "#87522e";
+      ctx.fillRect(0, y, 512, 60);
+      ctx.fillStyle = "#3d2210"; ctx.fillRect(0, y+60, 512, 4);
+    }
+    ctx.strokeStyle = "rgba(46,24,10,0.45)"; ctx.lineWidth = 2.2;
+    for(let i=0;i<400;i++){
+      const y = rnd()*512;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(512, y+(rnd()-0.5)*8); ctx.stroke();
+    }
+  } else {
+    // asphalt_plate
+    ctx.fillStyle = "#2b3344"; ctx.fillRect(0,0,512,512);
+    ctx.fillStyle = "#455168";
+    for(let y=0;y<512;y+=24){
+      for(let x=0;x<512;x+=24){
+        ctx.fillRect(x+4, y+4, 9, 4); ctx.fillRect(x+14, y+14, 4, 9);
+      }
+    }
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repX||1, repY||1);
+  if("encoding" in tex) tex.encoding = THREE.sRGBEncoding;
+  tex.needsUpdate = true;
+  _REAL_TEX_CACHE[key] = tex;
+  return tex;
+}
+
+function ensurePlanarUVs(geom, scale){
+  if(!geom || !geom.attributes || !geom.attributes.position) return;
+  const pos = geom.attributes.position;
+  const nrm = geom.attributes.normal;
+  const uvs = new Float32Array(pos.count * 2);
+  const s = scale || 0.14;
+  for(let i=0;i<pos.count;i++){
+    const vx = pos.getX(i), vy = pos.getY(i), vz = pos.getZ(i);
+    const ny = nrm ? Math.abs(nrm.getY(i)) : 1.0;
+    if(ny > 0.5){
+      uvs[i*2]   = vx * s;
+      uvs[i*2+1] = vz * s;
+    } else {
+      uvs[i*2]   = (vx + vz) * s;
+      uvs[i*2+1] = vy * s;
+    }
+  }
+  geom.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+}
 
 function evalChapterTerrainY(mode, x, z){
   const y = -z;
@@ -3382,45 +3518,59 @@ function chapter3DScreen(){
 
 function buildRivalTruck3D(name, bodyHex, trimHex, isBoss){
   const grp = new THREE.Group();
-  const bMat = new THREE.MeshStandardMaterial({color:bodyHex, metalness:0.55, roughness:0.25});
-  const tMat = new THREE.MeshStandardMaterial({color:trimHex, metalness:0.75, roughness:0.35});
-  const gMat = new THREE.MeshStandardMaterial({color:0x111822, metalness:0.2, roughness:0.1});
-  const wMat = new THREE.MeshStandardMaterial({color:0x121316, roughness:0.88});
-  const rMat = new THREE.MeshStandardMaterial({color:isBoss?0xffd14d:0xcfd6e6, metalness:0.85, roughness:0.2});
+  const bMat = new THREE.MeshStandardMaterial({color:bodyHex, metalness:0.55, roughness:0.20});
+  const tMat = new THREE.MeshStandardMaterial({color:trimHex, metalness:0.80, roughness:0.28});
+  const dMat = new THREE.MeshStandardMaterial({color:0x141820, metalness:0.45, roughness:0.55});
+  const gMat = new THREE.MeshStandardMaterial({color:0x0a1018, metalness:0.35, roughness:0.08});
+  const wMat = new THREE.MeshStandardMaterial({color:0x0e1013, roughness:0.88});
+  const rMat = new THREE.MeshStandardMaterial({color:isBoss?0xffd14d:0xd8e0ee, metalness:0.88, roughness:0.18});
 
-  // Lifted Off-Road Body + Hood + Cab + Bed
-  const lower = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.56, 1.86), bMat);
-  lower.position.set(0, 0.86, 0); lower.castShadow = true; grp.add(lower);
-  const cab = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.52, 1.66), bMat);
-  cab.position.set(0.15, 1.38, 0); cab.castShadow = true; grp.add(cab);
-  const glass = new THREE.Mesh(new THREE.BoxGeometry(1.50, 0.38, 1.68), gMat);
-  glass.position.set(0.15, 1.38, 0); grp.add(glass);
-  // Bullbar & Roof LED Bar
-  const bull = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.45, 1.82), tMat);
-  bull.position.set(1.98, 0.82, 0); grp.add(bull);
-  const led = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.09, 1.25), new THREE.MeshBasicMaterial({color:isBoss?0xffd14d:0x00e5ff}));
+  // Sculpted Hood, Fender Flares, Raked Cab, Pickup Bed & Tailgate
+  const chassis = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.24, 1.5), dMat);
+  chassis.position.set(0, 0.56, 0); grp.add(chassis);
+  const lower = new THREE.Mesh(new THREE.BoxGeometry(3.92, 0.52, 1.88), bMat);
+  lower.position.set(0, 0.88, 0); lower.castShadow = true; lower.receiveShadow = true; grp.add(lower);
+  const hoodScoop = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.14, 0.92), dMat);
+  hoodScoop.position.set(1.18, 1.18, 0); grp.add(hoodScoop);
+  const cab = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.54, 1.68), bMat);
+  cab.position.set(0.10, 1.38, 0); cab.castShadow = true; grp.add(cab);
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(1.56, 0.38, 1.70), gMat);
+  glass.position.set(0.10, 1.39, 0); grp.add(glass);
+
+  // Fender Flares & Spare Tire in Bed & Rollcage Chase Rack
+  [[-1.25,-0.96],[-1.25,0.96],[1.25,-0.96],[1.25,0.96]].forEach(fp=>{
+    const fl = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.22, 0.14), dMat);
+    fl.position.set(fp[0], 0.86, fp[1]); grp.add(fl);
+  });
+  const spare = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 0.34, 16), wMat);
+  spare.rotation.x = Math.PI/2; spare.rotation.z = 0.45; spare.position.set(-1.35, 1.26, 0); grp.add(spare);
+
+  const bull = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.46, 1.86), tMat);
+  bull.position.set(2.02, 0.84, 0); grp.add(bull);
+  const led = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.09, 1.28), new THREE.MeshBasicMaterial({color:isBoss?0xffd14d:0xffe999}));
   led.position.set(0.68, 1.68, 0); grp.add(led);
+  [-0.68, 0.68].forEach(z=>{
+    const tl = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.24, 0.16), new THREE.MeshBasicMaterial({color:0xff1e1e}));
+    tl.position.set(-1.97, 0.92, z); grp.add(tl);
+  });
 
-  // 4 Articulated Off-Road Wheels
   const wheels = [];
   [[1.25,-0.98],[1.25,0.98],[-1.25,-0.98],[-1.25,0.98]].forEach(wp=>{
     const wg = new THREE.Group();
-    const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 0.38, 18), wMat);
+    const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.49, 0.49, 0.40, 20), wMat);
     tire.rotation.x = Math.PI/2; tire.castShadow = true; wg.add(tire);
-    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.40, 14), rMat);
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.42, 14), rMat);
     rim.rotation.x = Math.PI/2; wg.add(rim);
-    wg.position.set(wp[0], 0.48, wp[1]);
+    wg.position.set(wp[0], 0.49, wp[1]);
     grp.add(wg);
     wheels.push(wg);
   });
 
-  // Floating 3D Health Bar above Rival Roof
-  const hpBg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 1.6), new THREE.MeshBasicMaterial({color:0x1a1a2e}));
+  const hpBg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 1.6), new THREE.MeshBasicMaterial({color:0x141829}));
   hpBg.position.set(0, 2.25, 0); grp.add(hpBg);
-  const hpFg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 1.56), new THREE.MeshBasicMaterial({color:isBoss?0xffd14d:0x5bff9b}));
+  const hpFg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 1.56), new THREE.MeshBasicMaterial({color:isBoss?0xffd14d:0x37c46a}));
   hpFg.position.set(0, 2.25, 0); grp.add(hpFg);
 
-  // Boss Rotating Crown Beacon
   let crown = null;
   if(isBoss){
     crown = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), new THREE.MeshStandardMaterial({color:0xffd14d, emissive:0xcc7a00, metalness:0.9, roughness:0.1}));
@@ -3431,49 +3581,58 @@ function buildRivalTruck3D(name, bodyHex, trimHex, isBoss){
 
 function buildTowableTrailer3D(kind){
   const grp = new THREE.Group();
-  const steelMat = new THREE.MeshStandardMaterial({color:0x2b313d, metalness:0.75, roughness:0.35});
-  const deckMat  = new THREE.MeshStandardMaterial({color:0x6e4929, roughness:0.85});
-  const wMat     = new THREE.MeshStandardMaterial({color:0x121316, roughness:0.88});
+  const steelMat = new THREE.MeshStandardMaterial({color:0x1e2430, metalness:0.82, roughness:0.30});
+  const woodTex  = makeRealisticTexture("wood_grain", 2, 2);
+  const deckMat  = new THREE.MeshStandardMaterial({map:woodTex, color:0x9e6b40, roughness:0.82});
+  const wMat     = new THREE.MeshStandardMaterial({color:0x101114, roughness:0.88});
 
-  // Drawbar Tongue (extends from X=0 hitch point back to trailer deck at X=-2.6)
-  const tongue = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.12, 0.22), steelMat);
+  const tongue = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.14, 0.24), steelMat);
   tongue.position.set(-0.9, 0.48, 0); grp.add(tongue);
-  const hitchRing = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.045, 8, 16), new THREE.MeshBasicMaterial({color:0x00e5ff}));
+  const hitchRing = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.045, 8, 16), new THREE.MeshBasicMaterial({color:0xffae00}));
   hitchRing.rotation.x = Math.PI/2; hitchRing.position.set(0, 0.50, 0); grp.add(hitchRing);
 
-  // Tandem Flatbed Deck
-  const deck = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.16, 2.15), deckMat);
-  deck.position.set(-2.9, 0.56, 0); deck.castShadow = true; grp.add(deck);
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.18, 2.22), deckMat);
+  deck.position.set(-2.9, 0.56, 0); deck.castShadow = true; deck.receiveShadow = true; grp.add(deck);
+  // Steel Side Rails & Loading Ramps on Flatbed
+  [-1.08, 1.08].forEach(z=>{
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.22, 0.08), steelMat);
+    rail.position.set(-2.9, 0.64, z); grp.add(rail);
+  });
 
   if(kind === "bulldozer"){
-    // Bright Yellow Heavy Bulldozer Load + Timber Logs!
-    const catYellow = new THREE.MeshStandardMaterial({color:0xf5b800, metalness:0.35, roughness:0.35});
-    const tracksMat = new THREE.MeshStandardMaterial({color:0x1c1f24, roughness:0.85});
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.72, 1.35), catYellow);
-    body.position.set(-2.8, 1.15, 0); body.castShadow = true; grp.add(body);
-    const cab = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.68, 1.15), catYellow);
-    cab.position.set(-3.0, 1.78, 0); cab.castShadow = true; grp.add(cab);
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.75, 1.85), steelMat);
-    blade.position.set(-1.55, 1.02, 0); grp.add(blade);
-    [-0.72, 0.72].forEach(z=>{
-      const trk = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.42, 0.34), tracksMat);
+    // Detailed Heavy Caterpillar Bulldozer with Cab Glass, Exhaust Stack, Ripper & Angled Dozer Blade!
+    const catYellow = new THREE.MeshStandardMaterial({color:0xd99b00, metalness:0.45, roughness:0.28});
+    const cabGlass  = new THREE.MeshStandardMaterial({color:0x0d1520, metalness:0.3, roughness:0.1});
+    const tracksMat = new THREE.MeshStandardMaterial({color:0x16191f, roughness:0.88, metalness:0.35});
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.68, 1.32), catYellow);
+    body.position.set(-2.75, 1.12, 0); body.castShadow = true; grp.add(body);
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.72, 1.16), catYellow);
+    cab.position.set(-3.05, 1.76, 0); cab.castShadow = true; grp.add(cab);
+    const gl = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.48, 1.18), cabGlass);
+    gl.position.set(-3.05, 1.80, 0); grp.add(gl);
+    const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.85, 10), steelMat);
+    stack.position.set(-2.15, 1.65, 0.45); grp.add(stack);
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.82, 1.96), steelMat);
+    blade.position.set(-1.52, 1.04, 0); grp.add(blade);
+    [-0.74, 0.74].forEach(z=>{
+      const trk = new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.46, 0.38), tracksMat);
       trk.position.set(-2.8, 0.82, z); grp.add(trk);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.14, 0.10), catYellow);
+      arm.position.set(-2.05, 0.92, z*1.12); grp.add(arm);
     });
   } else {
-    // Rusted 1972 Barn-Find Dually Wreck Shell on the trailer!
-    const rustMat = new THREE.MeshStandardMaterial({color:0x8a3b1b, roughness:0.92, metalness:0.30});
+    const rustMat = new THREE.MeshStandardMaterial({color:0x6e2b12, roughness:0.92, metalness:0.28});
     const wBody = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.62, 1.75), rustMat);
     wBody.position.set(-2.9, 1.05, 0); wBody.castShadow = true; grp.add(wBody);
     const wCab = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.54, 1.55), rustMat);
     wCab.position.set(-2.6, 1.58, 0); grp.add(wCab);
   }
 
-  // 4 Tandem Trailer Wheels
   const wheels = [];
-  [[-2.4,-1.08],[-2.4,1.08],[-3.4,-1.08],[-3.4,1.08]].forEach(wp=>{
-    const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.28, 16), wMat);
+  [[-2.35,-1.12],[-2.35,1.12],[-3.45,-1.12],[-3.45,1.12]].forEach(wp=>{
+    const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.40, 0.40, 0.30, 18), wMat);
     tire.rotation.x = Math.PI/2;
-    tire.position.set(wp[0], 0.38, wp[1]);
+    tire.position.set(wp[0], 0.40, wp[1]);
     grp.add(tire);
     wheels.push(tire);
   });
@@ -3487,29 +3646,31 @@ function start3DChapterMode(initialIdx, initialContract){
   const stage = $("#ch3dstage");
   const w = stage.clientWidth || window.innerWidth, h = stage.clientHeight || window.innerHeight;
 
-  const renderer = new THREE.WebGLRenderer({antialias:true});
+  const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
   renderer.setSize(w, h);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   if("outputEncoding" in renderer) renderer.outputEncoding = THREE.sRGBEncoding;
-  if("toneMapping" in renderer){ renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.08; }
+  if("toneMapping" in renderer){ renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.06; }
   stage.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x9ab8d4, 0.0045);
+  scene.fog = new THREE.FogExp2(0x143d1b, 0.0012);
   const camera = new THREE.PerspectiveCamera(48, w/h, 0.1, 420);
   camera.position.set(-8.5, 3.8, 5.5);
 
   try{
     const pmrem = new THREE.PMREMGenerator(renderer);
-    scene.environment = pmrem.fromScene(new THREE.RoomEnvironment(renderer), 0.04).texture;
+    
   }catch(e){}
 
-  const hemi = new THREE.HemisphereLight(0xffffff, 0x334466, 0.95);
+  // Rich Forest-Canopy Hemisphere + Warm Golden-Hour Sunlight (No Washed-Out White!)
+  scene.add(new THREE.AmbientLight(0xd8ecff, 0.42));
+  const hemi = new THREE.HemisphereLight(0x88c8ff, 0x265c29, 0.88);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xfff6e5, 1.35);
-  sun.position.set(28, 48, 28);
+  const sun = new THREE.DirectionalLight(0xfff2cc, 1.58);
+  sun.position.set(32, 52, 26);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
   sun.shadow.camera.near = 1; sun.shadow.camera.far = 160;
@@ -3522,15 +3683,13 @@ function start3DChapterMode(initialIdx, initialContract){
   const carHolder = new THREE.Group();
   scene.add(envGroup); scene.add(parkGroup); scene.add(carHolder);
 
-  // 3D Directional Mission Arrow above Truck
   const arrowGrp = new THREE.Group();
-  const arrCone = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.75, 8), new THREE.MeshStandardMaterial({color:0x5bff9b, emissive:0x1f9e69, roughness:0.2}));
+  const arrCone = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.75, 8), new THREE.MeshStandardMaterial({color:0x37c46a, emissive:0x1b7a43, roughness:0.2}));
   arrCone.rotation.z = -Math.PI/2; arrCone.position.x = 0.25; arrowGrp.add(arrCone);
-  const arrShaft = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.14, 0.14), new THREE.MeshStandardMaterial({color:0x5bff9b, emissive:0x1f9e69}));
+  const arrShaft = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.14, 0.14), new THREE.MeshStandardMaterial({color:0x37c46a, emissive:0x1b7a43}));
   arrShaft.position.x = -0.15; arrowGrp.add(arrShaft);
   scene.add(arrowGrp);
 
-  // 3D Winch Cable Line
   const winchGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0.8,0), new THREE.Vector3(5,1.2,0)]);
   const winchLine = new THREE.Line(winchGeo, new THREE.LineBasicMaterial({color:0xffd14d, linewidth:3}));
   winchLine.visible = false;
@@ -3574,25 +3733,34 @@ function start3DChapterMode(initialIdx, initialContract){
     rGrp.position.set(x, gy, z);
     rGrp.rotation.y = rotY;
     const slope = Math.atan2(h, len);
+    const woodTex = makeRealisticTexture("wood_grain", 2, 2);
     const deck = new THREE.Mesh(
       new THREE.BoxGeometry(len, 0.28, wid),
-      new THREE.MeshStandardMaterial({color:col||0xc87a28, roughness:0.75})
+      new THREE.MeshStandardMaterial({map:woodTex, color:col||0xb5743b, roughness:0.78})
     );
     deck.position.set(0, h*0.48, 0);
     deck.rotation.z = slope;
     deck.castShadow = true; deck.receiveShadow = true;
     rGrp.add(deck);
+    // Painted Red/Yellow Stunt Safety Rails on Ramp Edges
+    const railMat = new THREE.MeshStandardMaterial({color:0xd9381e, roughness:0.45});
+    [-wid*0.46, wid*0.46].forEach(zSide=>{
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(len, 0.14, 0.14), railMat);
+      rail.position.set(0, h*0.48 + 0.18, zSide);
+      rail.rotation.z = slope;
+      rGrp.add(rail);
+    });
     parkGroup.add(rGrp);
     rGrp.updateMatrixWorld(true);
     CH3D.rideableMeshes.push(deck);
   };
 
   const addCrushCarRow = (x, z, rotY)=>{
-    const cols = [0xbf2c2c, 0x2c6ebf, 0xd99b26, 0x4b8b3b];
+    const cols = [0x9e1b1b, 0x164e8f, 0xb87714, 0x1e5c26];
     for(let i=-1;i<=1;i++){
       const cMesh = new THREE.Mesh(
         new THREE.BoxGeometry(1.75, 0.85, 3.4),
-        new THREE.MeshStandardMaterial({color:cols[(i+1)%cols.length], roughness:0.55, metalness:0.4})
+        new THREE.MeshStandardMaterial({color:cols[(i+1)%cols.length], roughness:0.42, metalness:0.55})
       );
       const cx = x + i*2.05*Math.cos(rotY), cz = z - i*2.05*Math.sin(rotY);
       const cy = evalChapterTerrainY(CHAPTERS_3D[CH3D.chIdx].mode, cx, cz);
@@ -3607,12 +3775,13 @@ function start3DChapterMode(initialIdx, initialContract){
 
   const addSmashCrateCluster = (x, z)=>{
     const mode = CHAPTERS_3D[CH3D.chIdx].mode;
+    const woodTex = makeRealisticTexture("wood_grain", 1, 1);
     [[-0.9,0],[0.9,0],[0,0.9]].forEach(off=>{
       const cx = x + off[0], cz = z + off[1];
       const cy = evalChapterTerrainY(mode, cx, cz);
       const box = new THREE.Mesh(
         new THREE.BoxGeometry(0.95, 0.95, 0.95),
-        new THREE.MeshStandardMaterial({color:0xd9822b, emissive:0x331600, roughness:0.65})
+        new THREE.MeshStandardMaterial({map:woodTex, color:0xc47a32, roughness:0.72})
       );
       box.position.set(cx, cy + 0.48, cz);
       box.castShadow = true;
@@ -3634,37 +3803,81 @@ function start3DChapterMode(initialIdx, initialContract){
     CH3D.bossRace = null;
     CH3D.mudZones = [{x:-38, z:38, r:20}, {x:0, z:18, r:10}];
 
-    // 1. Massive 360m x 360m Continuous Outer Off-Road Park Terrain Mesh
-    const gGeo = new THREE.PlaneGeometry(340, 340, 110, 110);
+    // 1. Massive 360m x 360m Continuous High-Res Terrain Mesh (Deep Lush Forest Grass + Contoured Dirt Trail!)
+    const gGeo = new THREE.PlaneGeometry(340, 340, 150, 150);
     gGeo.rotateX(-Math.PI/2);
     const pos = gGeo.attributes.position;
+    const vCols = new Float32Array(pos.count * 3);
     for(let i=0;i<pos.count;i++){
       const vx = pos.getX(i), vz = pos.getZ(i);
       const hy = evalChapterTerrainY(mode, vx, vz);
-      const cDist = Math.max(Math.abs(vx), Math.abs(vz));
-      const blend = cDist < 22 ? -0.06 : 0.0;
-      pos.setY(i, hy + blend);
+      pos.setY(i, hy);
+      // Organic terrain vertex shading: darker in hollows & tree lines, richer on crests!
+      const shade = Math.max(0.72, Math.min(1.15, 0.88 + 0.16*Math.sin(vx*0.14)*Math.cos(vz*0.14) + Math.min(0.18, hy*0.04)));
+      vCols[i*3]   = shade * 0.78;
+      vCols[i*3+1] = shade * 0.96;
+      vCols[i*3+2] = shade * 0.74;
     }
+    gGeo.setAttribute("color", new THREE.BufferAttribute(vCols, 3));
     gGeo.computeVertexNormals();
-    const gMat = new THREE.MeshStandardMaterial({color:ch.gndCol||0x4d7c38, roughness:0.90, metalness:0.05});
+
+    const outerTexKind = (mode==="ranch"||mode==="mudbog") ? "grass_dark" :
+                         (mode==="redrock" ? "rock_cliff" :
+                         (mode==="nightcity" ? "asphalt_plate" : "dirt_trail"));
+    const outerTex = makeRealisticTexture(outerTexKind, 22, 22);
+    const outerTint = (mode==="ranch"||mode==="mudbog") ? 0x569e4e :
+                      (mode==="redrock") ? 0xc85a38 :
+                      (mode==="dunes") ? 0xdba86e :
+                      (mode==="nightcity") ? 0x6e7894 : 0x9e7452;
+    const gMat = new THREE.MeshStandardMaterial({
+      map: outerTex,
+      bumpMap: outerTex,
+      bumpScale: 0.12,
+      color: outerTint,
+      vertexColors: true,
+      roughness: 0.88,
+      metalness: 0.02
+    });
     const gMesh = new THREE.Mesh(gGeo, gMat);
     gMesh.receiveShadow = true;
     parkGroup.add(gMesh);
 
-    // 2. Stunt Park Ramps & Crush Car Rows
-    addRideableRamp(13.5, 0.0, 0.0, 6.5, 4.2, 1.85, 0xd97324);
-    addCrushCarRow(22.0, 0.0, 0.0);
-    addRideableRamp(32.0, 0.0, Math.PI, 6.5, 4.2, 1.85, 0xd97324);
-    addRideableRamp(-18.0, -22.0, 0.65, 7.5, 4.6, 2.35, 0xc94a29);
-    addRideableRamp(25.0, 28.0, -0.8, 7.0, 4.5, 2.15, 0xd97324);
+    // Contoured 3D Rutted Dirt Trail Ribbon winding through the Deep Dark-Green Grass!
+    const trailGeo = new THREE.PlaneGeometry(96, 7.2, 64, 8);
+    trailGeo.rotateX(-Math.PI/2);
+    const tPos = trailGeo.attributes.position;
+    for(let i=0;i<tPos.count;i++){
+      const tx = tPos.getX(i) + 12.0, tz = tPos.getZ(i);
+      const curveZ = tz + Math.sin(tx * 0.08) * 2.8;
+      tPos.setX(i, tx);
+      tPos.setZ(i, curveZ);
+      tPos.setY(i, evalChapterTerrainY(mode, tx, curveZ) + 0.035);
+    }
+    trailGeo.computeVertexNormals();
+    const dirtRibbonTex = makeRealisticTexture("dirt_trail", 18, 2);
+    const trailMesh = new THREE.Mesh(trailGeo, new THREE.MeshStandardMaterial({
+      map: dirtRibbonTex, bumpMap: dirtRibbonTex, bumpScale: 0.06, color: 0xffffff, roughness: 0.84
+    }));
+    trailMesh.receiveShadow = true;
+    parkGroup.add(trailMesh);
 
-    // 3. Rideable Rock Crawl Boulders Slab Garden at (x=24, z=-24)
+    // 2. Stunt Park Ramps & Crush Car Rows
+    addRideableRamp(13.5, 0.0, 0.0, 6.5, 4.2, 1.85, 0xb87338);
+    addCrushCarRow(22.0, 0.0, 0.0);
+    addRideableRamp(32.0, 0.0, Math.PI, 6.5, 4.2, 1.85, 0xb87338);
+    addRideableRamp(-18.0, -22.0, 0.65, 7.5, 4.6, 2.35, 0xa85828);
+    addRideableRamp(25.0, 28.0, -0.8, 7.0, 4.5, 2.15, 0xb87338);
+
+    // 3. Rideable Rock Crawl Boulders Slab Garden at (x=24, z=-24) with Granite Texture
+    const rockTex = makeRealisticTexture("rock_cliff", 2, 2);
     for(let i=0;i<10;i++){
       const rx = 20 + (i%4)*3.2, rz = -20 - Math.floor(i/4)*3.4;
       const ry = evalChapterTerrainY(mode, rx, rz);
+      const rkGeo = new THREE.DodecahedronGeometry(1.45 + (i%3)*0.35, 1);
+      ensurePlanarUVs(rkGeo, 0.45);
       const rk = new THREE.Mesh(
-        new THREE.DodecahedronGeometry(1.45 + (i%3)*0.35, 1),
-        new THREE.MeshStandardMaterial({color:0x6c7078, roughness:0.88})
+        rkGeo,
+        new THREE.MeshStandardMaterial({map:rockTex, bumpMap:rockTex, bumpScale:0.05, color:0x868d98, roughness:0.84})
       );
       rk.scale.set(1.3, 0.62, 1.2);
       rk.position.set(rx, ry + 0.35, rz);
@@ -3674,42 +3887,77 @@ function start3DChapterMode(initialIdx, initialContract){
       CH3D.rideableMeshes.push(rk);
     }
 
-    // 4. Deep Mud Bog Water Surface at (-38, 38)
+    // 4. Deep Glossy Mud Bog Water Surface at (-38, 38)
+    const mudTex = makeRealisticTexture("mud_bog", 8, 8);
     const mudSurf = new THREE.Mesh(
       new THREE.CircleGeometry(19, 32),
-      new THREE.MeshStandardMaterial({color:0x3b2614, roughness:0.18, metalness:0.25})
+      new THREE.MeshStandardMaterial({map:mudTex, color:0x4a2e16, roughness:0.18, metalness:0.28})
     );
     mudSurf.rotation.x = -Math.PI/2;
     mudSurf.position.set(-38, evalChapterTerrainY(mode, -38, 38) + 0.32, 38);
     parkGroup.add(mudSurf);
 
-    // 5. Solid Pine Trees & Perimeter Rock Pillars
-    const trunkMat = new THREE.MeshStandardMaterial({color:0x5c3d24, roughness:0.9});
-    const leafMat  = new THREE.MeshStandardMaterial({color:0x2d5a27, roughness:0.8});
+    // 5. Realistic 5-Tier Pacific Northwest Ponderosa Pines + Homestead Red Timber Barn!
+    const barkTex  = makeRealisticTexture("wood_grain", 1, 2);
+    const grassFoliageTex = makeRealisticTexture("grass_dark", 2, 2);
+    const trunkMat = new THREE.MeshStandardMaterial({map:barkTex, color:0x3d2312, roughness:0.92});
+    const pineMat1 = new THREE.MeshStandardMaterial({map:grassFoliageTex, bumpMap:grassFoliageTex, bumpScale:0.06, color:0x82c985, roughness:0.84});
+    const pineMat2 = new THREE.MeshStandardMaterial({map:grassFoliageTex, bumpMap:grassFoliageTex, bumpScale:0.06, color:0x96db9a, roughness:0.82});
+    const pineMat3 = new THREE.MeshStandardMaterial({map:grassFoliageTex, bumpMap:grassFoliageTex, bumpScale:0.06, color:0xa8ebac, roughness:0.80});
     const treeCoords = [
-      [18,16],[-18,16],[18,-16],[-18,-16],[36,18],[-36,-18],[42,-15],[-45,14],
-      [12,38],[-15,42],[48,42],[-52,-42],[68,22],[-68,25],[30,-48],[-32,-48]
+      [7,7.5],[7,-7.5],[15,8.5],[15,-8.5],[24,9.5],[24,-9.5],[33,8.5],[33,-8.5],
+      [-8,9],[-8,-9],[16,15],[-16,15],[16,-15],[-16,-15],[28,16],[-28,-16],[36,18],[-36,-18],[42,-15],[-45,14],
+      [10,28],[-12,26],[24,-28],[-24,26],[12,38],[-15,42],[48,42],[-52,-42],[68,22],[-68,25],[30,-48],[-32,-48]
     ];
-    treeCoords.forEach(tc=>{
+    treeCoords.forEach((tc, idx)=>{
       const tx = tc[0], tz = tc[1], ty = evalChapterTerrainY(mode, tx, tz);
       const tGrp = new THREE.Group();
-      const trk = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.45, 2.6, 8), trunkMat);
-      trk.position.y = 1.3; tGrp.add(trk);
-      const crn = new THREE.Mesh(new THREE.ConeGeometry(1.85, 4.5, 8), leafMat);
-      crn.position.y = 4.2; tGrp.add(crn);
+      const sc = 0.95 + (idx%4)*0.16;
+      const trk = new THREE.Mesh(new THREE.CylinderGeometry(0.24*sc, 0.48*sc, 3.2*sc, 8), trunkMat);
+      trk.position.y = 1.6*sc; trk.castShadow = true; tGrp.add(trk);
+      // 5 Textured Conifer Branch Tiers with staggered rotation
+      [
+        {y:2.4, r:2.35, h:1.85, m:pineMat1},
+        {y:3.4, r:2.05, h:1.75, m:pineMat2},
+        {y:4.3, r:1.70, h:1.65, m:pineMat1},
+        {y:5.1, r:1.32, h:1.50, m:pineMat3},
+        {y:5.9, r:0.88, h:1.35, m:pineMat2}
+      ].forEach((tier, ti)=>{
+        const cGeo = new THREE.ConeGeometry(tier.r*sc, tier.h*sc, 7);
+        const cm = new THREE.Mesh(cGeo, tier.m);
+        cm.position.y = tier.y*sc;
+        cm.rotation.y = ti * 0.55 + idx;
+        cm.castShadow = true; cm.receiveShadow = true;
+        tGrp.add(cm);
+      });
       tGrp.position.set(tx, ty, tz);
       parkGroup.add(tGrp);
-      CH3D.obstacleColliders.push({x:tx, z:tz, r:1.05, label:"🌲 Pine Tree"});
+      CH3D.obstacleColliders.push({x:tx, z:tz, r:1.05, label:"🌲 Ponderosa Pine"});
     });
+    // Scatter 36 3D Dark-Green Grass Tuft & Forest Fern Clusters along the trail borders!
+    if(mode==="ranch" || mode==="mudbog" || mode==="arena"){
+      const tuftMat = new THREE.MeshStandardMaterial({color:0x144f1a, roughness:0.84});
+      for(let i=0;i<36;i++){
+        const ang = (i / 36) * Math.PI * 2;
+        const rad = 7.5 + (i % 5) * 6.2;
+        const gx = Math.cos(ang)*rad, gz = Math.sin(ang)*rad;
+        if(Math.abs(gz) < 3.6 && Math.abs(gx) < 24) continue; // Keep dirt track clear
+        const gy = evalChapterTerrainY(mode, gx, gz);
+        const bush = new THREE.Mesh(new THREE.DodecahedronGeometry(0.48 + (i%3)*0.18, 0), tuftMat);
+        bush.scale.set(1.35, 0.55, 1.35);
+        bush.position.set(gx, gy + 0.14, gz);
+        parkGroup.add(bush);
+      }
+    }
 
-    // 6. Smashable Wooden Fences & Supply Crate Stacks
+    // 6. Smashable Wooden Fences & Supply Crate Stacks with Weathered Cedar Texture
+    const fenceTex = makeRealisticTexture("wood_grain", 2, 1);
+    const fenceMat = new THREE.MeshStandardMaterial({map:fenceTex, color:0x9e6b40, roughness:0.84});
     [[-8, 12],[8, 12],[-14,-10],[16, -12],[28, 12],[-26, 12]].forEach(fp=>{
       const fx = fp[0], fz = fp[1], fy = evalChapterTerrainY(mode, fx, fz);
-      const fence = new THREE.Mesh(
-        new THREE.BoxGeometry(2.6, 0.9, 0.22),
-        new THREE.MeshStandardMaterial({color:0x8c6239, roughness:0.85})
-      );
+      const fence = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.9, 0.22), fenceMat);
       fence.position.set(fx, fy + 0.45, fz);
+      fence.castShadow = true;
       parkGroup.add(fence);
       CH3D.smashables.push({mesh:fence, x:fx, y:fy+0.45, z:fz, vx:0, vy:0, vz:0, hit:false, label:"🚧 WOOD FENCE"});
     });
@@ -3719,9 +3967,9 @@ function start3DChapterMode(initialIdx, initialContract){
 
     // 7. Spawn 3 LIVE AI RIVAL 4x4 TRUCKS Roaming the Map!
     const rivalSpecs = [
-      {name:"👑 BOSS: Redneck Rammer", col:0xd92626, trim:0xffd14d, isBoss:true,  speed:11.8, wps:[[9,-4],[24,-6],[36,8],[18,22],[-12,18],[-18,-8]]},
-      {name:"💀 Swamp Reaper 4x4",     col:0x24c757, trim:0x1b2028, isBoss:false, speed:10.2, wps:[[-6,8],[-22,20],[-32,8],[-14,-14],[8,-12],[14,8]]},
-      {name:"⚡ Baja Bandit V8",       col:0x1d9bf0, trim:0xff8c1a, isBoss:false, speed:11.0, wps:[[14,10],[32,20],[28,-16],[4,-24],[-18,-14],[-8,12]]}
+      {name:"👑 BOSS: Redneck Rammer", col:0xb81414, trim:0xffd14d, isBoss:true,  speed:11.8, wps:[[9,-4],[24,-6],[36,8],[18,22],[-12,18],[-18,-8]]},
+      {name:"💀 Swamp Reaper 4x4",     col:0x1b7a34, trim:0x1b2028, isBoss:false, speed:10.2, wps:[[-6,8],[-22,20],[-32,8],[-14,-14],[8,-12],[14,8]]},
+      {name:"⚡ Baja Bandit V8",       col:0x0f5cad, trim:0xff8c1a, isBoss:false, speed:11.0, wps:[[14,10],[32,20],[28,-16],[4,-24],[-18,-14],[-8,12]]}
     ];
     rivalSpecs.forEach(rs=>{
       const rMod = buildRivalTruck3D(rs.name, rs.col, rs.trim, rs.isBoss);
@@ -3736,7 +3984,7 @@ function start3DChapterMode(initialIdx, initialContract){
       });
     });
 
-    // 8. Spawn 2 Towable 3D Trailers (Heavy Bulldozer Flatbed + Barn Find Wreck Dolly) + Delivery Drop Zone!
+    // 8. Spawn 2 Towable 3D Trailers + Delivery Drop Zone!
     const tHaul = buildTowableTrailer3D("bulldozer");
     const hx = -6.5, hz = -4.5, hy = evalChapterTerrainY(mode, hx, hz);
     tHaul.grp.position.set(hx, hy, hz);
@@ -3758,33 +4006,30 @@ function start3DChapterMode(initialIdx, initialContract){
       x:bp[0], y:bgy, z:bp[1], heading:0, pitch:0, delivered:false
     });
 
-    // Glowing Green Outpost Delivery Drop Zone Pad at (32, -16)
     const dzX = 32.0, dzZ = -16.0, dzY = evalChapterTerrainY(mode, dzX, dzZ);
     CH3D.dropZonePos.set(dzX, dzY, dzZ);
     const dzRing = new THREE.Mesh(
       new THREE.RingGeometry(3.2, 4.2, 32),
-      new THREE.MeshBasicMaterial({color:0x5bff9b, side:THREE.DoubleSide})
+      new THREE.MeshBasicMaterial({color:0x37c46a, side:THREE.DoubleSide})
     );
     dzRing.rotation.x = -Math.PI/2;
     dzRing.position.set(dzX, dzY + 0.15, dzZ);
     parkGroup.add(dzRing);
     const dzBeacon = new THREE.Mesh(
       new THREE.CylinderGeometry(0.35, 0.35, 7.0, 12),
-      new THREE.MeshBasicMaterial({color:0x5bff9b, transparent:true, opacity:0.55})
+      new THREE.MeshBasicMaterial({color:0x37c46a, transparent:true, opacity:0.55})
     );
     dzBeacon.position.set(dzX, dzY + 3.5, dzZ);
     parkGroup.add(dzBeacon);
 
-    // Winch Anchor Post
     const ap = ch.anchor || [12.5, 1.4, 8.8];
     const agy = evalChapterTerrainY(mode, ap[0], ap[2]);
     CH3D.anchorPos.set(ap[0], agy + 0.9, ap[2]);
-    const ancMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 2.0, 12), new THREE.MeshStandardMaterial({color:0xe23b3b, emissive:0x660000}));
+    const ancMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 2.0, 12), new THREE.MeshStandardMaterial({color:0xc92a2a, emissive:0x440000}));
     ancMesh.position.set(ap[0], agy + 1.0, ap[2]);
     parkGroup.add(ancMesh);
   };
 
-  // Start Head-to-Head Boss Pink-Slip Race!
   const startBossRace3D = ()=>{
     if(!CH3D) return;
     const boss = CH3D.rivals.find(r=>r.isBoss);
@@ -3793,7 +4038,6 @@ function start3DChapterMode(initialIdx, initialContract){
       CH3D.bossRace.gates.forEach(g=>parkGroup.remove(g.mesh));
     }
     const mode = CHAPTERS_3D[CH3D.chIdx].mode;
-    // Line up Player & Boss Truck side-by-side at Starting Line!
     CH3D.x = 0; CH3D.z = 2.0; CH3D.heading = 0; CH3D.speed = 0;
     boss.wrecked = false; boss.hp = 100; boss.x = 2.2; boss.z = -2.2; boss.heading = 0; boss.speed = 12.6;
     const racePts = [[18, 0], [34, 8], [22, 24], [-8, 20], [-18, 0]];
@@ -3820,7 +4064,6 @@ function start3DChapterMode(initialIdx, initialContract){
     showMsg("🏁 BOSS RACE: GO! Beat 👑 Redneck Rammer thru 5 Gates!", 1500);
   };
 
-  // Hitch or Unhitch 3D Trailer Load (Bulldozer Flatbed or Barn Find Wreck!)
   const toggleHitchLoad3D = (preferredId)=>{
     if(!CH3D) return;
     const hb = $("#btn_hitch");
@@ -3831,7 +4074,6 @@ function start3DChapterMode(initialIdx, initialContract){
       showMsg(`🔓 Unhitched ${nm}`, 900);
       return;
     }
-    // Find nearest undelivered trailer (or preferredId if specified, and teleport it right behind truck if >6m away so 1-tap works anywhere!)
     let cand = CH3D.trailers.find(t=>!t.delivered && t.id===preferredId) ||
                CH3D.trailers.find(t=>!t.delivered && Math.hypot(CH3D.x - t.x, CH3D.z - t.z) < 9.0) ||
                CH3D.trailers.find(t=>!t.delivered);
@@ -3857,16 +4099,19 @@ function start3DChapterMode(initialIdx, initialContract){
     const dz = CH3D.z - Math.sin(CH3D.heading)*dist;
     SFX.buy();
     if(kind==="ramp"){
-      addRideableRamp(dx, dz, CH3D.heading, 6.5, 4.4, 2.05, 0xff8c1a);
+      addRideableRamp(dx, dz, CH3D.heading, 6.5, 4.4, 2.05, 0xb87338);
       showMsg("📐 BIG STUNT RAMP DROPPED AHEAD!", 900);
     } else if(kind==="crush"){
       addCrushCarRow(dx, dz, CH3D.heading);
       showMsg("🚗 CRUSH CAR ROW DROPPED AHEAD!", 900);
     } else if(kind==="boulder"){
+      const rockTex = makeRealisticTexture("rock_cliff", 2, 2);
       for(let i=-1;i<=1;i++){
         const bx = dx + i*1.6*Math.sin(CH3D.heading), bz = dz + i*1.6*Math.cos(CH3D.heading);
         const by = evalChapterTerrainY(CHAPTERS_3D[CH3D.chIdx].mode, bx, bz);
-        const rk = new THREE.Mesh(new THREE.DodecahedronGeometry(1.5,1), new THREE.MeshStandardMaterial({color:0x747b86, roughness:0.85}));
+        const rkGeo = new THREE.DodecahedronGeometry(1.5,1);
+        ensurePlanarUVs(rkGeo, 0.45);
+        const rk = new THREE.Mesh(rkGeo, new THREE.MeshStandardMaterial({map:rockTex, bumpMap:rockTex, bumpScale:0.05, color:0x828a96, roughness:0.85}));
         rk.scale.set(1.3, 0.65, 1.2); rk.position.set(bx, by+0.35, bz);
         parkGroup.add(rk); rk.updateMatrixWorld(true);
         CH3D.rideableMeshes.push(rk);
@@ -3874,7 +4119,8 @@ function start3DChapterMode(initialIdx, initialContract){
       showMsg("🪨 ROCK CRAWL LEDGE DROPPED AHEAD!", 900);
     } else if(kind==="mud"){
       const my = evalChapterTerrainY(CHAPTERS_3D[CH3D.chIdx].mode, dx, dz);
-      const mp = new THREE.Mesh(new THREE.CircleGeometry(7.5, 24), new THREE.MeshStandardMaterial({color:0x3b2512, roughness:0.15, metalness:0.3}));
+      const mudTex = makeRealisticTexture("mud_bog", 4, 4);
+      const mp = new THREE.Mesh(new THREE.CircleGeometry(7.5, 24), new THREE.MeshStandardMaterial({map:mudTex, color:0x4a2e16, roughness:0.16, metalness:0.28}));
       mp.rotation.x = -Math.PI/2; mp.position.set(dx, my+0.08, dz);
       parkGroup.add(mp);
       CH3D.mudZones.push({x:dx, z:dz, r:7.5});
@@ -3894,6 +4140,7 @@ function start3DChapterMode(initialIdx, initialContract){
     winchLine.visible = false;
     stage.style.background = `linear-gradient(180deg, ${ch.skyTop} 0%, ${ch.skyBot} 100%)`;
     renderer.setClearColor(new THREE.Color(ch.skyTop), 0.0);
+    CH3D.scene.fog = new THREE.FogExp2(ch.fogCol || 0x143d1b, 0.0012);
     document.querySelectorAll("[data-ch3d]").forEach(b=>{
       b.style.background = (+b.dataset.ch3d===idx) ? "rgba(54,201,138,.92)" : "rgba(8,12,30,.75)";
     });
@@ -3904,9 +4151,60 @@ function start3DChapterMode(initialIdx, initialContract){
       const cl = sc.clone(true);
       cl.scale.set(1.45, 1.15, 1.45);
       cl.updateMatrixWorld(true);
+      const grassTex = makeRealisticTexture("grass_dark", 1, 1);
+      const dirtTex  = makeRealisticTexture("dirt_trail", 1, 1);
+      const woodTex  = makeRealisticTexture("wood_grain", 1, 1);
+      const rockTex  = makeRealisticTexture("rock_cliff", 1, 1);
+      const mudTex   = makeRealisticTexture("mud_bog", 1, 1);
+      const asphTex  = makeRealisticTexture("asphalt_plate", 1, 1);
+
       cl.traverse(o=>{
         if(o.isMesh){
+          const matNames = (Array.isArray(o.material)?o.material:[o.material]).map(m=>(m&&m.name)||"").join(" ");
+          if(matNames.includes("Accent") || matNames.includes("Ground")){
+            // Hide legacy coarse flat-shaded ground & 1-cone stick trees so our 150x150 textured grass & 3-tier Ponderosa pines render cleanly!
+            o.visible = false;
+            return;
+          }
           o.receiveShadow=true; o.castShadow=true;
+          ensurePlanarUVs(o.geometry, 0.26);
+          const upgradeMat = (m)=>{
+            const nm = (m && m.name) ? m.name : "";
+            if(nm.includes("Accent")){
+              if(ch.mode==="ranch" || ch.mode==="mudbog"){
+                return new THREE.MeshStandardMaterial({map:grassTex, bumpMap:grassTex, bumpScale:0.06, color:0x3d7a34, roughness:0.88, metalness:0.04});
+              } else if(ch.mode==="redrock"){
+                return new THREE.MeshStandardMaterial({map:rockTex, bumpMap:rockTex, bumpScale:0.06, color:0xc45638, roughness:0.84});
+              }
+            } else if(nm.includes("Ground")){
+              if(ch.mode==="ranch"){
+                return new THREE.MeshStandardMaterial({map:dirtTex, bumpMap:dirtTex, bumpScale:0.05, color:0x6b4426, roughness:0.88, metalness:0.04});
+              } else if(ch.mode==="mudbog"){
+                return new THREE.MeshStandardMaterial({map:mudTex, bumpMap:dirtTex, bumpScale:0.04, color:0x6e4829, roughness:0.28, metalness:0.22});
+              } else if(ch.mode==="redrock"){
+                return new THREE.MeshStandardMaterial({map:rockTex, bumpMap:rockTex, bumpScale:0.06, color:0xa8432b, roughness:0.85});
+              } else if(ch.mode==="dunes"){
+                return new THREE.MeshStandardMaterial({map:dirtTex, color:0xd6a469, roughness:0.82});
+              } else if(ch.mode==="nightcity"){
+                return new THREE.MeshStandardMaterial({map:asphTex, color:0x4a546e, roughness:0.55, metalness:0.25});
+              } else if(ch.mode==="arena"){
+                return new THREE.MeshStandardMaterial({map:dirtTex, bumpMap:dirtTex, bumpScale:0.05, color:0x8c5d3c, roughness:0.84});
+              }
+            } else if(nm.includes("Wood")){
+              return new THREE.MeshStandardMaterial({map:woodTex, bumpMap:woodTex, bumpScale:0.04, color:0x9e6a40, roughness:0.80});
+            } else if(nm.includes("Rock")){
+              return new THREE.MeshStandardMaterial({map:rockTex, bumpMap:rockTex, bumpScale:0.05, color:0x7c8490, roughness:0.84});
+            } else if(nm.includes("Struct")){
+              return new THREE.MeshStandardMaterial({map:woodTex, color:0x9e2222, roughness:0.68, metalness:0.12});
+            }
+            return m;
+          };
+          if(Array.isArray(o.material)){
+            o.material = o.material.map(upgradeMat);
+          } else if(o.material){
+            o.material = upgradeMat(o.material);
+          }
+
           const box = new THREE.Box3().setFromObject(o);
           const sz = box.getSize(new THREE.Vector3());
           const ctr = box.getCenter(new THREE.Vector3());
@@ -3935,13 +4233,11 @@ function start3DChapterMode(initialIdx, initialContract){
     b.onclick = ()=>{ SFX.tap(); loadChapterRoom(+b.dataset.ch3d); };
   });
 
-  // Wire Boss Race & Hitch Load HUD Buttons
   const bBoss = $("#btn_bossrace");
   if(bBoss) bBoss.onclick = ()=>startBossRace3D();
   const bHitch = $("#btn_hitch");
   if(bHitch) bHitch.onclick = ()=>toggleHitchLoad3D();
 
-  // Toggle Map Builder Toolbar
   const bMap = $("#btn_mapbuilder");
   if(bMap) bMap.onclick = ()=>{
     const bar = $("#mapbuilder_bar");
@@ -3954,7 +4250,6 @@ function start3DChapterMode(initialIdx, initialContract){
     b.onclick = ()=>dropCustomObstacle(b.dataset.drop);
   });
 
-  // Camera Mode Cycle
   const bCam = $("#btn_cam");
   if(bCam) bCam.onclick = ()=>{
     CH3D.camMode = (CH3D.camMode + 1) % 3;
@@ -3962,7 +4257,6 @@ function start3DChapterMode(initialIdx, initialContract){
     SFX.tap(); showMsg("🎥 " + names[CH3D.camMode], 750);
   };
 
-  // Wire Off-Road Outlaws Drivetrain Controls
   const b4 = $("#btn_4wd");
   if(b4) b4.onclick = ()=>{
     CH3D.fourWD = !CH3D.fourWD; SFX.tap();
@@ -3990,7 +4284,6 @@ function start3DChapterMode(initialIdx, initialContract){
     if(CH3D.winchActive) showMsg("🪝 WINCH HOOKED TO ANCHOR!", 900);
   };
 
-  // Switch across all Star Rigs!
   const bSwap = $("#ch3drigswap");
   if(bSwap) bSwap.onclick = ()=>{
     const avail = STAR_RIGS.filter(k=>state.owned.includes(k));
@@ -4043,7 +4336,6 @@ function start3DChapterMode(initialIdx, initialContract){
   document.addEventListener("keyup", CH3D._ku);
 
   loadChapterRoom(CH3D.chIdx);
-  // If launched from a Garage Contract Card, immediately activate that mode!
   if(initialContract==="boss") setTimeout(()=>startBossRace3D(), 120);
   else if(initialContract==="haul") setTimeout(()=>toggleHitchLoad3D("bulldozer"), 120);
   else if(initialContract==="barn") setTimeout(()=>toggleHitchLoad3D("barnwreck"), 120);
