@@ -3548,29 +3548,6 @@ function makeRealisticTexture(kind, repX, repY){
       const y = rnd()*512;
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(512, y+(rnd()-0.5)*8); ctx.stroke();
     }
-  } else if(kind === "epoxy_tile"){
-    // High-Contrast Race-Shop Epoxy Checkerboard Floor (Slate-Blue & Silver-Grey Tiles)
-    ctx.fillStyle = "#0f172a"; ctx.fillRect(0,0,512,512);
-    const tileSz = 64;
-    for(let r=0;r<8;r++){
-      for(let c=0;c<8;c++){
-        ctx.fillStyle = ((r+c)%2===0) ? "#3b5980" : "#1e293b";
-        ctx.fillRect(c*tileSz+2, r*tileSz+2, tileSz-4, tileSz-4);
-        ctx.fillStyle = "rgba(255,255,255,0.10)";
-        ctx.fillRect(c*tileSz+6, r*tileSz+6, tileSz-20, 8);
-      }
-    }
-  } else if(kind === "brick_wall"){
-    // Warm Terracotta-Red & Sienna Industrial Speed-Shop Brick with Mortar Lines
-    ctx.fillStyle = "#8c7a6b"; ctx.fillRect(0,0,512,512);
-    const bh = 32, bw = 64;
-    for(let r=0;r<16;r++){
-      const off = (r%2)*32;
-      for(let c=-1;c<9;c++){
-        ctx.fillStyle = ((r+c)%3===0) ? "#7c2d12" : (((r+c)%2===0) ? "#9a3412" : "#6c240f");
-        ctx.fillRect(c*bw + off + 2, r*bh + 2, bw - 4, bh - 4);
-      }
-    }
   } else {
     // asphalt_plate
     ctx.fillStyle = "#2b3344"; ctx.fillRect(0,0,512,512);
@@ -3624,12 +3601,17 @@ function getWorldLaws(){
   return state.worldLaws;
 }
 
+const TERRAIN_SIZE = 2400; // 2,400m x 2,400m (-1200m to +1200m) continuous terrain mesh!
+const TERRAIN_HALF = TERRAIN_SIZE * 0.5;
+const TERRAIN_SEGS = 240;  // Exact 10.0m triangle grid cells
+const TERRAIN_STEP = TERRAIN_SIZE / TERRAIN_SEGS;
+
 function evalChapterTerrainY(mode, x, z){
   const y = -z;
   const r = Math.hypot(x, y);
   let baseH = 0;
   if(mode==="ranch"){
-    baseH = 0.25*Math.cos(x*0.16)*Math.cos(y*0.16) + 0.55*Math.sin(x*0.05+0.5)*Math.sin(y*0.05);
+    baseH = 0.25*Math.cos(x*0.12)*Math.cos(y*0.12) + 0.55*Math.sin(x*0.05+0.5)*Math.sin(y*0.05);
   } else if(mode==="mudbog"){
     const trench = -0.38*Math.exp(-(y*y)/36.0)*Math.cos(x*0.12);
     const banks  = 0.35*(1.0 - Math.exp(-(y*y)/45.0)) + 0.18*Math.sin(x*0.10);
@@ -3646,36 +3628,67 @@ function evalChapterTerrainY(mode, x, z){
     baseH = 0.48*Math.exp(-(x*x+y*y)/55.0);
   }
 
-  // Keep immediate spawn pad (r < 5m) smooth, then add 4 Drive-Over Mountains & Rolling Ridges right across the trail!
-  // Mountain 1: Trailhead Drive-Over Mountain Pass right ahead at (x=28, z=-4), height +7.8m (smooth cosine dome so the dirt road climbs right up and over!)
-  const dM1 = Math.hypot((x - 28)*0.75, (z + 4)*0.85);
-  if(dM1 < 20){
-    baseH += 7.8 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dM1 / 20), 1.35);
+  // Smooth Drive-Over Mountains & Rolling Ridges (wide cosine bells so 10m grid triangles are ultra-smooth!)
+  // Mountain 1: Trailhead Drive-Over Mountain Pass at (x=32, z=-6), height +8.2m, radius 26m
+  const dM1 = Math.hypot((x - 32)*0.75, (z + 6)*0.85);
+  if(dM1 < 26){
+    baseH += 8.2 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dM1 / 26), 1.4);
   }
-  // Mountain 2: Twin-Peak Drive-Over Mountain at (x=52, z=14), height +12.5m
-  const dM2 = Math.hypot((x - 52)*0.8, (z - 14)*0.8);
-  if(dM2 < 26){
-    baseH += 12.5 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dM2 / 26), 1.35);
+  // Mountain 2: Twin-Peak Drive-Over Mountain at (x=58, z=18), height +13.5m, radius 34m
+  const dM2 = Math.hypot((x - 58)*0.8, (z - 18)*0.8);
+  if(dM2 < 34){
+    baseH += 13.5 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dM2 / 34), 1.4);
   }
-  // Mountain 3: West Overlook Drive-Over Mountain at (x=-28, z=-18), height +9.8m
-  const dM3 = Math.hypot((x + 28)*0.85, (z + 18)*0.85);
-  if(dM3 < 24){
-    baseH += 9.8 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dM3 / 24), 1.35);
+  // Mountain 3: West Overlook Drive-Over Mountain at (x=-34, z=-22), height +10.5m, radius 30m
+  const dM3 = Math.hypot((x + 34)*0.85, (z + 22)*0.85);
+  if(dM3 < 30){
+    baseH += 10.5 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dM3 / 30), 1.4);
   }
-  // Mountain 4: High Summit Peak at (x=64, z=-58), height +19.5m
-  const dPeak = Math.hypot(x - 64, z + 58);
-  if(dPeak < 42){
-    baseH += 19.5 * Math.pow(1 - dPeak/42, 1.55);
+  // Mountain 4: High Summit Peak at (x=72, z=-64), height +21.0m, radius 48m
+  const dPeak = Math.hypot(x - 72, z + 64);
+  if(dPeak < 48){
+    baseH += 21.0 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dPeak / 48), 1.5);
   }
-  // Endless Procedural Backcountry Mountain Ranges for r > 65m (drives for miles!)
+  // Continuous Backcountry Mountain Ranges out to ±1,200m (smooth wavelengths so tires hug every slope!)
   if(r > 65){
-    const wFactor = Math.min(1.0, (r - 65) / 45.0);
-    const rolling = 7.5 * Math.sin(x*0.032) * Math.cos(z*0.032) +
-                    5.2 * Math.cos(x*0.055 - z*0.045) +
-                    6.8 * Math.max(0, Math.sin(x*0.018 + z*0.022));
-    baseH += wFactor * Math.max(-1.2, rolling);
+    const wFactor = Math.min(1.0, (r - 65) / 50.0);
+    const rolling = 8.5 * Math.sin(x*0.022) * Math.cos(z*0.022) +
+                    5.8 * Math.cos(x*0.035 - z*0.030) +
+                    7.2 * Math.max(0, Math.sin(x*0.014 + z*0.016));
+    baseH += wFactor * Math.max(-1.0, rolling);
   }
   return baseH;
+}
+
+// Exact Barycentric Triangle Interpolation matching THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE, TERRAIN_SEGS, TERRAIN_SEGS)!
+// Guarantees 0.000m difference between visual WebGL terrain triangles and wheel physics at all distances!
+function getExactTerrainHeight(mode, x, z){
+  const gx = (x + TERRAIN_HALF) / TERRAIN_STEP;
+  const gz = (z + TERRAIN_HALF) / TERRAIN_STEP;
+  const ix = Math.floor(gx);
+  const iz = Math.floor(gz);
+  if(ix < 0 || ix >= TERRAIN_SEGS || iz < 0 || iz >= TERRAIN_SEGS){
+    return evalChapterTerrainY(mode, x, z);
+  }
+  const fx = gx - ix;
+  const fz = gz - iz;
+  const x0 = -TERRAIN_HALF + ix * TERRAIN_STEP;
+  const x1 = x0 + TERRAIN_STEP;
+  const z0 = -TERRAIN_HALF + iz * TERRAIN_STEP;
+  const z1 = z0 + TERRAIN_STEP;
+
+  const h00 = evalChapterTerrainY(mode, x0, z0);
+  const h10 = evalChapterTerrainY(mode, x1, z0);
+  const h01 = evalChapterTerrainY(mode, x0, z1);
+  const h11 = evalChapterTerrainY(mode, x1, z1);
+
+  // PlaneGeometry splits each cell into Triangle 1 (a=00, b=01, d=10) where fx + fz <= 1
+  // and Triangle 2 (b=01, c=11, d=10) where fx + fz > 1
+  if(fx + fz <= 1.0){
+    return h00 + fx * (h10 - h00) + fz * (h01 - h00);
+  } else {
+    return h11 + (1.0 - fx) * (h01 - h11) + (1.0 - fz) * (h10 - h11);
+  }
 }
 
 function chapter3DScreen(){
@@ -3761,6 +3774,7 @@ function chapter3DScreen(){
         <button class="dchip" id="btn_diff"  style="pointer-events:auto;cursor:pointer;font-size:10px;padding:3px 6px;background:rgba(8,12,30,.82)">DIFF</button>
         <button class="dchip" id="btn_winch" style="pointer-events:auto;cursor:pointer;font-size:10px;padding:3px 6px;background:rgba(226,59,59,.88)">🪝 WINCH</button>
         <button class="dchip" id="ch3dlift"  style="pointer-events:auto;cursor:pointer;font-size:10px;padding:3px 6px;background:rgba(255,140,26,.85)">LIFT</button>
+        <button class="dchip" id="btn_unstuck" style="pointer-events:auto;cursor:pointer;font-size:10px;padding:3px 6px;background:rgba(14,165,233,.92)">🔄 UNSTUCK</button>
       </div>
       <div style="display:flex;gap:8px">
         <button class="dctrl" id="c3left" style="position:static;width:68px;height:68px;font-size:26px">◀</button>
@@ -3858,7 +3872,7 @@ function buildTowableTrailer3D(kind){
   hitchRing.rotation.x = Math.PI/2; hitchRing.position.set(0, 0.50, 0); grp.add(hitchRing);
 
   const deck = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.18, 2.22), deckMat);
-  deck.position.set(-2.9, 0.56, 0); deck.castShadow = true; deck.receiveShadow = true; grp.add(deck);
+  deck.position.set(-2.9, 0.56, 0); deck.castShadow = true; deck.receiveShadow = true; deck.userData.isRamp = true; grp.add(deck);
   // Steel Side Rails & Loading Ramps on Flatbed
   [-1.08, 1.08].forEach(z=>{
     const rail = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.22, 0.08), steelMat);
@@ -3922,8 +3936,8 @@ function start3DChapterMode(initialIdx, initialContract){
   stage.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x143d1b, 0.0012);
-  const camera = new THREE.PerspectiveCamera(48, w/h, 0.1, 420);
+  scene.fog = new THREE.FogExp2(0x1b4d24, 0.00055);
+  const camera = new THREE.PerspectiveCamera(48, w/h, 0.1, 3500);
   camera.position.set(-8.5, 3.8, 5.5);
 
   try{
@@ -3994,7 +4008,7 @@ function start3DChapterMode(initialIdx, initialContract){
   };
 
   const addRideableRamp = (x, z, rotY, len, wid, h, col)=>{
-    const gy = evalChapterTerrainY(CHAPTERS_3D[CH3D.chIdx].mode, x, z);
+    const gy = getExactTerrainHeight(CHAPTERS_3D[CH3D.chIdx].mode, x, z);
     const rGrp = new THREE.Group();
     rGrp.position.set(x, gy, z);
     rGrp.rotation.y = rotY;
@@ -4006,7 +4020,7 @@ function start3DChapterMode(initialIdx, initialContract){
     );
     deck.position.set(0, h*0.48, 0);
     deck.rotation.z = slope;
-    deck.castShadow = true; deck.receiveShadow = true;
+    deck.castShadow = true; deck.receiveShadow = true; deck.userData.isRamp = true;
     rGrp.add(deck);
     // Painted Red/Yellow Stunt Safety Rails on Ramp Edges
     const railMat = new THREE.MeshStandardMaterial({color:0xd9381e, roughness:0.45});
@@ -4029,7 +4043,7 @@ function start3DChapterMode(initialIdx, initialContract){
         new THREE.MeshStandardMaterial({color:cols[(i+1)%cols.length], roughness:0.42, metalness:0.55})
       );
       const cx = x + i*2.05*Math.cos(rotY), cz = z - i*2.05*Math.sin(rotY);
-      const cy = evalChapterTerrainY(CHAPTERS_3D[CH3D.chIdx].mode, cx, cz);
+      const cy = getExactTerrainHeight(CHAPTERS_3D[CH3D.chIdx].mode, cx, cz);
       cMesh.position.set(cx, cy + 0.42, cz);
       cMesh.rotation.y = rotY;
       cMesh.castShadow = true; cMesh.receiveShadow = true;
@@ -4044,7 +4058,7 @@ function start3DChapterMode(initialIdx, initialContract){
     const woodTex = makeRealisticTexture("wood_grain", 1, 1);
     [[-0.9,0],[0.9,0],[0,0.9]].forEach(off=>{
       const cx = x + off[0], cz = z + off[1];
-      const cy = evalChapterTerrainY(mode, cx, cz);
+      const cy = getExactTerrainHeight(mode, cx, cz);
       const box = new THREE.Mesh(
         new THREE.BoxGeometry(0.95, 0.95, 0.95),
         new THREE.MeshStandardMaterial({map:woodTex, color:0xc47a32, roughness:0.72})
@@ -4077,17 +4091,16 @@ function start3DChapterMode(initialIdx, initialContract){
     ];
     CH3D.mudParticles = [];
 
-    // 1. Massive 360m x 360m Continuous High-Res Terrain Mesh (Deep Lush Forest Grass + Contoured Dirt Trail!)
-    const gGeo = new THREE.PlaneGeometry(340, 340, 150, 150);
+    // 1. Massive 2,400m x 2,400m (±1,200m) Continuous High-Res Terrain Mesh + 8,000m Horizon Skirt (NEVER runs out!)
+    const gGeo = new THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE, TERRAIN_SEGS, TERRAIN_SEGS);
     gGeo.rotateX(-Math.PI/2);
     const pos = gGeo.attributes.position;
     const vCols = new Float32Array(pos.count * 3);
     for(let i=0;i<pos.count;i++){
       const vx = pos.getX(i), vz = pos.getZ(i);
-      const hy = evalChapterTerrainY(mode, vx, vz);
+      const hy = getExactTerrainHeight(mode, vx, vz);
       pos.setY(i, hy);
-      // Organic terrain vertex shading: darker in hollows & tree lines, richer on crests!
-      const shade = Math.max(0.72, Math.min(1.15, 0.88 + 0.16*Math.sin(vx*0.14)*Math.cos(vz*0.14) + Math.min(0.18, hy*0.04)));
+      const shade = Math.max(0.72, Math.min(1.15, 0.88 + 0.16*Math.sin(vx*0.08)*Math.cos(vz*0.08) + Math.min(0.20, hy*0.03)));
       vCols[i*3]   = shade * 0.78;
       vCols[i*3+1] = shade * 0.96;
       vCols[i*3+2] = shade * 0.74;
@@ -4098,7 +4111,7 @@ function start3DChapterMode(initialIdx, initialContract){
     const outerTexKind = (mode==="ranch"||mode==="mudbog") ? "grass_dark" :
                          (mode==="redrock" ? "rock_cliff" :
                          (mode==="nightcity" ? "asphalt_plate" : "dirt_trail"));
-    const outerTex = makeRealisticTexture(outerTexKind, 22, 22);
+    const outerTex = makeRealisticTexture(outerTexKind, 140, 140);
     const outerTint = (mode==="ranch"||mode==="mudbog") ? 0x569e4e :
                       (mode==="redrock") ? 0xc85a38 :
                       (mode==="dunes") ? 0xdba86e :
@@ -4110,11 +4123,18 @@ function start3DChapterMode(initialIdx, initialContract){
       color: outerTint,
       vertexColors: true,
       roughness: 0.88,
-      metalness: 0.02
+      metalness: 0.02,
+      side: THREE.DoubleSide
     });
     const gMesh = new THREE.Mesh(gGeo, gMat);
     gMesh.receiveShadow = true;
     parkGroup.add(gMesh);
+    // 8,000m x 8,000m Infinite Horizon Skirt so there is NEVER a blue void anywhere!
+    const skirtGeo = new THREE.PlaneGeometry(8000, 8000, 1, 1);
+    skirtGeo.rotateX(-Math.PI/2);
+    const skirtMesh = new THREE.Mesh(skirtGeo, gMat);
+    skirtMesh.position.y = -1.2;
+    parkGroup.add(skirtMesh);
 
     // Contoured 3D Rutted Dirt Trail Ribbon winding through the Deep Dark-Green Grass!
     const trailGeo = new THREE.PlaneGeometry(96, 7.2, 64, 8);
@@ -4125,7 +4145,7 @@ function start3DChapterMode(initialIdx, initialContract){
       const curveZ = tz + Math.sin(tx * 0.08) * 2.8;
       tPos.setX(i, tx);
       tPos.setZ(i, curveZ);
-      tPos.setY(i, evalChapterTerrainY(mode, tx, curveZ) + 0.035);
+      tPos.setY(i, getExactTerrainHeight(mode, tx, curveZ) + 0.045);
     }
     trailGeo.computeVertexNormals();
     const dirtRibbonTex = makeRealisticTexture("dirt_trail", 18, 2);
@@ -4146,7 +4166,7 @@ function start3DChapterMode(initialIdx, initialContract){
     const rockTex = makeRealisticTexture("rock_cliff", 2, 2);
     for(let i=0;i<10;i++){
       const rx = 20 + (i%4)*3.2, rz = -20 - Math.floor(i/4)*3.4;
-      const ry = evalChapterTerrainY(mode, rx, rz);
+      const ry = getExactTerrainHeight(mode, rx, rz);
       const rkGeo = new THREE.DodecahedronGeometry(1.45 + (i%3)*0.35, 1);
       ensurePlanarUVs(rkGeo, 0.45);
       const rk = new THREE.Mesh(
@@ -4166,7 +4186,7 @@ function start3DChapterMode(initialIdx, initialContract){
     const mudPuddleMat = new THREE.MeshStandardMaterial({map:mudTex, color:0x3b2310, roughness:0.12, metalness:0.38});
     const mudBankMat   = new THREE.MeshStandardMaterial({map:mudTex, color:0x52341b, roughness:0.65, metalness:0.12});
     CH3D.mudZones.forEach(mz=>{
-      const my = evalChapterTerrainY(mode, mz.x, mz.z);
+      const my = getExactTerrainHeight(mode, mz.x, mz.z);
       const bank = new THREE.Mesh(new THREE.CircleGeometry(mz.r*1.16, 28), mudBankMat);
       bank.rotation.x = -Math.PI/2;
       bank.position.set(mz.x, my + 0.05, mz.z);
@@ -4178,11 +4198,11 @@ function start3DChapterMode(initialIdx, initialContract){
     });
     // Also add Rocky Mountain Outcrops & Summit Signposts on the Drive-Over Mountains!
     [[34, -18, 8.2],[46, 24, 11.4],[-34, -22, 9.5]].forEach(mp=>{
-      const my = evalChapterTerrainY(mode, mp[0], mp[1]);
+      const my = getExactTerrainHeight(mode, mp[0], mp[1]);
       for(let k=0;k<4;k++){
         const ang = k*1.57 + 0.4;
         const rx = mp[0] + Math.cos(ang)*6.5, rz = mp[1] + Math.sin(ang)*6.5;
-        const ry = evalChapterTerrainY(mode, rx, rz);
+        const ry = getExactTerrainHeight(mode, rx, rz);
         const crag = new THREE.Mesh(new THREE.DodecahedronGeometry(1.8, 0),
           new THREE.MeshStandardMaterial({map:rockTex, color:0x78808c, roughness:0.86}));
         crag.scale.set(1.4, 0.75, 1.2);
@@ -4206,7 +4226,7 @@ function start3DChapterMode(initialIdx, initialContract){
       [10,28],[-12,26],[24,-28],[-24,26],[12,38],[-15,42],[48,42],[-52,-42],[68,22],[-68,25],[30,-48],[-32,-48]
     ];
     treeCoords.forEach((tc, idx)=>{
-      const tx = tc[0], tz = tc[1], ty = evalChapterTerrainY(mode, tx, tz);
+      const tx = tc[0], tz = tc[1], ty = getExactTerrainHeight(mode, tx, tz);
       const tGrp = new THREE.Group();
       const sc = 0.95 + (idx%4)*0.16;
       const trk = new THREE.Mesh(new THREE.CylinderGeometry(0.24*sc, 0.48*sc, 3.2*sc, 8), trunkMat);
@@ -4238,7 +4258,7 @@ function start3DChapterMode(initialIdx, initialContract){
         const rad = 7.5 + (i % 5) * 6.2;
         const gx = Math.cos(ang)*rad, gz = Math.sin(ang)*rad;
         if(Math.abs(gz) < 3.6 && Math.abs(gx) < 24) continue; // Keep dirt track clear
-        const gy = evalChapterTerrainY(mode, gx, gz);
+        const gy = getExactTerrainHeight(mode, gx, gz);
         const bush = new THREE.Mesh(new THREE.DodecahedronGeometry(0.48 + (i%3)*0.18, 0), tuftMat);
         bush.scale.set(1.35, 0.55, 1.35);
         bush.position.set(gx, gy + 0.14, gz);
@@ -4250,7 +4270,7 @@ function start3DChapterMode(initialIdx, initialContract){
     const fenceTex = makeRealisticTexture("wood_grain", 2, 1);
     const fenceMat = new THREE.MeshStandardMaterial({map:fenceTex, color:0x9e6b40, roughness:0.84});
     [[-8, 12],[8, 12],[-14,-10],[16, -12],[28, 12],[-26, 12]].forEach(fp=>{
-      const fx = fp[0], fz = fp[1], fy = evalChapterTerrainY(mode, fx, fz);
+      const fx = fp[0], fz = fp[1], fy = getExactTerrainHeight(mode, fx, fz);
       const fence = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.9, 0.22), fenceMat);
       fence.position.set(fx, fy + 0.45, fz);
       fence.castShadow = true;
@@ -4270,7 +4290,7 @@ function start3DChapterMode(initialIdx, initialContract){
     rivalSpecs.forEach(rs=>{
       const rMod = buildRivalTruck3D(rs.name, rs.col, rs.trim, rs.isBoss);
       const sx = rs.wps[0][0], sz = rs.wps[0][1];
-      const sy = evalChapterTerrainY(mode, sx, sz);
+      const sy = getExactTerrainHeight(mode, sx, sz);
       rMod.grp.position.set(sx, sy, sz);
       parkGroup.add(rMod.grp);
       CH3D.rivals.push({
@@ -4282,7 +4302,7 @@ function start3DChapterMode(initialIdx, initialContract){
 
     // 8. Spawn 2 Towable 3D Trailers + Delivery Drop Zone!
     const tHaul = buildTowableTrailer3D("bulldozer");
-    const hx = -6.5, hz = -4.5, hy = evalChapterTerrainY(mode, hx, hz);
+    const hx = -6.5, hz = -4.5, hy = getExactTerrainHeight(mode, hx, hz);
     tHaul.grp.position.set(hx, hy, hz);
     parkGroup.add(tHaul.grp);
     CH3D.trailers.push({
@@ -4292,7 +4312,7 @@ function start3DChapterMode(initialIdx, initialContract){
     });
 
     const bp = ch.barn || [-22.0, 18.0];
-    const bgy = evalChapterTerrainY(mode, bp[0], bp[1]);
+    const bgy = getExactTerrainHeight(mode, bp[0], bp[1]);
     const tBarn = buildTowableTrailer3D("barnwreck");
     tBarn.grp.position.set(bp[0], bgy, bp[1]);
     parkGroup.add(tBarn.grp);
@@ -4302,7 +4322,7 @@ function start3DChapterMode(initialIdx, initialContract){
       x:bp[0], y:bgy, z:bp[1], heading:0, pitch:0, delivered:false
     });
 
-    const dzX = 32.0, dzZ = -16.0, dzY = evalChapterTerrainY(mode, dzX, dzZ);
+    const dzX = 32.0, dzZ = -16.0, dzY = getExactTerrainHeight(mode, dzX, dzZ);
     CH3D.dropZonePos.set(dzX, dzY, dzZ);
     const dzRing = new THREE.Mesh(
       new THREE.RingGeometry(3.2, 4.2, 32),
@@ -4319,7 +4339,7 @@ function start3DChapterMode(initialIdx, initialContract){
     parkGroup.add(dzBeacon);
 
     const ap = ch.anchor || [12.5, 1.4, 8.8];
-    const agy = evalChapterTerrainY(mode, ap[0], ap[2]);
+    const agy = getExactTerrainHeight(mode, ap[0], ap[2]);
     CH3D.anchorPos.set(ap[0], agy + 0.9, ap[2]);
     const ancMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 2.0, 12), new THREE.MeshStandardMaterial({color:0xc92a2a, emissive:0x440000}));
     ancMesh.position.set(ap[0], agy + 1.0, ap[2]);
@@ -4338,7 +4358,7 @@ function start3DChapterMode(initialIdx, initialContract){
     boss.wrecked = false; boss.hp = 100; boss.x = 2.2; boss.z = -2.2; boss.heading = 0; boss.speed = 12.6;
     const racePts = [[18, 0], [34, 8], [22, 24], [-8, 20], [-18, 0]];
     const gates = racePts.map((pt, i)=>{
-      const gy = evalChapterTerrainY(mode, pt[0], pt[1]);
+      const gy = getExactTerrainHeight(mode, pt[0], pt[1]);
       const gGrp = new THREE.Group();
       [-2.8, 2.8].forEach(zOff=>{
         const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 5.2, 10),
@@ -4436,7 +4456,7 @@ function start3DChapterMode(initialIdx, initialContract){
     winchLine.visible = false;
     stage.style.background = `linear-gradient(180deg, ${ch.skyTop} 0%, ${ch.skyBot} 100%)`;
     renderer.setClearColor(new THREE.Color(ch.skyTop), 0.0);
-    CH3D.scene.fog = new THREE.FogExp2(ch.fogCol || 0x143d1b, 0.0012);
+    CH3D.scene.fog = new THREE.FogExp2(ch.fogCol || 0x1b4d24, 0.00055);
     document.querySelectorAll("[data-ch3d]").forEach(b=>{
       b.style.background = (+b.dataset.ch3d===idx) ? "rgba(54,201,138,.92)" : "rgba(8,12,30,.75)";
     });
@@ -4507,8 +4527,6 @@ function start3DChapterMode(initialIdx, initialContract){
           if(sz.x < 34 && sz.z < 34){
             if(sz.y > 2.35 && Math.hypot(ctr.x, ctr.z) > 4.0){
               CH3D.obstacleColliders.push({x:ctr.x, z:ctr.z, r:Math.min(2.4, Math.max(sz.x, sz.z)*0.38), label:"🏔️ Obstacle"});
-            } else if(sz.y > 0.15 && sz.y <= 2.35){
-              CH3D.rideableMeshes.push(o);
             }
           }
         }
@@ -4708,13 +4726,34 @@ function stop3DChapterMode(){
   CH3D = null;
 }
 
+  const bUnstuck = $("#btn_unstuck");
+  if(bUnstuck) bUnstuck.onclick = ()=>{
+    if(!CH3D) return;
+    const ch = CHAPTERS_3D[CH3D.chIdx] || CHAPTERS_3D[0];
+    CH3D.x += Math.cos(CH3D.heading)*3.5;
+    CH3D.z -= Math.sin(CH3D.heading)*3.5;
+    CH3D.y = getExactTerrainHeight(ch.mode, CH3D.x, CH3D.z);
+    CH3D.vy = 0; CH3D.airborne = false; CH3D.pitch = 0; CH3D.roll = 0; CH3D.speed = 0;
+    SFX.buy();
+    showMsg("🔄 RIG RECOVERED & PLANTED ON TRAIL!", 900);
+  };
+
 function sampleWheelHeight3D(mode, wx, wz){
-  let h = evalChapterTerrainY(mode, wx, wz);
-  if(CH3D && CH3D.rideableMeshes.length){
-    CH3D.raycaster.set(new THREE.Vector3(wx, h + 12.0, wz), new THREE.Vector3(0, -1, 0));
+  let h = getExactTerrainHeight(mode, wx, wz);
+  if(CH3D && CH3D.rideableMeshes.length && Math.hypot(wx, wz) < 85){
+    const curY = (CH3D.y !== undefined) ? CH3D.y : h;
+    CH3D.raycaster.set(new THREE.Vector3(wx, curY + 2.4, wz), new THREE.Vector3(0, -1, 0));
     const hits = CH3D.raycaster.intersectObjects(CH3D.rideableMeshes, true);
-    if(hits.length > 0 && hits[0].point.y > h && hits[0].point.y < h + 6.5){
-      h = hits[0].point.y;
+    for(let i=0; i<hits.length; i++){
+      const ht = hits[i];
+      const ny = ht.face ? ht.face.normal.y : 1.0;
+      if(ny > 0.35 && ht.point.y >= h - 0.15 && ht.point.y <= curY + 1.85){
+        h = ht.point.y;
+        if(ht.object && ht.object.userData && ht.object.userData.isRamp){
+          CH3D.onRampThisFrame = true;
+        }
+        break;
+      }
     }
   }
   return h;
@@ -4883,7 +4922,7 @@ function step3DChapterFrame(now){
       }
       rv.x += Math.cos(rv.heading) * rv.speed * dt;
       rv.z -= Math.sin(rv.heading) * rv.speed * dt;
-      rv.y = evalChapterTerrainY(ch.mode, rv.x, rv.z);
+      rv.y = getExactTerrainHeight(ch.mode, rv.x, rv.z);
       rv.grp.position.set(rv.x, rv.y, rv.z);
       rv.grp.rotation.y = rv.heading;
       rv.wheels.forEach(w=>{ w.rotation.z -= rv.speed * 1.8 * dt; });
@@ -4939,7 +4978,8 @@ function step3DChapterFrame(now){
   }
   CH3D.wheelSpin = (CH3D.wheelSpin + CH3D.speed * 2.1 * dt) % (Math.PI * 2);
 
-  // 4-Wheel Downward Raycast Height Sampling
+  // 4-Wheel Exact Barycentric Terrain + Ramp Height Sampling (Zero Sinking, Zero Floating!)
+  CH3D.onRampThisFrame = false;
   const chCos = Math.cos(CH3D.heading), chSin = Math.sin(CH3D.heading);
   const wWorld = (lx, lz)=>[CH3D.x + lx*chCos + lz*chSin, CH3D.z - lx*chSin + lz*chCos];
   const pFL = wWorld( 1.42, -0.98), pFR = wWorld( 1.42,  0.98);
@@ -4948,25 +4988,34 @@ function step3DChapterFrame(now){
   const hFR = sampleWheelHeight3D(ch.mode, pFR[0], pFR[1]);
   const hRL = sampleWheelHeight3D(ch.mode, pRL[0], pRL[1]);
   const hRR = sampleWheelHeight3D(ch.mode, pRR[0], pRR[1]);
+  const hCenter = getExactTerrainHeight(ch.mode, CH3D.x, CH3D.z);
 
-  const groundH = (hFL + hFR + hRL + hRR) * 0.25;
+  // Use max of 4-wheel average and center height on convex mountain crests so tires NEVER sink into hills!
+  const wheelAvgH = (hFL + hFR + hRL + hRR) * 0.25;
+  const groundH = Math.max(wheelAvgH, hCenter - 0.02);
   const targetPitch = Math.atan2(((hFL+hFR)*0.5) - ((hRL+hRR)*0.5), 2.84);
   const targetRoll  = Math.atan2(((hFR+hRR)*0.5) - ((hFL+hRL)*0.5), 1.96);
 
-  // Real Vertical Launch & Big Air Gravity Physics!
+  // Real Vertical Launch off Stunt Ramps & Steep Ledges + Strict Ground Clamping!
   if(!CH3D.airborne){
-    const slopeVy = (groundH - prevY) / Math.max(dt, 0.008);
-    if(CH3D.y > groundH + 0.32 && CH3D.vy > 1.2){
+    if(CH3D.wasOnRamp && !CH3D.onRampThisFrame && Math.abs(CH3D.speed) > 7.5){
+      // Launched off the lip of a 3D Stunt Ramp!
       CH3D.airborne = true;
+      CH3D.vy = Math.max(4.5, Math.abs(CH3D.speed) * Math.max(0.22, Math.sin(Math.max(0.18, CH3D.pitch))) * 1.15);
+      CH3D.jumpStartPos = {x:CH3D.x, z:CH3D.z};
+    } else if(prevY - groundH > 0.55 && Math.abs(CH3D.speed) > 11.0){
+      // Drove off a steep cliff drop-off!
+      CH3D.airborne = true;
+      CH3D.vy = 1.5;
       CH3D.jumpStartPos = {x:CH3D.x, z:CH3D.z};
     } else {
+      // Firmly planted on the terrain / mountain slope!
       CH3D.y = groundH;
-      CH3D.vy = Math.max(0, slopeVy) + (Math.abs(CH3D.speed) * Math.max(0, Math.sin(CH3D.pitch)) * 0.85);
-      if(CH3D.pitch > 0.16 && Math.abs(CH3D.speed) > 9.0){
-        CH3D.vy = Math.abs(CH3D.speed) * Math.sin(CH3D.pitch) * 1.25;
-      }
+      CH3D.vy = 0;
     }
   }
+  CH3D.wasOnRamp = CH3D.onRampThisFrame;
+
   if(CH3D.airborne){
     CH3D.vy -= 21.0 * (laws.gravity||1.0) * dt;
     CH3D.y  += CH3D.vy * dt;
@@ -4987,9 +5036,12 @@ function step3DChapterFrame(now){
       }
     }
   } else {
-    CH3D.pitch += (targetPitch - CH3D.pitch) * Math.min(1, dt * 11);
-    CH3D.roll  += (targetRoll  - CH3D.roll)  * Math.min(1, dt * 11);
+    CH3D.y = groundH;
+    CH3D.pitch += (targetPitch - CH3D.pitch) * Math.min(1, dt * 14);
+    CH3D.roll  += (targetRoll  - CH3D.roll)  * Math.min(1, dt * 14);
   }
+  // Hard safety clamp: truck can NEVER go below groundH!
+  if(CH3D.y < groundH) CH3D.y = groundH;
 
   CH3D.carHolder.position.set(CH3D.x, CH3D.y, CH3D.z);
   CH3D.carHolder.rotation.order = "YXZ";
@@ -4999,10 +5051,11 @@ function step3DChapterFrame(now){
 
   const rig = CH3D.carHolder.userData && CH3D.carHolder.userData.rig;
   if(rig){
-    const flexFactor = (CH3D.vCfg.suspType==="solid") ? 1.65 : 1.20;
-    const fTrav = CH3D.airborne ? -0.14 : Math.max(-0.18, Math.min(0.18, ((hFL+hFR)*0.5 - groundH)*flexFactor));
-    const rTrav = CH3D.airborne ? -0.14 : Math.max(-0.18, Math.min(0.18, ((hRL+hRR)*0.5 - groundH)*flexFactor));
-    const axleTwist = CH3D.airborne ? 0 : Math.max(-0.28, Math.min(0.28, ((hFL - hFR) - (hRL - hRR))*0.78 + Math.sin(now*0.006)*Math.abs(CH3D.speed)*0.012));
+    // Since carHolder is already pitched & rolled to match the 4 wheels, fTrav/rTrav only animate live suspension vibration & diagonal twist (no double-pitch sinking!)
+    const vibe = (!CH3D.airborne && Math.abs(CH3D.speed) > 0.5) ? Math.sin(now*0.018)*0.018 : 0;
+    const fTrav = CH3D.airborne ? -0.10 : vibe;
+    const rTrav = CH3D.airborne ? -0.10 : -vibe;
+    const axleTwist = CH3D.airborne ? 0 : Math.max(-0.22, Math.min(0.22, ((hFL - hFR) - (hRL - hRR))*0.65));
     applyRiggedPose(rig, CH3D.steer, CH3D.wheelSpin, fTrav, rTrav, axleTwist, !!CH3D.vCfg.lift);
   }
 
@@ -5012,7 +5065,7 @@ function step3DChapterFrame(now){
     // Hitch pin at rear bumper of Jax's truck (2.25m behind truck center)
     const hitchX = CH3D.x - Math.cos(CH3D.heading)*2.25;
     const hitchZ = CH3D.z + Math.sin(CH3D.heading)*2.25;
-    const hitchY = evalChapterTerrainY(ch.mode, hitchX, hitchZ);
+    const hitchY = getExactTerrainHeight(ch.mode, hitchX, hitchZ);
     // Articulated trailer yaw kinematics: trailer swings naturally toward truck heading!
     const drawbarLen = 3.2;
     const angDiff = CH3D.heading - tr.heading;
@@ -5020,7 +5073,7 @@ function step3DChapterFrame(now){
     tr.x = hitchX; tr.z = hitchZ; tr.y = hitchY;
     const rearX = hitchX - Math.cos(tr.heading)*2.9;
     const rearZ = hitchZ + Math.sin(tr.heading)*2.9;
-    const rearY = evalChapterTerrainY(ch.mode, rearX, rearZ);
+    const rearY = getExactTerrainHeight(ch.mode, rearX, rearZ);
     tr.pitch = Math.atan2(hitchY - rearY, 2.9);
 
     tr.grp.position.set(tr.x, tr.y, tr.z);
@@ -5130,10 +5183,14 @@ function step3DChapterFrame(now){
   const cp = camPresets[CH3D.camMode || 0];
   const tx = CH3D.x - Math.cos(CH3D.heading) * cp[0];
   const tz = CH3D.z + Math.sin(CH3D.heading) * cp[0];
-  const ty = CH3D.y + cp[1];
-  CH3D.camera.position.x += (tx - CH3D.camera.position.x) * Math.min(1, dt * 7);
-  CH3D.camera.position.z += (tz - CH3D.camera.position.z) * Math.min(1, dt * 7);
-  CH3D.camera.position.y += (ty - CH3D.camera.position.y) * Math.min(1, dt * 7);
+  const camGroundH = getExactTerrainHeight(ch.mode, tx, tz);
+  const midGroundH = getExactTerrainHeight(ch.mode, (CH3D.x+tx)*0.5, (CH3D.z+tz)*0.5);
+  const ty = Math.max(CH3D.y + cp[1], camGroundH + 2.2, midGroundH + 2.0);
+  CH3D.camera.position.x += (tx - CH3D.camera.position.x) * Math.min(1, dt * 8);
+  CH3D.camera.position.z += (tz - CH3D.camera.position.z) * Math.min(1, dt * 8);
+  CH3D.camera.position.y += (ty - CH3D.camera.position.y) * Math.min(1, dt * 8);
+  const curCamGnd = getExactTerrainHeight(ch.mode, CH3D.camera.position.x, CH3D.camera.position.z);
+  if(CH3D.camera.position.y < curCamGnd + 1.8) CH3D.camera.position.y = curCamGnd + 1.8;
   if(CH3D.shakeTime > 0){
     CH3D.shakeTime -= dt;
     CH3D.camera.position.x += (Math.random()-0.5)*0.38;
