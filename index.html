@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#0e1630" />
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
@@ -143,10 +143,45 @@
   .confetti{position:fixed; top:-10px; font-size:18px; z-index:60; pointer-events:none}
   @keyframes fall{to{transform:translateY(110vh) rotate(540deg); opacity:.2}}
 
-  /* ---------- Drive mode ---------- */
-  body.driving #screen{padding:0; overflow:hidden}
-  body.driving #nav{display:none}
-  #driveroot{position:relative; width:100%; height:100%; overflow:hidden}
+  /* ---------- Drive mode (100% Edge-to-Edge Fullscreen in Portrait & Landscape!) ---------- */
+  body.driving{height:100dvh; width:100vw; overflow:hidden}
+  body.driving #top, body.driving #nav{display:none !important}
+  body.driving #screen{
+    position:fixed !important; inset:0 !important;
+    width:100vw !important; height:100dvh !important;
+    padding:0 !important; margin:0 !important;
+    overflow:hidden !important; z-index:20;
+  }
+  #driveroot, #ch3dstage{position:absolute; inset:0; width:100% !important; height:100% !important; overflow:hidden}
+  #ch3dstage canvas{display:block; width:100% !important; height:100% !important; touch-action:none}
+
+  /* ---------- Sideways / Landscape Phone Full-Screen Layout ---------- */
+  @media (orientation: landscape) and (max-height: 560px){
+    #top{padding:4px max(12px,env(safe-area-inset-right)) 4px max(12px,env(safe-area-inset-left)); gap:6px}
+    #logo{font-size:15px}
+    #logo small{display:none}
+    .stat{padding:4px 8px; font-size:12px}
+    #screen{padding:8px max(12px,env(safe-area-inset-right)) 58px max(12px,env(safe-area-inset-left))}
+    #stage{height:calc(100dvh - 108px); min-height:190px; max-height:310px}
+    #nav{padding:3px 8px calc(3px + env(safe-area-inset-bottom))}
+    .navb{flex-direction:row; justify-content:center; gap:5px; padding:4px 6px; font-size:11px}
+    .navb .ne{font-size:16px}
+    /* 3D Driving HUD in Sideways Landscape */
+    #outlaws_hud{
+      padding:3px max(10px,env(safe-area-inset-right)) 0 max(10px,env(safe-area-inset-left)) !important;
+      gap:2px !important;
+    }
+    #ch3d_minimap{width:116px !important; height:68px !important}
+    #ch3d_left_controls{gap:4px !important}
+    #c3left, #c3right{width:64px !important; height:64px !important; font-size:24px !important}
+    #ch3d_pedal_bay{
+      flex-direction:row !important;
+      align-items:flex-end !important;
+      gap:10px !important;
+    }
+    #c3gas{width:76px !important; height:98px !important}
+    #c3rev{width:52px !important; height:60px !important; margin-right:22px !important}
+  }
   #drivecanvas{display:block; width:100%; height:100%; touch-action:none;
     background:linear-gradient(180deg,#aee3ff 0%,#d7f0ff 50%,#e9f7ff 100%)}
   .dhud{position:absolute; top:10px; left:10px; right:10px; display:flex; justify-content:space-between;
@@ -184,6 +219,7 @@
   <button class="stat" id="brainbtn" title="Jax's Brain Boost (Earn Coins & XP!)" style="cursor:pointer;background:linear-gradient(180deg,#36c98a,#1f9e69);color:#fff;border-color:#5bff9b">🧠 +🪙</button>
   <button class="stat" id="music" title="Music on/off" style="cursor:pointer">🎵</button>
   <button class="stat" id="mute" title="Sound on/off" style="cursor:pointer">🔊</button>
+  <button class="stat" id="btn_top_fs" title="Full Screen" style="cursor:pointer" onclick="if(typeof toggleBuildWorldFullscreen==='function')toggleBuildWorldFullscreen()">⛶</button>
   <div class="stat"><span class="ico">🪙</span><span id="coins">0</span></div>
   <div class="stat" id="lvlwrap">
     <span class="ico">⭐</span><span>Lvl <b id="lvl">1</b></span>
@@ -4061,6 +4097,7 @@ function chapter3DScreen(){
           <button class="dchip" id="btn_mapbuilder" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 7px;background:rgba(255,140,26,.9)">🛠️ Map</button>
           <button class="dchip" id="ch3drigswap" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 7px;background:rgba(155,91,255,.9)">🛻 Rig</button>
           <button class="dchip" id="btn_zoom_out" title="Zoom Out to Total Field & Track Overview" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 7px;background:rgba(14,165,233,.92)">🔍 Field View</button>
+          <button class="dchip" id="btn_ch3d_fs" title="Toggle Full Screen" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 7px;background:rgba(59,130,246,.92)">⛶ Full</button>
           <button class="dchip" id="ch3dexit" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 7px;background:rgba(226,59,59,.88)">✕</button>
         </div>
       </div>
@@ -4132,7 +4169,7 @@ function chapter3DScreen(){
     <div class="flipmsg" id="flipmsg"></div>
 
     <!-- BOTTOM-LEFT STEERING + COMPACT OUTLAWS DRIVETRAIN PILLS -->
-    <div style="position:absolute;left:12px;bottom:14px;display:flex;flex-direction:column;gap:6px;z-index:4">
+    <div id="ch3d_left_controls" style="position:absolute;left:max(12px,env(safe-area-inset-left));bottom:max(12px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:6px;z-index:4">
       <div style="display:flex;gap:4px;flex-wrap:wrap">
         <button class="dchip" id="btn_4wd"   style="pointer-events:auto;cursor:pointer;font-size:10px;padding:3px 6px;background:rgba(55,196,106,.88)">4WD</button>
         <button class="dchip" id="btn_low"   style="pointer-events:auto;cursor:pointer;font-size:10px;padding:3px 6px;background:rgba(8,12,30,.82)">LOW</button>
@@ -4147,9 +4184,9 @@ function chapter3DScreen(){
     </div>
 
     <!-- BOTTOM-RIGHT ERGONOMIC PEDAL BAY (Wide 76x112px Gas Pedal, 24px Gap from Brake, Auto-Gas Latch & Compact Gauge) -->
-    <div style="position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;z-index:4;pointer-events:none">
+    <div id="ch3d_pedal_bay" style="position:absolute;right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:flex-end;gap:6px;z-index:4;pointer-events:none">
       <!-- Upper Cluster: Slow-Mo, Start Engine, Compact Tachometer & Auto-Gas Cruise Lock -->
-      <div style="display:flex;align-items:center;gap:6px;pointer-events:auto">
+      <div id="ch3d_gauge_cluster" style="display:flex;align-items:center;gap:6px;pointer-events:auto">
         <button id="btn_slowmo" title="Slow-Motion Physics (0.35x)" style="cursor:pointer;width:34px;height:34px;border-radius:50%;border:2px solid #94a3b8;background:radial-gradient(circle,#334155,#0f172a);color:#e2e8f0;font-size:14px">🕒</button>
         <button id="btn_start_eng" title="Start / Rev Engine" style="cursor:pointer;width:42px;height:42px;border-radius:50%;border:2px solid #64748b;background:radial-gradient(circle,#1e293b,#090d16);color:#f8fafc;font-size:7.5px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;box-shadow:0 3px 8px rgba(0,0,0,0.6)">
           <span id="eng_led" style="width:12px;height:4px;border-radius:2px;background:#4ade80;margin-bottom:2px;box-shadow:0 0 6px #4ade80"></span>
@@ -4333,16 +4370,55 @@ function buildTowableTrailer3D(kind){
   return {grp, wheels, hitchRing};
 }
 
+function resize3DChapterStage(){
+  if(!CH3D || !CH3D.renderer || !CH3D.camera) return;
+  const stage = document.getElementById("ch3dstage");
+  const w = Math.max(1, Math.round(window.innerWidth  || (stage && stage.clientWidth)  || 320));
+  const h = Math.max(1, Math.round(window.innerHeight || (stage && stage.clientHeight) || 240));
+  if(CH3D._lastW !== w || CH3D._lastH !== h){
+    CH3D._lastW = w;
+    CH3D._lastH = h;
+    CH3D.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    CH3D.renderer.setSize(w, h, false);
+    CH3D.camera.aspect = w / h;
+    CH3D.camera.fov = (w > h) ? 44 : 50;
+    CH3D.camera.updateProjectionMatrix();
+  }
+}
+
+function toggleBuildWorldFullscreen(){
+  try{
+    const doc = document;
+    const el = doc.documentElement;
+    if(!doc.fullscreenElement && !doc.webkitFullscreenElement){
+      const req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if(req){
+        Promise.resolve(req.call(el)).then(()=>{
+          if(screen.orientation && screen.orientation.lock){
+            screen.orientation.lock("landscape").catch(()=>{});
+          }
+        }).catch(()=>{});
+      }
+    } else {
+      const ex = doc.exitFullscreen || doc.webkitExitFullscreen;
+      if(ex) Promise.resolve(ex.call(doc)).catch(()=>{});
+    }
+  }catch(e){}
+  setTimeout(()=>{ resize3DChapterStage(); if(typeof showroomResize==="function") showroomResize(); }, 80);
+}
+
 function start3DChapterMode(initialIdx, initialContract){
+  if(typeof showroomUnmount==='function') showroomUnmount();
   stopDrive(); stopBattle(); stop3DChapterMode();
   if(!window.THREE || !THREE.GLTFLoader){ toast("3D engine unavailable"); return; }
+  document.body.classList.add("driving");
   $("#screen").innerHTML = chapter3DScreen();
   const stage = $("#ch3dstage");
-  const w = stage.clientWidth || window.innerWidth, h = stage.clientHeight || window.innerHeight;
+  const w = Math.max(1, window.innerWidth || stage.clientWidth || 320), h = Math.max(1, window.innerHeight || stage.clientHeight || 240);
 
   const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
-  renderer.setSize(w, h);
+  renderer.setSize(w, h, false);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   if("outputEncoding" in renderer) renderer.outputEncoding = THREE.sRGBEncoding;
@@ -5704,8 +5780,10 @@ function applyXRayAndJBeamState(){
     };
   }
 
+  const bfs = $("#btn_ch3d_fs");
+  if(bfs) bfs.onclick = ()=>{ SFX.tap(); toggleBuildWorldFullscreen(); };
   const ex = $("#ch3dexit");
-  if(ex) ex.onclick = ()=>{ stop3DChapterMode(); setScreen("garage"); };
+  if(ex) ex.onclick = ()=>{ stop3DChapterMode(); document.body.classList.remove("driving"); setScreen("garage"); };
 
   const updatePedalVisuals = ()=>{
     if(!CH3D) return;
@@ -6004,6 +6082,7 @@ function drawLiveMinimap(mode){
 
 function step3DChapterFrame(now){
   if(!CH3D) return;
+  resize3DChapterStage();
   if(CH3D.raf) cancelAnimationFrame(CH3D.raf);
   CH3D.raf = requestAnimationFrame(step3DChapterFrame);
   if(!CH3D.last) CH3D.last = now;
@@ -6617,6 +6696,7 @@ function step3DChapterFrame(now){
   CH3D.camera.lookAt(lookX, lookY, lookZ);
 
   drawLiveMinimap(ch.mode);
+  resize3DChapterStage();
   CH3D.renderer.render(CH3D.scene, CH3D.camera);
 }
 
@@ -6923,6 +7003,22 @@ function boot(){
       <button class="btn green" onclick="closeModal()">Let's build! 🚀</button>`);
   }
 }
+
+function handleGlobalResizeAndOrientation(){
+  if(typeof resize3DChapterStage === "function") resize3DChapterStage();
+  if(typeof showroomResize === "function") showroomResize();
+  if(typeof resizeDriveCanvas === "function" && activeScreen === "drive" && !CH3D) resizeDriveCanvas();
+}
+window.addEventListener("resize", handleGlobalResizeAndOrientation);
+window.addEventListener("orientationchange", function(){
+  handleGlobalResizeAndOrientation();
+  setTimeout(handleGlobalResizeAndOrientation, 80);
+  setTimeout(handleGlobalResizeAndOrientation, 260);
+});
+if(window.visualViewport){
+  window.visualViewport.addEventListener("resize", handleGlobalResizeAndOrientation);
+}
+
 boot();
 
 // Register the service worker so the app installs & works offline
@@ -6935,7 +7031,7 @@ if("serviceWorker" in navigator){
     window.location.reload();
   });
   window.addEventListener("load", function(){
-    navigator.serviceWorker.register("sw.js?v=15").then(function(reg){
+    navigator.serviceWorker.register("sw.js?v=16").then(function(reg){
       try{ reg.update(); }catch(e){}
       document.addEventListener("visibilitychange", function(){
         if(document.visibilityState === "visible"){ try{ reg.update(); }catch(e){} }
