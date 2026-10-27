@@ -1,0 +1,7 @@
+{
+  "schemaVersion": "1.0.0",
+  "vehicleId": "jax_lmp_hypercar_05",
+  "displayName": "Gamma Lucille '67 (LMP Prototype)",
+  "buildworldType": "lmp1",
+  "modelPath": "assets/models/jax_lmp_hypercar_05.glb"
+}
