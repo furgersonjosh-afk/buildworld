@@ -1465,6 +1465,10 @@ function placeModel(g,type,c,scene){
     applyRiggedPose(g.userData.rig, 0.25, 0, 0, 0, 0, !!c.lift);
   }
   g.add(m);
+  if(typeof ensureTruckMudSystem === "function" && typeof updateTruckVisualMud === "function"){
+    ensureTruckMudSystem(g, type);
+    updateTruckVisualMud(g, (c && c.mudLevel) || 0);
+  }
 }
 function loadCarModel(g,type,c,url){
   try{
@@ -3754,28 +3758,23 @@ function makeRealisticTexture(kind, repX, repY){
   const rnd = ()=>{ s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
 
   if(kind === "grass_dark"){
+    // Natural Fine-Grained Meadow Turf (ZERO camo blotches! Crisp upright grass blade strokes)
     const bg = ctx.createLinearGradient(0,0,512,512);
-    bg.addColorStop(0, "#1b5920"); bg.addColorStop(0.5, "#236b28"); bg.addColorStop(1, "#164d1b");
+    bg.addColorStop(0, "#1f5e24"); bg.addColorStop(0.5, "#256b2a"); bg.addColorStop(1, "#1b5220");
     ctx.fillStyle = bg;
     ctx.fillRect(0,0,512,512);
-    for(let i=0;i<65;i++){
-      const x = rnd()*512, y = rnd()*512, r = 40 + rnd()*85;
-      ctx.fillStyle = (i%3===0) ? "rgba(12,44,15,0.55)" : (i%3===1 ? "rgba(44,122,50,0.48)" : "rgba(26,84,32,0.48)");
-      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+    // Fine organic soil & turf grain (2-4px specks, no big camo circles!)
+    for(let i=0;i<3200;i++){
+      ctx.fillStyle = (i%2===0) ? "rgba(16,48,18,0.35)" : "rgba(46,118,52,0.30)";
+      ctx.fillRect(rnd()*512, rnd()*512, 2+rnd()*3, 2+rnd()*3);
     }
-    const clumpCols = ["#114015","#1a571f","#246e29","#2f8235","#154a1a","#39913f"];
-    ctx.lineWidth = 3.6;
-    for(let i=0;i<2400;i++){
+    // 8,500 crisp vertical tapered grass blade strokes
+    const bladeCols = ["#134217","#1b5720","#246b29","#2e8033","#38943d","#174d1b","#43a047"];
+    ctx.lineWidth = 1.6;
+    for(let i=0;i<8500;i++){
       const x = rnd()*512, y = rnd()*512;
-      const h = 12 + rnd()*18, dx = (rnd()-0.5)*12;
-      ctx.strokeStyle = clumpCols[i % clumpCols.length];
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + dx, y - h); ctx.stroke();
-    }
-    ctx.lineWidth = 2.0;
-    for(let i=0;i<3500;i++){
-      const x = rnd()*512, y = rnd()*512;
-      const h = 6 + rnd()*10, dx = (rnd()-0.5)*6;
-      ctx.strokeStyle = clumpCols[(i+2) % clumpCols.length];
+      const h = 5 + rnd()*11, dx = (rnd()-0.5)*3.2;
+      ctx.strokeStyle = bladeCols[i % bladeCols.length];
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + dx, y - h); ctx.stroke();
     }
   } else if(kind === "dirt_trail"){
@@ -3871,6 +3870,16 @@ function makeRealisticTexture(kind, repX, repY){
       ctx.fillRect(142, y+10, 5, 34);
       ctx.fillRect(365, y+10, 5, 34);
     }
+  } else if(kind === "parking_lot"){
+    // Smooth Dark Asphalt Parking Lot Pad with Yellow Stall Lines
+    ctx.fillStyle = "#1e2430"; ctx.fillRect(0,0,512,512);
+    for(let i=0;i<1200;i++){
+      ctx.fillStyle = (i%2===0) ? "rgba(12,15,20,0.4)" : "rgba(48,56,70,0.35)";
+      ctx.fillRect(rnd()*512, rnd()*512, 3, 3);
+    }
+    ctx.strokeStyle = "rgba(250,204,21,0.55)";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(6, 6, 500, 500);
   } else if(kind === "city_facade"){
     // Multi-story Urban Brick & Sandstone Building Facade with Gridded Glass Windows
     ctx.fillStyle = "#6b3428"; ctx.fillRect(0,0,512,512);
@@ -3956,14 +3965,77 @@ const TRACK_CONTROL_PTS = [
   [-74, -12], [-56,  24], [-28,  18], [ -8,   4]
 ];
 
+// Precompute 160 dense points along the closed Catmull-Rom track loop for fast road-clearance & terrain bed leveling
+const _TRACK_LUT = (function(){
+  const pts = TRACK_CONTROL_PTS;
+  const n = pts.length;
+  const out = [];
+  const sub = 10;
+  for(let i=0;i<n;i++){
+    const p0 = pts[(i - 1 + n) % n];
+    const p1 = pts[i];
+    const p2 = pts[(i + 1) % n];
+    const p3 = pts[(i + 2) % n];
+    for(let s=0;s<sub;s++){
+      const t = s / sub, t2 = t*t, t3 = t2*t;
+      const x = 0.5 * ((2*p1[0]) + (-p0[0]+p2[0])*t + (2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*t2 + (-p0[0]+3*p1[0]-3*p2[0]+p3[0])*t3);
+      const z = 0.5 * ((2*p1[1]) + (-p0[1]+p2[1])*t + (2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*t2 + (-p0[1]+3*p1[1]-3*p2[1]+p3[1])*t3);
+      out.push({x, z, nx:0, nz:1});
+    }
+  }
+  for(let i=0;i<out.length;i++){
+    const prev = out[(i - 1 + out.length) % out.length];
+    const next = out[(i + 1) % out.length];
+    const dx = next.x - prev.x, dz = next.z - prev.z;
+    const len = Math.hypot(dx, dz) || 1;
+    out[i].tx = dx / len; out[i].tz = dz / len;
+    out[i].nx = -dz / len; out[i].nz = dx / len;
+  }
+  return out;
+})();
+
+function distToTrackLoop(x, z){
+  let bestD2 = 1e9, bestPt = _TRACK_LUT[0], bestIdx = 0;
+  for(let i=0;i<_TRACK_LUT.length;i++){
+    const p = _TRACK_LUT[i];
+    const dx = x - p.x, dz = z - p.z;
+    const d2 = dx*dx + dz*dz;
+    if(d2 < bestD2){ bestD2 = d2; bestPt = p; bestIdx = i; }
+  }
+  return {dist: Math.sqrt(bestD2), pt: bestPt, idx: bestIdx};
+}
+
+// Big Pull-Off Car Wash Parking Lot Pads (Pulled over beside the road with wide drive-in/drive-out aprons!)
+const CAR_WASH_LOTS = [
+  {wx: 26.0, wz:-22.0, lotW: 40.0, lotD: 26.0, apronX0: 8.0, apronX1: 44.0, apronZ0: -26.0, apronZ1: 4.0, flatY: 0.08, rotY: 0.0, name:"Trailside Pull-Off Super Wash"},
+  {wx:-58.0, wz:-108.0,lotW: 36.0, lotD: 24.0, apronX0:-76.0,apronX1:-40.0, apronZ0:-120.0, apronZ1:-80.0,flatY: 0.04, rotY: 0.0, name:"Town West Pull-Off Car Wash"}
+];
+
+function isPointOnRoadOrLot(x, z, extraMargin){
+  const m = extraMargin || 0;
+  // 1) Main 850m Dirt Track Corridor (±13.5m clear width)
+  if(distToTrackLoop(x, z).dist < 13.5 + m) return true;
+  // 2) Pull-Off Car Wash Parking Lots & Entrance/Exit Aprons
+  for(let i=0;i<CAR_WASH_LOTS.length;i++){
+    const cw = CAR_WASH_LOTS[i];
+    if(x >= cw.apronX0 - m && x <= cw.apronX1 + m && z >= cw.apronZ0 - m && z <= cw.apronZ1 + m) return true;
+  }
+  // 3) Old-School Frontier Town Main Street Corridor
+  if(x >= -62 - m && x <= 52 + m && z >= -99 - m && z <= -83 + m) return true;
+  // 4) Spawn Pad
+  if(Math.hypot(x, z) < 15.0 + m) return true;
+  return false;
+}
+
+// Off-Road Mud Bog Parks (All positioned safely OFF the main dirt road so water/mud is NEVER stuck in the road!)
 const CHAPTER_MUD_ZONES = {
   default: [
-    {x:15.0, z:0.0,   r:5.2, name:"Trailhead Mud Puddle", flatY: 0.08},
-    {x:40.0, z:10.0,  r:5.8, name:"Trackside Mud Wallow", flatY: 0.12},
-    {x:95.0, z:-10.0, r:6.5, name:"Backcountry Mud Hole", flatY: 0.20},
-    {x:-70.0,z:-30.0, r:6.8, name:"West Track Mud Bog",   flatY: 0.10},
-    {x:-40.0,z:20.0,  r:6.2, name:"Homestead Mud Pit",    flatY: 0.12},
-    {x:-35.0,z:62.0,  r:13.5,name:"Deep Swamp Trench",    flatY: 0.05}
+    {x:-16.0, z:-24.0, r:6.5, name:"Infield Mud Bog Pit",     flatY: 0.06},
+    {x: 56.0, z:-24.0, r:7.5, name:"East Meadow Mud Wallow",  flatY: 0.10},
+    {x: 78.0, z:-18.0, r:6.8, name:"Canyon Basin Mud Hole",   flatY: 0.12},
+    {x:-38.0, z:-34.0, r:6.5, name:"West Infield Mud Bog",    flatY: 0.08},
+    {x: 16.0, z: 34.0, r:6.5, name:"North Pasture Mud Pit",   flatY: 0.10},
+    {x:-35.0, z: 62.0, r:13.5,name:"Deep Swamp Trench",       flatY: 0.05}
   ],
   nightcity: [
     {x:25.0, z:15.0,  r:5.2, name:"City Construction Mud Pit", flatY: 0.0}
@@ -3980,66 +4052,75 @@ function evalChapterTerrainY(mode, x, z){
   const r = Math.hypot(x, y);
   let baseH = 0;
   if(mode==="ranch"){
-    // Gentle, smooth greenland meadow undulations so driving sideways across grass is ultra-smooth!
-    baseH = 0.09*Math.cos(x*0.06)*Math.cos(y*0.06) + 0.22*Math.sin(x*0.03+0.5)*Math.sin(y*0.03);
+    baseH = 0.08*Math.cos(x*0.05)*Math.cos(y*0.05) + 0.18*Math.sin(x*0.028+0.5)*Math.sin(y*0.028);
   } else if(mode==="mudbog"){
-    const trench = -0.22*Math.exp(-(y*y)/42.0)*Math.cos(x*0.08);
-    const banks  = 0.18*(1.0 - Math.exp(-(y*y)/50.0)) + 0.09*Math.sin(x*0.06);
+    const trench = -0.20*Math.exp(-(y*y)/42.0)*Math.cos(x*0.08);
+    const banks  = 0.16*(1.0 - Math.exp(-(y*y)/50.0)) + 0.08*Math.sin(x*0.06);
     baseH = trench + banks - 0.04;
   } else if(mode==="redrock"){
-    const mesa = 0.35*Math.exp(-((x-2)*(x-2)+(y+2)*(y+2))/55.0);
-    const steps = 0.22*Math.sin(x*0.06)*Math.cos(y*0.06);
+    const mesa = 0.32*Math.exp(-((x-2)*(x-2)+(y+2)*(y+2))/55.0);
+    const steps = 0.18*Math.sin(x*0.06)*Math.cos(y*0.06);
     baseH = mesa + Math.max(0.0, steps);
   } else if(mode==="dunes"){
-    baseH = 0.55*Math.sin(x*0.05+y*0.04+0.8) + 0.38*Math.cos(x*0.04-y*0.05) + 0.15;
+    baseH = 0.48*Math.sin(x*0.05+y*0.04+0.8) + 0.32*Math.cos(x*0.04-y*0.05) + 0.15;
   } else if(mode==="arena"){
-    baseH = 0.28*Math.exp(-(x*x+y*y)/60.0);
+    baseH = 0.25*Math.exp(-(x*x+y*y)/60.0);
   }
 
-  // Smooth Drive-Over Mountains & Rolling Ridges (placed clear of all mud pits!)
-  // Mountain 1: South-East Track Hill Pass at (x=82, z=28), height +5.8m, radius 32m
+  // Smooth Drive-Over Mountains & Rolling Ridges
   const dM1 = Math.hypot((x - 82)*0.75, (z - 28)*0.75);
   if(dM1 < 32){
-    baseH += 5.8 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dM1 / 32), 1.5);
+    baseH += 5.5 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dM1 / 32), 1.5);
   }
-  // Mountain 2: East Switchback Mountain Pass at (x=115, z=-42), height +8.5m, radius 38m
   const dM2 = Math.hypot((x - 115)*0.75, (z + 42)*0.75);
   if(dM2 < 38){
-    baseH += 8.5 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dM2 / 38), 1.5);
+    baseH += 8.0 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dM2 / 38), 1.5);
   }
-  // Mountain 3: West Overlook Drive-Over Mountain at (x=-52, z=54), height +8.8m, radius 32m
   const dM3 = Math.hypot((x + 52)*0.8, (z - 54)*0.8);
   if(dM3 < 32){
-    baseH += 8.8 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dM3 / 32), 1.5);
+    baseH += 8.5 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dM3 / 32), 1.5);
   }
-  // Mountain 4: High North-East Summit Peak at (x=140, z=-120), height +19.0m, radius 56m
   const dPeak = Math.hypot(x - 140, z + 120);
   if(dPeak < 56){
     baseH += 19.0 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dPeak / 56), 1.5);
   }
-  // Rolling Backcountry Greenland Hills for r > 130m
   if(r > 130){
     const wFactor = Math.min(1.0, (r - 130) / 70.0);
-    const rolling = 5.2 * Math.sin(x*0.016) * Math.cos(z*0.016) +
-                    3.8 * Math.cos(x*0.024 - z*0.020) +
-                    4.5 * Math.max(0, Math.sin(x*0.011 + z*0.013));
+    const rolling = 5.0 * Math.sin(x*0.016) * Math.cos(z*0.016) +
+                    3.6 * Math.cos(x*0.024 - z*0.020) +
+                    4.2 * Math.max(0, Math.sin(x*0.011 + z*0.013));
     baseH += wFactor * Math.max(-0.6, rolling);
   }
 
-  // Smoothly level the Old-School Frontier Town pad (x: -55..+55, z: -124..-64)
-  if(x > -58 && x < 58 && z > -126 && z < -62){
-    const tx = Math.max(0, 1 - Math.abs(x)/58);
+  // Smoothly level the Old-School Frontier Town pad (x: -60..+58, z: -126..-62)
+  if(x > -62 && x < 58 && z > -126 && z < -62){
+    const tx = Math.max(0, 1 - Math.abs(x)/62);
     const tz = Math.max(0, 1 - Math.abs(z + 92)/32);
     const flatBlend = Math.min(1, tx * tz * 2.4);
     baseH = baseH * (1 - flatBlend);
   }
 
-  // Flatten terrain to a 100% dead-level ground basin under & around EVERY Mud Puddle (so mud NEVER floats!)
+  // Flatten terrain under both Pull-Off Car Wash Parking Lot Pads & Road Aprons!
+  for(let i=0;i<CAR_WASH_LOTS.length;i++){
+    const cw = CAR_WASH_LOTS[i];
+    const dx = Math.max(0, Math.max(cw.apronX0 - x, x - cw.apronX1));
+    const dz = Math.max(0, Math.max(cw.apronZ0 - z, z - cw.apronZ1));
+    const dLot = Math.hypot(dx, dz);
+    if(dLot === 0){
+      return cw.flatY;
+    } else if(dLot < 10.0){
+      const u = dLot / 10.0;
+      const s = u * u * (3 - 2 * u);
+      baseH = cw.flatY * (1 - s) + baseH * s;
+    }
+  }
+
+  // Flatten terrain to a 100% dead-level ground basin under & around EVERY Mud Puddle!
   const mZones = getMudZonesForMode(mode);
   for(let i=0; i<mZones.length; i++){
     const mz = mZones[i];
     const dm = Math.hypot(x - mz.x, z - mz.z);
-    const flatR = mz.r + 12.0; // Cover full 10m grid cells around the mud puddle!
+    const flatR = mz.r + 12.0;
     const blendR = flatR + 10.0;
     if(dm <= flatR){
       return mz.flatY;
@@ -4595,19 +4676,157 @@ function applyXRayAndJBeamState(){
   });
 }
 
+
+const _MUD_COAT_COLOR = new THREE.Color(0x4a2c14);
+const _MUD_DARK_COLOR = new THREE.Color(0x361f0d);
+
+window.ensureTruckMudSystem = function(carHolder, rType){
+  if(!carHolder || carHolder.userData.mudClumpGroup) return;
+  const isLow = (rType==="lmp1"||rType==="m40"||rType==="supra98"||rType==="nekoma18"||rType==="gtr34"||rType==="supercar");
+  const yBase = isLow ? 0.36 : 0.72;
+
+  // 1. Save clean material states for live mud coating & car-wash scrubbing
+  const paintMats = [];
+  carHolder.traverse(o=>{
+    if(o.isMesh && o.parent !== carHolder.userData.jbeamGrp && o.parent !== carHolder.userData.xrayGrp){
+      const arr = Array.isArray(o.material) ? o.material : [o.material];
+      arr.forEach(m=>{
+        if(!m || !m.color || m.wireframe) return;
+        const nm = m.name || "";
+        if(nm.includes("Window_Glass") || nm.includes("Emissive")) return;
+        if(!m._cleanColor){
+          m._cleanColor = m.color.clone();
+          m._cleanRough = (m.roughness !== undefined) ? m.roughness : 0.3;
+          m._cleanMetal = (m.metalness !== undefined) ? m.metalness : 0.5;
+        }
+        if(!paintMats.includes(m)) paintMats.push(m);
+      });
+    }
+  });
+  carHolder.userData.mudPaintMats = paintMats;
+
+  // 2. Build 36 Sculpted 3D Mud Cake & Splatter Patches on Fenders, Doors, Bumpers, Hood & Tailgate!
+  const mudGrp = new THREE.Group();
+  const mudTex = (typeof makeRealisticTexture === "function") ? makeRealisticTexture("mud_bog", 2, 2) : null;
+  const wetMudMat  = new THREE.MeshStandardMaterial({map:mudTex, color:0x472a14, roughness:0.88, metalness:0.06});
+  const crustMudMat= new THREE.MeshStandardMaterial({map:mudTex, color:0x5c381c, roughness:0.94, metalness:0.03});
+  const clumpGeo   = new THREE.DodecahedronGeometry(0.18, 1);
+
+  const clumpSpecs = [
+    // Left & Right Rocker Panels & Lower Doors (12 clumps)
+    [-0.9, yBase-0.08, -0.96, 1.8, 0.7, 0.35], [-0.3, yBase-0.05, -0.97, 1.9, 0.8, 0.35], [0.35, yBase-0.06, -0.97, 1.8, 0.75, 0.35],
+    [-0.9, yBase-0.08,  0.96, 1.8, 0.7, 0.35], [-0.3, yBase-0.05,  0.97, 1.9, 0.8, 0.35], [0.35, yBase-0.06,  0.97, 1.8, 0.75, 0.35],
+    [-0.6, yBase+0.16, -0.96, 1.5, 0.65,0.28], [ 0.1, yBase+0.18, -0.96, 1.6, 0.65,0.28],
+    [-0.6, yBase+0.16,  0.96, 1.5, 0.65,0.28], [ 0.1, yBase+0.18,  0.96, 1.6, 0.65,0.28],
+    // Front & Rear Flared Wheel Arches (12 clumps)
+    [ 1.42, yBase+0.08, -0.98, 1.7, 0.85, 0.42], [ 1.12, yBase-0.04, -0.98, 1.5, 0.9, 0.40], [ 1.72, yBase-0.02, -0.96, 1.4, 0.8, 0.38],
+    [ 1.42, yBase+0.08,  0.98, 1.7, 0.85, 0.42], [ 1.12, yBase-0.04,  0.98, 1.5, 0.9, 0.40], [ 1.72, yBase-0.02,  0.96, 1.4, 0.8, 0.38],
+    [-1.42, yBase+0.08, -0.98, 1.7, 0.85, 0.42], [-1.12, yBase-0.04, -0.98, 1.5, 0.9, 0.40], [-1.72, yBase-0.02, -0.96, 1.4, 0.8, 0.38],
+    [-1.42, yBase+0.08,  0.98, 1.7, 0.85, 0.42], [-1.12, yBase-0.04,  0.98, 1.5, 0.9, 0.40], [-1.72, yBase-0.02,  0.96, 1.4, 0.8, 0.38],
+    // Front Bumper, Grille & Hood Splatter (8 clumps)
+    [ 2.18, yBase-0.06, -0.55, 0.5, 0.75, 1.6], [ 2.19, yBase-0.04,  0.0,  0.5, 0.8, 1.8], [ 2.18, yBase-0.06,  0.55, 0.5, 0.75, 1.6],
+    [ 1.65, yBase+0.34, -0.38, 1.6, 0.25, 1.4], [ 1.45, yBase+0.36,  0.28, 1.8, 0.25, 1.5], [ 1.18, yBase+0.38, -0.15, 1.5, 0.22, 1.3],
+    // Rear Bumper & Tailgate Mud Cake (6 clumps)
+    [-2.14, yBase-0.04, -0.58, 0.45, 0.8, 1.5], [-2.15, yBase+0.05,  0.0,  0.45, 0.9, 1.9], [-2.14, yBase-0.04,  0.58, 0.45, 0.8, 1.5],
+    [-2.12, yBase+0.24, -0.42, 0.38, 0.7, 1.4], [-2.12, yBase+0.24,  0.42, 0.38, 0.7, 1.4]
+  ];
+
+  clumpSpecs.forEach((cs, idx)=>{
+    const cm = new THREE.Mesh(clumpGeo, (idx%2===0) ? wetMudMat : crustMudMat);
+    cm.position.set(cs[0], cs[1], cs[2]);
+    cm.userData.baseScale = [cs[3], cs[4], cs[5]];
+    cm.userData.threshold = (idx / clumpSpecs.length) * 0.65;
+    cm.scale.set(0.001, 0.001, 0.001);
+    cm.visible = false;
+    mudGrp.add(cm);
+  });
+
+  // Also attach Mud Tread Caking Rings onto the 4 Wheel nodes if rigged
+  const rig = carHolder.userData && carHolder.userData.rig;
+  const wheelMudRings = [];
+  if(rig && rig.nodes){
+    ["Wheel_FL","Wheel_FR","Wheel_RL","Wheel_RR"].forEach(wk=>{
+      const wn = rig.nodes[wk];
+      if(wn){
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.095, 8, 20), wetMudMat);
+        ring.visible = false;
+        wn.add(ring);
+        wheelMudRings.push(ring);
+      }
+    });
+  }
+
+  carHolder.add(mudGrp);
+  carHolder.userData.mudClumpGroup = mudGrp;
+  carHolder.userData.wheelMudRings = wheelMudRings;
+}
+
+window.updateTruckVisualMud = function(carHolder, mudLevel){
+  if(!carHolder) return;
+  const mLvl = Math.max(0, Math.min(1, mudLevel || 0));
+  if(!carHolder.userData.mudClumpGroup){
+    ensureTruckMudSystem(carHolder, CH3D ? CH3D.vType : state.current);
+  }
+  const paintMats = carHolder.userData.mudPaintMats || [];
+  paintMats.forEach(m=>{
+    if(!m._cleanColor) return;
+    if(mLvl <= 0.01){
+      m.color.copy(m._cleanColor);
+      m.roughness = m._cleanRough;
+      m.metalness = m._cleanMetal;
+    } else {
+      const blend = Math.min(0.82, mLvl * 0.85);
+      m.color.copy(m._cleanColor).lerp(_MUD_COAT_COLOR, blend);
+      m.roughness = m._cleanRough + (0.96 - m._cleanRough) * blend;
+      m.metalness = m._cleanMetal * (1 - blend * 0.85);
+    }
+    m.needsUpdate = true;
+  });
+
+  const mudGrp = carHolder.userData.mudClumpGroup;
+  if(mudGrp){
+    mudGrp.children.forEach(cm=>{
+      if(mLvl <= cm.userData.threshold + 0.02){
+        cm.visible = false;
+      } else {
+        cm.visible = true;
+        const grow = Math.min(1.0, (mLvl - cm.userData.threshold) / 0.35);
+        const bs = cm.userData.baseScale;
+        cm.scale.set(bs[0]*grow, bs[1]*grow, bs[2]*grow);
+      }
+    });
+  }
+
+  const wRings = carHolder.userData.wheelMudRings || [];
+  wRings.forEach(wr=>{
+    wr.visible = (mLvl > 0.05);
+    const sc = 0.85 + mLvl * 0.25;
+    wr.scale.set(sc, sc, sc + mLvl * 0.3);
+  });
+}
+
   const mountActiveRig = (rType)=>{
     while(carHolder.children.length) carHolder.remove(carHolder.children[0]);
     carHolder.userData.jbeamGrp = null;
     carHolder.userData.xrayGrp = null;
+    carHolder.userData.mudClumpGroup = null;
+    carHolder.userData.mudPaintMats = null;
     const rc = Object.assign({}, cfg(rType));
     if(CH3D){ CH3D.vType = rType; CH3D.vCfg = rc; }
     if(gltfCache[CAR_MODELS[rType]]){
       placeModel(carHolder, rType, rc, gltfCache[CAR_MODELS[rType]]);
       buildXRayAndJBeamOverlays(carHolder, rType);
       applyXRayAndJBeamState();
+      ensureTruckMudSystem(carHolder, rType);
+      updateTruckVisualMud(carHolder, rc.mudLevel || 0);
     } else {
       loadCarModel(carHolder, rType, rc, CAR_MODELS[rType]);
-      setTimeout(()=>{ buildXRayAndJBeamOverlays(carHolder, rType); applyXRayAndJBeamState(); }, 180);
+      setTimeout(()=>{
+        buildXRayAndJBeamOverlays(carHolder, rType);
+        applyXRayAndJBeamState();
+        ensureTruckMudSystem(carHolder, rType);
+        updateTruckVisualMud(carHolder, rc.mudLevel || 0);
+      }, 180);
     }
   };
   mountActiveRig(vType);
@@ -4622,7 +4841,7 @@ function applyXRayAndJBeamState(){
     anchorPos: new THREE.Vector3(12.5, 1.4, 8.8),
     input: {gas:false, rev:false, left:false, right:false, nitro:false}, cruiseGas: false, _gasPid: null,
     rideableMeshes: [], analyticRamps: [], obstacleColliders: [], boxColliders: [], trees: [],
-    smashables: [], crushCars: [], mudZones: [], mudParticles: [], mudRipples: [],
+    smashables: [], crushCars: [], mudZones: [], mudParticles: [], dustParticles: [], mudRipples: [],
     carWashBays: [], washBrushes: [], trackPoints: [], trackGates: [],
     rivals: [], trailers: [], hitchedTrailer: null, dropZonePos: new THREE.Vector3(38, 0, -18),
     bossRace: null,
@@ -4837,64 +5056,121 @@ function applyXRayAndJBeamState(){
     });
   };
 
-  // Build a Working Drive-Through Car Wash Bay with Solid Side Walls, Spinning Bristle Rollers & Spray Arch!
-  const addDriveThroughCarWash = (mode, wx, wz, rotY)=>{
+  // Build a Deluxe Pull-Off Car Wash with a Big Paved Parking Lot Pad, Road Apron, Parking Stalls & Wide Drive-Through Wash Bay!
+  const addDriveThroughCarWash = (mode, lotSpec)=>{
+    const wx = lotSpec.wx, wz = lotSpec.wz, rotY = lotSpec.rotY || 0;
     const wy = getExactTerrainHeight(mode, wx, wz);
     const cwGrp = new THREE.Group();
     cwGrp.position.set(wx, wy, wz);
     cwGrp.rotation.y = rotY;
 
-    const padMat = new THREE.MeshStandardMaterial({map:makeRealisticTexture("asphalt_plate", 4, 3), color:0x64748b, roughness:0.4, metalness:0.4});
-    const wallMat = new THREE.MeshStandardMaterial({map:makeRealisticTexture("brick_wall", 3, 1), color:0x1d4ed8, roughness:0.5});
+    const lotTex  = makeRealisticTexture("parking_lot", 6, 4);
+    const asphTex = makeRealisticTexture("asphalt_plate", 6, 4);
+    const lotMat  = new THREE.MeshStandardMaterial({
+      map:lotTex, color:0x94a3b8, roughness:0.55, metalness:0.20,
+      polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2
+    });
+    const apronMat = new THREE.MeshStandardMaterial({
+      map:asphTex, color:0x78869b, roughness:0.60, metalness:0.18,
+      polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2
+    });
+    const curbMat = new THREE.MeshStandardMaterial({color:0xcbd5e1, roughness:0.75});
+    const lineYel = new THREE.MeshBasicMaterial({color:0xfacc15});
+    const lineCyn = new THREE.MeshBasicMaterial({color:0x38bdf8});
+    const wallMat = new THREE.MeshStandardMaterial({map:makeRealisticTexture("brick_wall", 3, 1), color:0x1d4ed8, roughness:0.45});
     const trimMat = new THREE.MeshStandardMaterial({color:0xfacc15, roughness:0.3, metalness:0.4});
-    const brushBlue = new THREE.MeshStandardMaterial({color:0x0ea5e9, roughness:0.6});
-    const brushYel  = new THREE.MeshStandardMaterial({color:0xeab308, roughness:0.6});
+    const steelMat= new THREE.MeshStandardMaterial({color:0xe2e8f0, roughness:0.25, metalness:0.85});
+    const brushBlue = new THREE.MeshStandardMaterial({color:0x0ea5e9, roughness:0.5});
+    const brushYel  = new THREE.MeshStandardMaterial({color:0xeab308, roughness:0.5});
 
-    // Sunken foundation concrete pad (-0.4m deep so it never floats!)
-    const pad = new THREE.Mesh(new THREE.BoxGeometry(9.2, 0.52, 6.6), padMat);
-    pad.position.set(0, -0.20, 0); pad.receiveShadow = true; cwGrp.add(pad);
+    // 1. BIG PAVED PARKING LOT PAD (38m x 24m) + WIDE PAVED PULL-IN / PULL-OUT APRON TO THE MAIN ROAD!
+    const lotPad = new THREE.Mesh(new THREE.BoxGeometry(38.0, 0.44, 24.0), lotMat);
+    lotPad.position.set(0, -0.18, 0);
+    lotPad.receiveShadow = true;
+    cwGrp.add(lotPad);
 
-    // Left & Right Solid Car Wash Side Walls (z = -2.85 and z = +2.85; open 4.9m wide center tunnel!)
-    [-2.85, 2.85].forEach(zSide=>{
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(8.4, 3.8, 0.45), wallMat);
-      wall.position.set(0, 1.65, zSide); wall.castShadow = true; wall.receiveShadow = true; cwGrp.add(wall);
-      const stripe = new THREE.Mesh(new THREE.BoxGeometry(8.5, 0.28, 0.50), trimMat);
-      stripe.position.set(0, 1.85, zSide); cwGrp.add(stripe);
-      // Register solid box collider for each side wall in world space!
-      const c = Math.cos(rotY), s = Math.sin(rotY);
-      const wwx = wx + zSide * s, wwz = wz + zSide * c;
-      CH3D.boxColliders.push({cx:wwx, cz:wwz, hx:4.25, hz:0.45, cos:c, sin:s, label:"💦 Car Wash Wall"});
+    // Wide Paved Road Connection Apron extending from the Parking Lot (+Z edge) right up to the Main Dirt Road!
+    const apronDepth = Math.max(8.0, (lotSpec.apronZ1 - wz) - 10.0);
+    const apron = new THREE.Mesh(new THREE.BoxGeometry(34.0, 0.42, apronDepth), apronMat);
+    apron.position.set(0, -0.185, 12.0 + apronDepth*0.5 - 1.0);
+    apron.receiveShadow = true;
+    cwGrp.add(apron);
+
+    // Painted Yellow Parking Stalls on Left & Right Wings of the Parking Lot (6 Big Truck Stalls!)
+    [-15.5, -11.5, -7.5, 7.5, 11.5, 15.5].forEach(sx=>{
+      const stallLine = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.02, 6.5), lineYel);
+      stallLine.position.set(sx, 0.05, -7.8);
+      cwGrp.add(stallLine);
+    });
+    // Painted Cyan "PULL IN / DRIVE-THRU LANE" Guide Arrows on the Asphalt Pad
+    [-11.0, -6.5, 6.5, 11.0].forEach(lx=>{
+      const guide = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.02, 0.28), lineCyn);
+      guide.position.set(lx, 0.055, 0.0);
+      cwGrp.add(guide);
     });
 
-    // Overhead Roof Bridge & Big "OUTLAW SUDS CAR WASH" Signboard
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(8.6, 0.42, 6.2), trimMat);
-    roof.position.set(0, 3.65, 0); roof.castShadow = true; cwGrp.add(roof);
-    const signTex = makeSignTexture("💦 OUTLAW CAR WASH", "DRIVE THRU • MUD WASH & REPAIR", "#0369a1", "#ffffff", "#facc15");
+    // Concrete Outer Perimeter Curbs along the back edge of the Parking Lot (z = -11.8)
+    const backCurb = new THREE.Mesh(new THREE.BoxGeometry(38.2, 0.26, 0.45), curbMat);
+    backCurb.position.set(0, 0.08, -11.8);
+    cwGrp.add(backCurb);
+
+    // 2. WIDE DRIVE-THROUGH CAR WASH TUNNEL (15.0m long x 9.6m wide clear inside lane x 4.8m tall!)
+    // Left & Right Solid Wash Bay Walls at z = -5.1 and z = +5.1 (9.6m wide clear inside opening!)
+    [-5.1, 5.1].forEach(zSide=>{
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(14.6, 4.5, 0.55), wallMat);
+      wall.position.set(0, 2.15, zSide); wall.castShadow = true; wall.receiveShadow = true; cwGrp.add(wall);
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(14.8, 0.34, 0.60), trimMat);
+      stripe.position.set(0, 2.35, zSide); cwGrp.add(stripe);
+      const c = Math.cos(rotY), s = Math.sin(rotY);
+      const wwx = wx + zSide * s, wwz = wz + zSide * c;
+      CH3D.boxColliders.push({cx:wwx, cz:wwz, hx:7.35, hz:0.55, cos:c, sin:s, label:"💦 Car Wash Tunnel Wall"});
+    });
+
+    // Overhead Roof Canopy & Big Glowing "OUTLAW SUPER WASH — PULL IN & DRIVE THRU" Signboards
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(15.2, 0.48, 10.8), trimMat);
+    roof.position.set(0, 4.55, 0); roof.castShadow = true; cwGrp.add(roof);
+    const signTex = makeSignTexture("💦 OUTLAW DRIVE-THRU WASH", "PULL INTO LOT • SCRUBS MUD & REPAIRS", "#0369a1", "#ffffff", "#facc15");
     const signMat = new THREE.MeshBasicMaterial({map:signTex});
-    [-4.35, 4.35].forEach((xEnd, idx)=>{
-      const sb = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.35, 5.4), signMat);
-      sb.position.set(xEnd, 4.45, 0);
+    [-7.65, 7.65].forEach((xEnd, idx)=>{
+      const sb = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.55, 8.8), signMat);
+      sb.position.set(xEnd, 5.45, 0);
       if(idx===0) sb.rotation.y = Math.PI;
       cwGrp.add(sb);
     });
+    // Front Roadside Facing Signboard on top of the Car Wash facing the main road (+Z)
+    const roadSign = new THREE.Mesh(new THREE.BoxGeometry(11.5, 1.55, 0.18), signMat);
+    roadSign.position.set(0, 5.45, 5.35);
+    cwGrp.add(roadSign);
 
-    // 4 Giant Spinning Vertical Bristle Roller Brushes inside the tunnel!
-    [[-2.2, -1.95], [-2.2, 1.95], [2.2, -1.95], [2.2, 1.95]].forEach((bp, bi)=>{
+    // 3 Overhead High-Pressure Stainless Water Spray Arches & 18 Spray Nozzles inside the Tunnel!
+    [-5.2, 0.0, 5.2].forEach(ax=>{
+      const archTop = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.28, 9.4), steelMat);
+      archTop.position.set(ax, 4.18, 0); cwGrp.add(archTop);
+      [-3.2, -1.6, 0, 1.6, 3.2].forEach(nz=>{
+        const noz = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.26, 8), lineCyn);
+        noz.rotation.x = Math.PI;
+        noz.position.set(ax, 3.98, nz);
+        cwGrp.add(noz);
+      });
+    });
+
+    // 4 Giant Spinning Vertical Bristle Scrubber Rollers (placed at z = ±3.85m so a 7.7m clear lane remains down the center!)
+    [[-3.8, -3.85], [-3.8, 3.85], [3.8, -3.85], [3.8, 3.85]].forEach((bp, bi)=>{
       const bGrp = new THREE.Group();
-      const core = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 2.9, 14), (bi%2===0)?brushBlue:brushYel);
+      const core = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 3.6, 14), (bi%2===0)?brushBlue:brushYel);
       bGrp.add(core);
       for(let k=0;k<6;k++){
-        const fin = new THREE.Mesh(new THREE.BoxGeometry(1.18, 2.8, 0.12), (bi+k)%2===0?brushYel:brushBlue);
+        const fin = new THREE.Mesh(new THREE.BoxGeometry(1.42, 3.5, 0.14), (bi+k)%2===0?brushYel:brushBlue);
         fin.rotation.y = (k/6)*Math.PI;
         bGrp.add(fin);
       }
-      bGrp.position.set(bp[0], 1.55, bp[1]);
+      bGrp.position.set(bp[0], 1.85, bp[1]);
       cwGrp.add(bGrp);
       CH3D.washBrushes.push(bGrp);
     });
 
     parkGroup.add(cwGrp);
-    CH3D.carWashBays.push({x:wx, y:wy, z:wz, r:4.5});
+    CH3D.carWashBays.push({x:wx, y:wy, z:wz, hx:7.6, hz:4.6, r:7.6});
   };
 
   // Build the Old-School Frontier Town ("Outlaw Gulch") along Main Street (z = -92m, x = -48m .. +48m)
@@ -5021,13 +5297,13 @@ function applyXRayAndJBeamState(){
     CH3D.boxColliders.push({cx:wtx, cz:wtz, hx:2.1, hz:2.1, cos:1, sin:0, label:"🗼 Water Tower"});
   };
 
-  // Build Complete 850m Closed-Loop Dirt Track Ribbon + 16 Grounded Timber Checkpoint Gates across the Greenland!
+  // Build Complete 850m Closed-Loop Dirt Track Ribbon (13m Wide, Polygon-Offset, Zero Grass Bleeding & Wide 19.6m Gate Arches!)
   const buildCompleteTrackLoop = (mode)=>{
     const curvePts = TRACK_CONTROL_PTS.map(p=>new THREE.Vector3(p[0], 0, p[1]));
     const spline = new THREE.CatmullRomCurve3(curvePts, true, "catmullrom", 0.5);
-    const segs = 240;
-    const trackW = 10.5;
-    const halfW = trackW * 0.5;
+    const segs = 280;
+    const trackW = 13.0;
+    const colsAcross = 8;
 
     const verts = [];
     const uvs = [];
@@ -5041,19 +5317,21 @@ function applyXRayAndJBeamState(){
       const nx = -tan.z, nz = tan.x;
       if(i < segs) CH3D.trackPoints.push({x:pt.x, z:pt.z, tx:tan.x, tz:tan.z});
 
-      // 5 vertices across track width so even wide turns conform 100% flush to curved hills (zero hovering!)
-      for(let k=0;k<=4;k++){
-        const u = k / 4.0;
+      // 9 vertices across the 13m width + slight center crown so terrain grass NEVER pokes through!
+      for(let k=0;k<=colsAcross;k++){
+        const u = k / colsAcross;
         const off = (u - 0.5) * trackW;
         const vx = pt.x + nx * off;
         const vz = pt.z + nz * off;
-        const vy = getExactTerrainHeight(mode, vx, vz) + 0.055;
+        const crown = Math.sin(u * Math.PI) * 0.04;
+        const vy = getExactTerrainHeight(mode, vx, vz) + 0.075 + crown;
         verts.push(vx, vy, vz);
         uvs.push(u, i * 0.35);
       }
       if(i < segs){
-        const row0 = i * 5, row1 = (i + 1) * 5;
-        for(let k=0;k<4;k++){
+        const stride = colsAcross + 1;
+        const row0 = i * stride, row1 = (i + 1) * stride;
+        for(let k=0;k<colsAcross;k++){
           indices.push(row0+k, row1+k, row0+k+1);
           indices.push(row0+k+1, row1+k, row1+k+1);
         }
@@ -5068,12 +5346,14 @@ function applyXRayAndJBeamState(){
 
     const dirtTex = makeRealisticTexture("dirt_trail", 1, 1);
     const tMesh = new THREE.Mesh(tGeo, new THREE.MeshStandardMaterial({
-      map: dirtTex, bumpMap: dirtTex, bumpScale: 0.05, color: 0xffffff, roughness: 0.84, side: THREE.DoubleSide
+      map: dirtTex, bumpMap: dirtTex, bumpScale: 0.05, color: 0xffffff, roughness: 0.84,
+      side: THREE.DoubleSide,
+      polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3
     }));
     tMesh.receiveShadow = true;
     parkGroup.add(tMesh);
 
-    // Plant 16 Grounded Timber Checkpoint Archways & Chevron Posts around the Track Loop (Sunk -0.5m into ground, Solid Posts!)
+    // Plant 16 Wide-Span Timber Checkpoint Gates along the Outer Shoulders (±9.8m = 19.6m clear span, ZERO signs in the road!)
     const woodTex = makeRealisticTexture("wood_grain", 1, 2);
     const postMat = new THREE.MeshStandardMaterial({map:woodTex, color:0x5c381e, roughness:0.86});
     const flagRed = new THREE.MeshStandardMaterial({color:0xdc2626, roughness:0.4});
@@ -5081,37 +5361,112 @@ function applyXRayAndJBeamState(){
     CH3D.trackGates = [];
 
     TRACK_CONTROL_PTS.forEach((cp, idx)=>{
-      const nextCp = TRACK_CONTROL_PTS[(idx + 1) % TRACK_CONTROL_PTS.length];
-      const dx = nextCp[0] - cp[0], dz = nextCp[1] - cp[1];
-      const ang = Math.atan2(-dz, dx);
-      const nx = -Math.sin(ang), nz = -Math.cos(ang);
+      // Find closest spline LUT point to get the true smooth curve tangent & normal!
+      const lutInfo = distToTrackLoop(cp[0], cp[1]);
+      const nx = lutInfo.pt.nx, nz = lutInfo.pt.nz;
+      const ang = Math.atan2(-lutInfo.pt.tz, lutInfo.pt.tx);
 
-      [-6.0, 6.0].forEach(side=>{
+      [-9.8, 9.8].forEach(side=>{
         const px = cp[0] + nx * side, pz = cp[1] + nz * side;
         const py = getExactTerrainHeight(mode, px, pz);
-        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 3.2, 8), postMat);
-        post.position.set(px, py + 1.1, pz); // Sunk -0.5m into ground!
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 3.6, 8), postMat);
+        post.position.set(px, py + 1.3, pz);
         post.castShadow = true;
         parkGroup.add(post);
-        const sign = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.65, 0.85), idx===0 ? flagGold : flagRed);
-        sign.position.set(px, py + 2.35, pz);
-        sign.rotation.y = ang;
+        // Pennant flag mounted on the OUTER side of the post (pointing away from the road!)
+        const outShift = side > 0 ? 0.55 : -0.55;
+        const sign = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.60, 0.85), idx===0 ? flagGold : flagRed);
+        sign.position.set(px + nx*outShift, py + 2.65, pz + nz*outShift);
+        sign.rotation.y = ang + Math.PI*0.5;
         parkGroup.add(sign);
-        CH3D.obstacleColliders.push({x:px, z:pz, r:0.42, label:"🚩 Track Post"});
       });
 
-      // Overhead Start/Finish Timber Banner at Gate 0
       if(idx === 0){
         const gy = getExactTerrainHeight(mode, cp[0], cp[1]);
         const sTex = makeSignTexture("🏁 START / FINISH", "GRAND NATIONAL TRACK LOOP", "#0f172a", "#4ade80", "#facc15");
-        const banner = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.15, 12.4), new THREE.MeshBasicMaterial({map:sTex}));
-        banner.position.set(cp[0], gy + 3.8, cp[1]);
+        const banner = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.25, 19.8), new THREE.MeshBasicMaterial({map:sTex}));
+        banner.position.set(cp[0], gy + 5.2, cp[1]);
         banner.rotation.y = ang;
         parkGroup.add(banner);
       }
 
       CH3D.trackGates.push({x:cp[0], z:cp[1], idx, cleared:false});
     });
+  };
+
+  // Build Upright 3D Grass Blade Clumps (1,450 crossed vertical grass blade tufts standing straight up in the meadow, ZERO on road or lots!)
+  const buildUpright3DGrassField = (mode)=>{
+    if(mode !== "ranch" && mode !== "mudbog" && mode !== "arena") return;
+    // Create a 3-plane crossed upright grass blade cluster geometry (6 tapered vertical blades per clump, height 0.78m)
+    const bladeGeo = new THREE.BufferGeometry();
+    const bVerts = [];
+    const bNorms = [];
+    const bCols  = [];
+    for(let a=0; a<3; a++){
+      const ang = (a / 3.0) * Math.PI;
+      const c = Math.cos(ang), s = Math.sin(ang);
+      for(let b=-1; b<=1; b+=2){
+        const xOff = b * 0.14 * c, zOff = b * 0.14 * s;
+        const w = 0.13, h = 0.72 + (a%2)*0.16;
+        const leanX = -s * 0.08 * b, leanZ = c * 0.08 * b;
+        // Triangle standing vertically: base-left, base-right, tall tip!
+        bVerts.push(
+          xOff - c*w, 0.0, zOff - s*w,
+          xOff + c*w, 0.0, zOff + s*w,
+          xOff + leanX, h, zOff + leanZ
+        );
+        bNorms.push(0, 0.85, 0.5,  0, 0.85, 0.5,  0, 1.0, 0.0);
+        // Darker green at roots, vibrant lush meadow green at blade tips!
+        bCols.push(
+          0.10, 0.32, 0.11,
+          0.10, 0.32, 0.11,
+          0.26, 0.64, 0.24
+        );
+      }
+    }
+    bladeGeo.setAttribute("position", new THREE.Float32BufferAttribute(bVerts, 3));
+    bladeGeo.setAttribute("normal",   new THREE.Float32BufferAttribute(bNorms, 3));
+    bladeGeo.setAttribute("color",    new THREE.Float32BufferAttribute(bCols,  3));
+
+    const bladeMat = new THREE.MeshStandardMaterial({
+      vertexColors: true, roughness: 0.78, metalness: 0.02, side: THREE.DoubleSide
+    });
+
+    const mZones = getMudZonesForMode(mode);
+    const validMatrices = [];
+    const dummy = new THREE.Object3D();
+    let seed = 4242;
+    const rnd = ()=>{ seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+
+    for(let i=0; i<2200 && validMatrices.length < 1450; i++){
+      const gx = (rnd() - 0.5) * 320.0;
+      const gz = (rnd() - 0.5) * 320.0;
+      // NEVER place grass on the dirt road, Car Wash parking lots, Frontier Town street, or Spawn pad!
+      if(isPointOnRoadOrLot(gx, gz, 2.2)) continue;
+      let inMud = false;
+      for(let m=0; m<mZones.length; m++){
+        if(Math.hypot(gx - mZones[m].x, gz - mZones[m].z) < mZones[m].r + 3.2){ inMud = true; break; }
+      }
+      if(inMud) continue;
+
+      const gy = getExactTerrainHeight(mode, gx, gz);
+      dummy.position.set(gx, gy - 0.03, gz);
+      dummy.rotation.set(0, rnd() * Math.PI * 2, 0);
+      const scXZ = 0.85 + rnd() * 0.65;
+      const scY  = 0.80 + rnd() * 0.65;
+      dummy.scale.set(scXZ, scY, scXZ);
+      dummy.updateMatrix();
+      validMatrices.push(dummy.matrix.clone());
+    }
+
+    const instGrass = new THREE.InstancedMesh(bladeGeo, bladeMat, validMatrices.length);
+    for(let i=0; i<validMatrices.length; i++){
+      instGrass.setMatrixAt(i, validMatrices[i]);
+    }
+    instGrass.instanceMatrix.needsUpdate = true;
+    instGrass.receiveShadow = true;
+    parkGroup.add(instGrass);
+    CH3D.grassMesh = instGrass;
   };
 
   // Build Daylight Urban City Under the Elevated Teal-Green Riveted Steel Viaduct Overpass (Matches Jax's Photos 1-4!)
@@ -5287,46 +5642,46 @@ function applyXRayAndJBeamState(){
     if(mode === "nightcity"){
       buildMetroCityViaductLevel();
     } else {
-      // Build Complete 850m Closed-Loop Off-Road Dirt Track + Old-School Frontier Town + 2 Working Drive-Through Car Washes!
       buildCompleteTrackLoop(mode);
       buildOldSchoolFrontierTown(mode);
+      buildUpright3DGrassField(mode);
     }
 
-    // Two Working Drive-Through "Outlaw Suds" Car Washes:
-    // #1 Right near spawn/trailhead at (20, -16) so Jax sees it immediately!
-    // #2 At the entrance to Old-School Town at (-46, -80)!
-    addDriveThroughCarWash(mode, 20.0, -16.0, 0.0);
-    if(mode !== "nightcity"){
-      addDriveThroughCarWash(mode, -46.0, -80.0, 0.25);
+    // Build Deluxe Pull-Off Car Wash Parking Lot Complexes right alongside the road!
+    if(mode === "nightcity"){
+      addDriveThroughCarWash(mode, {wx:24.0, wz:-18.0, lotW:32.0, lotD:22.0, apronX0:8.0, apronX1:40.0, apronZ0:-26.0, apronZ1:-4.0, flatY:0.0, rotY:0.0});
+    } else {
+      CAR_WASH_LOTS.forEach(lotSpec => addDriveThroughCarWash(mode, lotSpec));
     }
 
-    // 2. Tabletop & Launch Stunt Ramps + Crush Car Rows (Solid Analytic Ramps - Never drive through them!)
-    addRideableRamp(16.0, 11.5, 0.15, 9.0, 4.6, 1.75, 0xb87338, true);
-    addCrushCarRow(26.0, 13.5, 0.15);
-    addRideableRamp(66.0, 18.0, 0.20, 10.0, 4.8, 1.95, 0xb87338, true);
-    addRideableRamp(-22.0, -24.0, 0.65, 9.5, 4.6, 2.05, 0xa85828, true);
+    // 2. Off-Road Stunt Park Ramps & Crush Car Rows (Placed in the Infield Stunt Park & North Meadow — 100% clear of the main road!)
+    addRideableRamp( 18.0, 22.0, 0.10, 9.0, 4.6, 1.75, 0xb87338, true);
+    addCrushCarRow(  28.0, 23.0, 0.10);
+    addRideableRamp( 62.0, -5.0, 0.0,  10.0, 4.8, 1.95, 0xb87338, true);
+    addRideableRamp(-36.0, -54.0, 0.45, 9.5, 4.6, 2.05, 0xa85828, true);
 
-    // 3. Solid Rock Outcrops & Boulder Crawl Garden (Every Rock has a Solid Collider in obstacleColliders!)
+    // 3. Solid Rock Outcrops & Boulder Crawl Garden (Placed in off-trail Rock Crawl Parks — ZERO rocks in the road!)
     const rockTex = makeRealisticTexture("rock_cliff", 2, 2);
     const rockMat = new THREE.MeshStandardMaterial({map:rockTex, bumpMap:rockTex, bumpScale:0.05, color:0x7c8594, roughness:0.84});
     const rockCoords = [
-      [22,-28,1.8],[26,-30,1.6],[30,-27,1.9],[-18,24,1.7],[-22,27,1.9],
-      [48,-18,2.1],[-35,-16,1.8],[78,26,2.0],[88,16,1.9],[-52,38,2.2]
+      [24,-42,1.8],[29,-44,1.6],[34,-41,1.9],[-18,36,1.7],[-23,39,1.9],
+      [52,-46,2.1],[-42,-16,1.8],[68,42,2.0],[78,44,1.9],[-52,48,2.2]
     ];
-    rockCoords.forEach((rc, i)=>{
-      const rx = rc[0], rz = rc[1], rad = rc[2];
+    rockCoords.forEach((rc)=>{
+      let rx = rc[0], rz = rc[1], rad = rc[2];
+      if(isPointOnRoadOrLot(rx, rz, 3.0)) return;
       const ry = getExactTerrainHeight(mode, rx, rz);
       const rkGeo = new THREE.DodecahedronGeometry(rad, 1);
       ensurePlanarUVs(rkGeo, 0.45);
       const rk = new THREE.Mesh(rkGeo, rockMat);
       rk.scale.set(1.25, 0.72, 1.15);
-      rk.position.set(rx, ry + rad*0.25, rz); // Sunk firmly into terrain!
+      rk.position.set(rx, ry + rad*0.25, rz);
       rk.castShadow = true; rk.receiveShadow = true;
       parkGroup.add(rk);
       CH3D.obstacleColliders.push({x:rx, z:rz, r:rad*1.05, label:"🪨 Solid Boulder"});
     });
 
-    // 4. Grounded 3D Mud Basins on Dead-Flat Level Ground + Underground Outer Skirt (100% Zero Floating!)
+    // 4. Grounded 3D Mud Basins in Off-Road Mud Bog Parks (Zero water/mud stuck in the road!)
     CH3D.mudZones = getMudZonesForMode(mode).map(mz=>Object.assign({}, mz));
     const mudTex = makeRealisticTexture("mud_bog", 4, 4);
     const mudPuddleMat = new THREE.MeshStandardMaterial({map:mudTex, color:0x361f0d, roughness:0.12, metalness:0.42, side:THREE.DoubleSide});
@@ -5336,7 +5691,7 @@ function applyXRayAndJBeamState(){
       parkGroup.add(pitGrp);
     });
 
-    // 5. Realistic 5-Tier Ponderosa Pines: SOFT LEAVES (brush right through & rustle!) + HARD CENTER TRUNK (r = 0.38m stops solid!)
+    // 5. Realistic 5-Tier Ponderosa Pines (Strictly filtered so ZERO trees ever stand on the road or parking lots!)
     const barkTex  = makeRealisticTexture("wood_grain", 1, 2);
     const grassFoliageTex = makeRealisticTexture("grass_dark", 2, 2);
     const trunkMat = new THREE.MeshStandardMaterial({map:barkTex, color:0x3d2312, roughness:0.92});
@@ -5346,18 +5701,18 @@ function applyXRayAndJBeamState(){
     const treeCoords = (mode === "nightcity") ? [
       [-18,16],[18,16],[-18,-16],[42,16],[-42,16],[42,-16],[-42,-16]
     ] : [
-      [8,10],[8,-9],[18,18],[28,-10],[36,22],[-10,12],[-10,-12],
-      [48,26],[-24,16],[16,-32],[-28,-32],[62,-16],[68,36],[-48,14],
-      [10,36],[-14,38],[54,44],[-54,-44],[82,-48],[-84,-24],[45,-56],[-32,-54]
+      [8,18],[18,28],[38,34],[-14,34],[-34,36],[48,42],[-24,-14],[14,-42],
+      [-28,-42],[64,-42],[68,46],[-48,-18],[10,46],[-14,48],[54,52],[-54,-52],
+      [82,-54],[-92,-24],[45,-62],[-32,-60],[92,46],[-92,38],[128,18],[-96,-64]
     ];
     treeCoords.forEach((tc, idx)=>{
-      const tx = tc[0], tz = tc[1], ty = getExactTerrainHeight(mode, tx, tz);
+      const tx = tc[0], tz = tc[1];
+      if(mode !== "nightcity" && isPointOnRoadOrLot(tx, tz, 3.0)) return;
+      const ty = getExactTerrainHeight(mode, tx, tz);
       const tGrp = new THREE.Group();
       const sc = 0.95 + (idx%4)*0.15;
-      // Hard Wooden Stem/Trunk sunk -0.4m into ground
       const trk = new THREE.Mesh(new THREE.CylinderGeometry(0.22*sc, 0.38*sc, 3.4*sc, 8), trunkMat);
       trk.position.y = 1.3*sc; trk.castShadow = true; tGrp.add(trk);
-      // Soft Leaf Canopy Group (sways when brushed by truck!)
       const leafGrp = new THREE.Group();
       [
         {y:1.85, r:2.35, h:1.85, m:pineMat1},
@@ -5378,18 +5733,18 @@ function applyXRayAndJBeamState(){
       CH3D.trees.push({x:tx, z:tz, trunkR:0.38*sc, leafR:2.25*sc, grp:tGrp, leafGrp, sway:0});
     });
 
-    // 6. Solid Wooden Ranch Fences & Posts (Stops the truck solid — cannot drive through fences!)
+    // 6. Solid Wooden Ranch Fences (Placed parallel to the pastures, 100% clear of the track & Car Wash pull-off!)
     const fenceTex = makeRealisticTexture("wood_grain", 2, 1);
     const fenceMat = new THREE.MeshStandardMaterial({map:fenceTex, color:0x9e6b40, roughness:0.84});
     if(mode !== "nightcity"){
-      addSolidFenceSegment(mode, -14,  8.5,   4,  8.5, fenceMat, trunkMat);
-      addSolidFenceSegment(mode, -14, -8.5,   4, -8.5, fenceMat, trunkMat);
-      addSolidFenceSegment(mode,  28, -5.5,  46,  2.5, fenceMat, trunkMat);
-      addSolidFenceSegment(mode, -32, -68.0, 42, -68.0, fenceMat, trunkMat);
+      addSolidFenceSegment(mode,  -6, 15.0,  16, 15.0, fenceMat, trunkMat);
+      addSolidFenceSegment(mode, -26, -10.0, -8, -10.0, fenceMat, trunkMat);
+      addSolidFenceSegment(mode,  48, -12.0, 68, -12.0, fenceMat, trunkMat);
+      addSolidFenceSegment(mode, -32, -66.0, 38, -66.0, fenceMat, trunkMat);
     }
-    addSmashCrateCluster(10, -10);
-    addSmashCrateCluster(-16, 14);
-    addSmashCrateCluster(38, -22);
+    addSmashCrateCluster( 34, -36);
+    addSmashCrateCluster(-26,  34);
+    addSmashCrateCluster( 52,  36);
 
     // 7. Spawn 3 LIVE AI RIVAL TRUCKS Roaming the Track Loop!
     const rivalSpecs = [
@@ -5410,9 +5765,9 @@ function applyXRayAndJBeamState(){
       });
     });
 
-    // 8. Spawn 2 Towable 3D Trailers + Terrain-Conformed Delivery Drop Zone Ring (Zero Hovering!)
+    // 8. Spawn 2 Towable 3D Trailers Parked in Pull-Off Staging Bays (Off the main road!) + Delivery Drop Zone!
     const tHaul = buildTowableTrailer3D("bulldozer");
-    const hx = -6.5, hz = -4.5, hy = getExactTerrainHeight(mode, hx, hz);
+    const hx = -16.0, hz = -12.0, hy = getExactTerrainHeight(mode, hx, hz);
     tHaul.grp.position.set(hx, hy, hz);
     parkGroup.add(tHaul.grp);
     CH3D.trailers.push({
@@ -5421,7 +5776,7 @@ function applyXRayAndJBeamState(){
       x:hx, y:hy, z:hz, heading:0, pitch:0, delivered:false
     });
 
-    const bp = ch.barn || [-22.0, 18.0];
+    const bp = [-28.0, 34.0];
     const bgy = getExactTerrainHeight(mode, bp[0], bp[1]);
     const tBarn = buildTowableTrailer3D("barnwreck");
     tBarn.grp.position.set(bp[0], bgy, bp[1]);
@@ -5432,18 +5787,17 @@ function applyXRayAndJBeamState(){
       x:bp[0], y:bgy, z:bp[1], heading:0, pitch:0, delivered:false
     });
 
-    // Terrain-Conformed Delivery Drop Zone Pad at Town Blacksmith Barn (x = -16, z = -92)
     const dzX = -16.0, dzZ = -92.0, dzY = getExactTerrainHeight(mode, dzX, dzZ);
     CH3D.dropZonePos.set(dzX, dzY, dzZ);
     const dzMat = new THREE.MeshBasicMaterial({color:0x37c46a, side:THREE.DoubleSide});
     const dzRing = makeTerrainDiscMesh(mode, dzX, dzZ, 3.2, 4.2, 2, 28, 0.08, dzMat);
     parkGroup.add(dzRing);
 
-    const ap = ch.anchor || [12.5, 1.4, 8.8];
+    const ap = [12.5, 1.4, 16.5];
     const agy = getExactTerrainHeight(mode, ap[0], ap[2]);
     CH3D.anchorPos.set(ap[0], agy + 0.8, ap[2]);
     const ancMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 2.2, 12), new THREE.MeshStandardMaterial({color:0xc92a2a, emissive:0x440000}));
-    ancMesh.position.set(ap[0], agy + 0.7, ap[2]); // Sunk -0.4m into ground!
+    ancMesh.position.set(ap[0], agy + 0.7, ap[2]);
     parkGroup.add(ancMesh);
     CH3D.obstacleColliders.push({x:ap[0], z:ap[2], r:0.45, label:"🪝 Winch Anchor Post"});
   };
@@ -6002,6 +6356,71 @@ function spawnSphericalSplashBlast(x, y, z, heading, speed, count, isSoap){
   }
 }
 
+const _MIST_DROP_GEO = new THREE.SphereGeometry(0.065, 6, 6);
+const _DUST_PUFF_GEO = new THREE.DodecahedronGeometry(0.28, 1);
+
+function spawnCarWashWaterJets(cw, tx, ty, tz){
+  if(!CH3D || !CH3D.mudParticles) return;
+  // Focused downward & inward high-pressure water spray streams from the overhead wash arch nozzles onto the truck!
+  for(let i=0;i<8;i++){
+    const mat = new THREE.MeshBasicMaterial({
+      color: (i%2===0) ? 0x7dd3fc : 0xe0f2fe,
+      transparent: true,
+      opacity: 0.78
+    });
+    const jet = new THREE.Mesh(_MIST_DROP_GEO, mat);
+    jet.scale.set(0.55, 2.2, 0.55); // Sleek vertical water jet stream (NOT soap balls!)
+    const archX = cw.x + ((i%3) - 1) * 3.2;
+    const nozZ  = tz + (Math.random() - 0.5) * 2.2;
+    jet.position.set(archX + (Math.random()-0.5)*0.6, cw.y + 3.85, nozZ);
+    CH3D.parkGroup.add(jet);
+    CH3D.mudParticles.push({
+      mesh: jet,
+      vx: (tx - archX) * 1.5,
+      vy: -9.5 - Math.random()*3.0,
+      vz: (tz - nozZ) * 2.2,
+      life: 0.28 + Math.random()*0.12
+    });
+  }
+}
+
+function spawnTrailDustPlume(x, y, z, heading, speed, steer){
+  if(!CH3D) return;
+  if(!CH3D.dustParticles) CH3D.dustParticles = [];
+  if(CH3D.dustParticles.length > 55) return;
+  const chCos = Math.cos(heading), chSin = Math.sin(heading);
+  const count = (Math.abs(speed) > 10.0 || Math.abs(steer) > 0.25) ? 2 : 1;
+  for(let i=0;i<count;i++){
+    const side = (Math.random() < 0.5 ? -1 : 1) * (0.88 + Math.random()*0.22);
+    const rear = -1.45 - Math.random()*0.45;
+    const wx = x + rear*chCos + side*chSin;
+    const wz = z - rear*chSin + side*chCos;
+    const mat = new THREE.MeshStandardMaterial({
+      color: (i%2===0) ? 0xc89f6d : 0xb58958,
+      roughness: 0.95,
+      transparent: true,
+      opacity: 0.46,
+      depthWrite: false
+    });
+    const puff = new THREE.Mesh(_DUST_PUFF_GEO, mat);
+    const initSc = 0.45 + Math.random()*0.35;
+    puff.scale.setScalar(initSc);
+    puff.position.set(wx, y + 0.22 + Math.random()*0.15, wz);
+    puff.rotation.set(Math.random()*3, Math.random()*3, 0);
+    CH3D.parkGroup.add(puff);
+    CH3D.dustParticles.push({
+      mesh: puff,
+      mat: mat,
+      vx: -chCos * Math.abs(speed) * 0.22 + (Math.random()-0.5)*1.4,
+      vy: 0.85 + Math.random()*0.95,
+      vz:  chSin * Math.abs(speed) * 0.22 + (Math.random()-0.5)*1.4,
+      scale: initSc,
+      life: 0.68 + Math.random()*0.25,
+      maxLife: 0.85
+    });
+  }
+}
+
 function drawLiveMinimap(mode){
   const cv = document.getElementById("ch3d_minimap");
   if(!cv || !CH3D) return;
@@ -6095,40 +6514,43 @@ function step3DChapterFrame(now){
   const st = carStats(CH3D.vType, CH3D.vCfg);
   const laws = getWorldLaws();
 
-  // Spin Car Wash Bristle Roller Brushes & Check if Truck is Driving Through a Car Wash Bay!
+  // Spin Car Wash Bristle Roller Brushes & Check if Truck is Driving Through a Car Wash Tunnel!
   if(CH3D.washBrushes){
-    CH3D.washBrushes.forEach((b, i)=>{ b.rotation.y += rawDt * (i%2===0 ? 4.2 : -4.2); });
+    CH3D.washBrushes.forEach((b, i)=>{ b.rotation.y += rawDt * (i%2===0 ? 4.5 : -4.5); });
   }
+  let inCarWash = false;
   if(CH3D.carWashBays){
     for(const cw of CH3D.carWashBays){
-      if(Math.hypot(CH3D.x - cw.x, CH3D.z - cw.z) < cw.r){
-        if(Math.random() < 0.75){
-          spawnSphericalSplashBlast(CH3D.x, CH3D.y + 0.6, CH3D.z, CH3D.heading, 6.0, 5, true);
+      const dx = Math.abs(CH3D.x - cw.x), dz = Math.abs(CH3D.z - cw.z);
+      if(dx < (cw.hx || 7.5) && dz < (cw.hz || 4.5)){
+        inCarWash = true;
+        if(Math.random() < 0.85){
+          spawnCarWashWaterJets(cw, CH3D.x, CH3D.y, CH3D.z);
         }
-        if((CH3D.vCfg.mudLevel||0) > 0.02 || (CH3D.vCfg.condition||100) < 100){
-          CH3D.vCfg.mudLevel = Math.max(0, (CH3D.vCfg.mudLevel||0) - rawDt * 0.85);
-          CH3D.vCfg.condition = Math.min(100, (CH3D.vCfg.condition||100) + rawDt * 45);
+        if((CH3D.vCfg.mudLevel||0) > 0.005 || (CH3D.vCfg.condition||100) < 100){
+          CH3D.vCfg.mudLevel = Math.max(0, (CH3D.vCfg.mudLevel||0) - rawDt * 1.35);
+          CH3D.vCfg.condition = Math.min(100, (CH3D.vCfg.condition||100) + rawDt * 50);
           cfg(CH3D.vType).mudLevel = CH3D.vCfg.mudLevel;
           cfg(CH3D.vType).condition = CH3D.vCfg.condition;
+          updateTruckVisualMud(CH3D.carHolder, CH3D.vCfg.mudLevel);
           const mEl = $("#ch3dmud"); if(mEl) mEl.textContent = Math.round(CH3D.vCfg.mudLevel*100) + "%";
           const hEl = $("#ch3dhp");  if(hEl) hEl.textContent = Math.round(CH3D.vCfg.condition) + "%";
-          if(!CH3D._lastWashToast || now - CH3D._lastWashToast > 2800){
+          if(!CH3D._lastWashToast || now - CH3D._lastWashToast > 2600){
             CH3D._lastWashToast = now;
             CH3D.coins += 25; addCoins(25); addXP(15); SFX.coin();
             $("#ch3dcoins").textContent = CH3D.coins;
-            showMsg("💦 CAR WASH SPARKLING CLEAN & REPAIRED! +🪙25", 1300);
+            showMsg("💦 HIGH-PRESSURE WASH: SCRUBBING MUD OFF RIG! +🪙25", 1300);
           }
         }
       }
     }
   }
 
-  // Check if inside a Mud Puddle or Deep Mud Bog Zone -> REAL MUD SINKING + SPHERICAL MUD SPLASH BLASTS!
+  // Check if inside a Mud Puddle or Deep Mud Bog Zone -> REAL MUD SINKING + THICK 3D MUD CAKING ON TRUCK!
   let inMud = false;
-  let activeMudZone = null;
   for(const mz of CH3D.mudZones){
     const d = Math.hypot(CH3D.x - mz.x, CH3D.z - mz.z);
-    if(d < mz.r){ inMud = true; activeMudZone = mz; break; }
+    if(d < mz.r){ inMud = true; break; }
   }
   const targetSink = inMud ? (laws.mudDepth==="swamp" ? -0.52 : (laws.mudDepth==="shallow" ? -0.26 : -0.42)) : 0.0;
   CH3D.mudSink = (CH3D.mudSink||0) + (targetSink - (CH3D.mudSink||0)) * Math.min(1, rawDt * 7.5);
@@ -6136,25 +6558,34 @@ function step3DChapterFrame(now){
   const depthFactor = laws.mudDepth==="shallow" ? 0.88 : (laws.mudDepth==="swamp" ? 0.52 : 0.72);
   const mudDrag = inMud ? (CH3D.fourWD ? (CH3D.diffLock ? Math.min(0.94, depthFactor+0.18) : depthFactor) : depthFactor*0.65) : 1.0;
 
-  if(inMud && Math.abs(CH3D.speed) > 0.8){
-    if(!CH3D._wasInMud && Math.abs(CH3D.speed) > 4.0){
-      // Huge initial 28-droplet spherical splash blast when hitting the mud puddle!
-      spawnSphericalSplashBlast(CH3D.x, CH3D.y, CH3D.z, CH3D.heading, CH3D.speed, 28, false);
+  if(inMud && Math.abs(CH3D.speed) > 0.5){
+    if(!CH3D._wasInMud && Math.abs(CH3D.speed) > 2.5){
+      spawnSphericalSplashBlast(CH3D.x, CH3D.y, CH3D.z, CH3D.heading, CH3D.speed, 22, false);
+      CH3D.vCfg.mudLevel = Math.min(1.0, (CH3D.vCfg.mudLevel||0) + 0.35);
     }
-    CH3D.vCfg.mudLevel = Math.min(1.0, (CH3D.vCfg.mudLevel||0) + dt*0.32);
+    // Rapidly cake 3D mud onto the truck body, fenders, bumpers, doors & tires!
+    CH3D.vCfg.mudLevel = Math.min(1.0, (CH3D.vCfg.mudLevel||0) + dt * 1.45);
     cfg(CH3D.vType).mudLevel = CH3D.vCfg.mudLevel;
+    updateTruckVisualMud(CH3D.carHolder, CH3D.vCfg.mudLevel);
     const mEl = $("#ch3dmud"); if(mEl) mEl.textContent = Math.round(CH3D.vCfg.mudLevel*100) + "%";
-    if(Math.random() < 0.85){
-      spawnSphericalSplashBlast(CH3D.x, CH3D.y, CH3D.z, CH3D.heading, CH3D.speed, 4, false);
+    if(Math.random() < 0.70){
+      spawnSphericalSplashBlast(CH3D.x, CH3D.y, CH3D.z, CH3D.heading, CH3D.speed, 3, false);
     }
     if(!CH3D._lastMudToast || now - CH3D._lastMudToast > 3200){
       CH3D._lastMudToast = now;
       CH3D.coins += 15; addCoins(15);
       $("#ch3dcoins").textContent = CH3D.coins;
-      showMsg("💦 DEEP MUD SINK & SPLASH BLAST! +🪙15", 950);
+      showMsg("💦 MUD CAKING ON RIG! Pull into 💦 Car Wash Lot to Wash Off! +🪙15", 1100);
     }
   }
   CH3D._wasInMud = inMud;
+
+  // Kick up Billowing 3D Dirt & Dust Plumes behind the tires when driving on dry dirt track or greenland!
+  if(!inMud && !inCarWash && ch.mode !== "nightcity" && !CH3D.airborne && Math.abs(CH3D.speed) > 2.2){
+    if(Math.random() < Math.min(0.88, Math.abs(CH3D.speed) * 0.06)){
+      spawnTrailDustPlume(CH3D.x, CH3D.y, CH3D.z, CH3D.heading, CH3D.speed, CH3D.steer);
+    }
+  }
 
   if(CH3D.mudParticles){
     for(let i=CH3D.mudParticles.length-1; i>=0; i--){
@@ -6167,6 +6598,22 @@ function step3DChapterFrame(now){
       if(mp.life <= 0){
         CH3D.parkGroup.remove(mp.mesh);
         CH3D.mudParticles.splice(i, 1);
+      }
+    }
+  }
+  if(CH3D.dustParticles){
+    for(let i=CH3D.dustParticles.length-1; i>=0; i--){
+      const dp = CH3D.dustParticles[i];
+      dp.life -= rawDt;
+      dp.mesh.position.x += dp.vx * rawDt;
+      dp.mesh.position.y += dp.vy * rawDt;
+      dp.mesh.position.z += dp.vz * rawDt;
+      dp.scale += rawDt * 1.65;
+      dp.mesh.scale.setScalar(dp.scale);
+      dp.mat.opacity = Math.max(0, (dp.life / dp.maxLife) * 0.45);
+      if(dp.life <= 0){
+        CH3D.parkGroup.remove(dp.mesh);
+        CH3D.dustParticles.splice(i, 1);
       }
     }
   }
@@ -7031,7 +7478,7 @@ if("serviceWorker" in navigator){
     window.location.reload();
   });
   window.addEventListener("load", function(){
-    navigator.serviceWorker.register("sw.js?v=16").then(function(reg){
+    navigator.serviceWorker.register("sw.js?v=17").then(function(reg){
       try{ reg.update(); }catch(e){}
       document.addEventListener("visibilitychange", function(){
         if(document.visibilityState === "visible"){ try{ reg.update(); }catch(e){} }
