@@ -233,6 +233,7 @@ const VEHICLES = {
   bouncer:   {name:"Viper Rock Bouncer",   emoji:"🦂", level:1, cost:0,   weight:152, grip:90, parts:["bullbar","stinger","winch","shackles","lights","pillars","underglow","snorkel","stacks","roofrack","spare","toolbox","crane"]},
   classic70: {name:"'78 Outlaw Squarebody",emoji:"🤠", level:1, cost:0,   weight:168, grip:84, parts:["bullbar","stinger","winch","shackles","lights","pillars","underglow","snorkel","stacks","roofrack","spare","rollcage","toolbox","flatbed"]},
   outlaw69:  {name:"'69 Trail Mustang 4x4",emoji:"🐎", level:1, cost:0,   weight:146, grip:86, parts:["bullbar","stinger","winch","shackles","lights","pillars","underglow","snorkel","stacks","roofrack","spare","spoiler"]},
+  barn72:    {name:"'72 Barn-Find Dually", emoji:"🏚️", level:1, cost:0,   weight:185, grip:94, parts:["bullbar","stinger","winch","shackles","lights","pillars","underglow","snorkel","stacks","roofrack","spare","rollcage","toolbox","flatbed","crane"]},
   truck:   {name:"Pickup HD",  emoji:"🛻", level:2, cost:160, weight:155, grip:54, parts:["bullbar","winch","snorkel","stacks","roofrack","spare","toolbox","flatbed","tank","crane","lights"]},
   armored: {name:"Armored Pickup", emoji:"🚙", level:3, cost:280, weight:180, grip:60, parts:["lights"]},
   dump:    {name:"Dump Truck", emoji:"🚚", level:3, cost:320, weight:230, grip:56, parts:["lights"]},
@@ -377,7 +378,12 @@ function cfg(type){
   if(c.tireWidth===undefined)  c.tireWidth  = (type==="bouncer") ? 1.18 : 1.05;
   if(c.tirePsi===undefined)    c.tirePsi    = 18;
   if(c.mudLevel===undefined)   c.mudLevel   = 0;
+  if(c.condition===undefined)  c.condition  = 100;
   if(!c.decal) c.decal = "none";
+  if(state.barnStep===undefined) state.barnStep = 1; // Wreck discovered & ready in bay!
+  if(state.bossesBeaten===undefined) state.bossesBeaten = 0;
+  if(state.rivalsWrecked===undefined) state.rivalsWrecked = 0;
+  if(state.haulsDone===undefined) state.haulsDone = 0;
   if(!state.ownedEngines) state.ownedEngines=["stock"];
   if(!state.barnFinds) state.barnFinds=[];
   if(!state.brainStreak) state.brainStreak=0;
@@ -722,6 +728,7 @@ function carSpec3D(type){
     case "bouncer":   return {len:4.42,wid:2.42,bodyH:0.74,cabinH:0.62,cabinLen:1.32,cabinX:0.02,wheelR:0.52,axleF:1.42,axleR:-1.42,bed:true};
     case "classic70": return {len:4.52,wid:2.30,bodyH:0.80,cabinH:0.64,cabinLen:1.15,cabinX:0.18,wheelR:0.49,axleF:1.42,axleR:-1.42,bed:true};
     case "outlaw69":  return {len:4.38,wid:2.28,bodyH:0.68,cabinH:0.54,cabinLen:1.38,cabinX:-0.08,wheelR:0.48,axleF:1.42,axleR:-1.42,bed:false};
+    case "barn72":    return {len:4.68,wid:2.48,bodyH:0.84,cabinH:0.66,cabinLen:1.22,cabinX:0.16,wheelR:0.54,axleF:1.42,axleR:-1.42,bed:true};
     case "truck":   return {len:4.2,wid:1.92,bodyH:0.70,cabinH:0.62,cabinLen:1.30,cabinX:0.55,wheelR:0.52,axleF:1.36,axleR:-1.34,bed:true};
     case "monster": return {len:4.3,wid:2.05,bodyH:0.80,cabinH:0.66,cabinLen:1.35,cabinX:0.30,wheelR:0.92,axleF:1.45,axleR:-1.45,bed:true};
     case "armored": return {len:4.3,wid:1.95,bodyH:0.75,cabinH:0.64,cabinLen:1.30,cabinX:0.55,wheelR:0.54,axleF:1.36,axleR:-1.34,bed:true};
@@ -863,6 +870,7 @@ const CAR_MODELS = {
   bouncer:   "assets/models/jax_bouncer_02.glb",
   classic70: "assets/models/jax_classic_70s_03.glb",
   outlaw69:  "assets/models/jax_muscle_outlaw_04.glb",
+  barn72:    "assets/models/jax_classic_70s_03.glb",
   truck:   "assets/models/pickup-quaternius.glb",   // CC0 Quaternius pickup
   armored: "assets/models/pickup-armored.glb",      // CC0 Quaternius armored pickup
   dump:    "assets/models/dump-truck.glb",          // CC-BY "jeremy"
@@ -1062,12 +1070,18 @@ function attachRiggedAddons(bodyNode, c){
       p2.position.set(-0.65, 0.34, z); bodyNode.add(p2);
     });
   }
-  if(dec === "mud" || (c.mudLevel||0) > 0.15){
-    const mudMat = new THREE.MeshStandardMaterial({color:0x4a321c, roughness:0.95, metalness:0.05});
-    [-0.96, 0.96].forEach(z=>{
-      const m1 = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.24, 0.04), mudMat);
-      m1.position.set(0.0, 0.16, z); bodyNode.add(m1);
+  if(dec === "mud" || (c.mudLevel||0) > 0.12){
+    const mAmt = dec==="mud" ? 0.85 : Math.min(1.0, c.mudLevel||0);
+    const mudMat = new THREE.MeshStandardMaterial({color:0x4a321c, roughness:0.96, metalness:0.04});
+    [-0.97, 0.97].forEach(z=>{
+      const m1 = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.28*mAmt + 0.08, 0.05), mudMat);
+      m1.position.set(0.0, 0.14, z); bodyNode.add(m1);
     });
+  }
+  if(state.previewBarnWreck && (state.barnStep||1) < 4){
+    const rustMat = new THREE.MeshStandardMaterial({color:0x7a3418, roughness:0.95, metalness:0.25});
+    const rPatch = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 1.3), rustMat);
+    rPatch.position.set(1.35, 0.63, 0); bodyNode.add(rPatch);
   }
 }
 
@@ -1407,7 +1421,7 @@ function garageScreen(){
   const type = state.current, c = cfg(type), v = VEHICLES[type];
   const vtiles = Object.keys(VEHICLES).map(k=>{
     const vv=VEHICLES[k], owned=state.owned.includes(k), locked=state.level<vv.level;
-    const is3D = (k==="crawler"||k==="bouncer"||k==="classic70"||k==="outlaw69");
+    const is3D = (k==="crawler"||k==="bouncer"||k==="classic70"||k==="outlaw69"||k==="barn72");
     const cls = "tile "+(k===type?"sel ":"")+(owned?"owned ":"")+(locked?"locked":"");
     const badge3d = is3D ? `<div style="font-size:9px;background:#1f9e69;color:#fff;border-radius:6px;padding:1px 5px;display:inline-block;margin-top:2px">3D RIGGED</div>` : "";
     const foot = owned ? badge3d : (locked ? `<div class="lock">🔒 Lv${vv.level}</div>` : `<div class="price">🪙${vv.cost}</div>`);
@@ -1465,7 +1479,59 @@ function garageScreen(){
       </div>
     </div>
     <div id="stage"><div class="spinhint">drag to spin • pinch/scroll to zoom • live 3D suspension flex</div></div>
-    <div class="card" style="margin-top:14px">
+
+    <!-- LIVE RIG CONDITION, MUD COAT, PRESSURE WASHER & REPAIR BAR -->
+    <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap">
+      <span class="chip" style="flex:1;justify-content:space-between;background:#142242;border:1px solid #2f8fff">
+        <span>🔧 Rig Health: <b style="color:${(c.condition||100)>60?'#5bff9b':'#ff6b6b'}">${Math.round(c.condition||100)}%</b></span>
+        <span>💦 Mud Coat: <b style="color:#d9822b">${Math.round((c.mudLevel||0)*100)}%</b></span>
+      </span>
+      <button class="btn sm" id="washbtn_top" style="background:#1d9bf0;color:#fff;padding:7px 11px">💦 Pressure Wash</button>
+      <button class="btn sm" id="repairbtn_top" style="background:#37c46a;color:#081226;padding:7px 11px">🔧 Wrench Repair</button>
+    </div>
+
+    <!-- OUTLAW CAREER RANK & 4 PLAYABLE SUBSTANCE CONTRACTS -->
+    <div class="card" style="margin-top:10px;border:2px solid #ff8c1a;background:linear-gradient(180deg,#241838,#141d3f)">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div>
+          <div style="font-size:11px;color:#ffd14d;font-weight:900;letter-spacing:0.5px">🏆 OUTLAW CAREER PROGRESSION</div>
+          <b style="font-size:15px;color:#fff">${getOutlawRankTitle()}</b>
+        </div>
+        <div class="row" style="gap:5px">
+          <span class="chip" style="font-size:11px;background:#2b1d42">👑 Bosses: <b>${state.bossesBeaten||0}</b></span>
+          <span class="chip" style="font-size:11px;background:#2b1d42">💥 Wrecks: <b>${state.rivalsWrecked||0}</b></span>
+          <span class="chip" style="font-size:11px;background:#2b1d42">🪝 Hauls: <b>${state.haulsDone||0}</b></span>
+        </div>
+      </div>
+      <div class="sub" style="margin-bottom:8px;color:#d6e4ff">Jump straight into a high-stakes 3D Outlaw Contract — race AI Bosses, ram Derby Rivals, or hitch &amp; tow heavy trailer loads!</div>
+      <div class="grid g2" style="gap:7px">
+        <button class="tile" data-launch3d="boss" style="border-color:#ffd14d;background:#2a1f3d;text-align:left;padding:9px">
+          <div style="font-weight:900;color:#ffd14d;font-size:13px">🏁 1. Boss Pink-Slip Race</div>
+          <div style="font-size:11px;color:#cbd5e1;margin-top:2px">Race 👑 Redneck Rammer head-to-head through 5 trail flares!</div>
+          <div class="price" style="color:#5bff9b;margin-top:4px">Prize: +🪙250 · +👑 Boss Trophy</div>
+        </button>
+        <button class="tile" data-launch3d="derby" style="border-color:#ff5f5f;background:#2a1a2e;text-align:left;padding:9px">
+          <div style="font-weight:900;color:#ff8a8a;font-size:13px">💥 2. Outlaw Derby Takedown</div>
+          <div style="font-size:11px;color:#cbd5e1;margin-top:2px">Ram &amp; wreck 3 live AI Rival 4x4 trucks roaming the map!</div>
+          <div class="price" style="color:#5bff9b;margin-top:4px">Bounty: +🪙75 per Wrecked Rival</div>
+        </button>
+        <button class="tile" data-launch3d="haul" style="border-color:#00e5ff;background:#162942;text-align:left;padding:9px">
+          <div style="font-weight:900;color:#00e5ff;font-size:13px">🪝 3. Heavy Trailer Haul</div>
+          <div style="font-size:11px;color:#cbd5e1;margin-top:2px">Hitch the loaded 3D Bulldozer Trailer &amp; pull it up the mountain!</div>
+          <div class="price" style="color:#5bff9b;margin-top:4px">Payout: +🪙160 · Uses 4WD Low</div>
+        </button>
+        <button class="tile" data-launch3d="barn" style="border-color:#5bff9b;background:#16302b;text-align:left;padding:9px">
+          <div style="font-weight:900;color:#5bff9b;font-size:13px">🏚️ 4. Barn Find Wreck Tow</div>
+          <div style="font-size:11px;color:#cbd5e1;margin-top:2px">Hitch the rusted 1972 Dually wreck &amp; tow it to the Garage!</div>
+          <div class="price" style="color:#ffd14d;margin-top:4px">Unlocks: '72 Barn-Find Dually</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- BARN FIND WRECK RESTORATION WORKBENCH -->
+    ${barnFindWorkbenchHtml()}
+
+    <div class="card" style="margin-top:12px">
       <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
         <div class="chip">${v.emoji} ${v.name}</div>
         <div class="chip">${ENGINES[c.engine].emoji} ${ENGINES[c.engine].name}</div>
@@ -1477,7 +1543,7 @@ function garageScreen(){
       ${bar("✨ Rig Style Rating", st.style,100,"#9b5bff")}
       <div class="row" style="margin-top:10px;gap:8px">
         <button class="btn gold" id="testdrive" style="flex:1">🏁 2D Stunt Drive</button>
-        <button class="btn green" id="testdrive3d" style="flex:1">🏔️ 3D Off-Road Outlaws (6 Chapters)</button>
+        <button class="btn green" id="testdrive3d" style="flex:1">🏔️ 3D Free Roam &amp; Rivals</button>
       </div>
     </div>
 
@@ -1607,8 +1673,56 @@ function wireGarage(){
   bindTune("sl_twid",   "tireWidth",  v=>Math.round(v*12.5)+"-Inch Wide");
   bindTune("sl_psi",    "tirePsi",    v=>Math.round(v)+" PSI");
 
-  const wb=$("#washbtn"); if(wb) wb.onclick=()=>{
-    cfg(state.current).mudLevel=0; SFX.coin(); save(); toast("💦 Rig pressure-washed & repaired to 100%!"); render();
+  const doWash = ()=>{
+    const c = cfg(state.current);
+    c.mudLevel = 0; if(c.decal==="mud") c.decal="none";
+    SFX.coin(); save(); toast("💦 High-pressure wash complete! Mud removed & shine +100%!"); render();
+  };
+  const doRepair = ()=>{
+    const c = cfg(state.current);
+    c.condition = 100;
+    SFX.buy(); save(); toast("🔧 Engine, axles & bodywork wrenched back to 100% condition!"); render();
+  };
+  const wb=$("#washbtn"); if(wb) wb.onclick=()=>{ doWash(); doRepair(); };
+  const wbt=$("#washbtn_top"); if(wbt) wbt.onclick=doWash;
+  const rbt=$("#repairbtn_top"); if(rbt) rbt.onclick=doRepair;
+
+  document.querySelectorAll("[data-launch3d]").forEach(b=>{
+    b.onclick = ()=>{
+      const mode = b.dataset.launch3d;
+      SFX.buy();
+      setScreen("drive");
+      setTimeout(()=>start3DChapterMode(0, mode), 60);
+    };
+  });
+
+  const bpw=$("#btn_preview_wreck");
+  if(bpw) bpw.onclick=()=>{
+    state.previewBarnWreck = true;
+    state.current = "classic70";
+    const c = cfg("classic70");
+    if((state.barnStep||1) <= 2){ c.paint = "#7a3b1e"; c.decal = "mud"; }
+    SFX.tap(); save(); render();
+    toast("🏚️ Showing Barn Find Project on Garage Lift!");
+  };
+  const bbc=$("#btn_barn_coins");
+  if(bbc) bbc.onclick=()=>{
+    const curStep = state.barnStep || 1;
+    const sObj = BARN_STEPS[curStep - 1];
+    if(!sObj) return;
+    if(state.coins < sObj.cost){
+      toast(`Need 🪙${sObj.cost} — tap the green Brain Boost button to build it FREE!`);
+      return;
+    }
+    addCoins(-sObj.cost);
+    completeBarnStep();
+  };
+  const bbb=$("#btn_barn_brain");
+  if(bbb) bbb.onclick=()=>{
+    const curStep = state.barnStep || 1;
+    const sObj = BARN_STEPS[curStep - 1];
+    if(!sObj) return;
+    openBrainBoostGate(`Restore ${sObj.name}`, ()=>completeBarnStep());
   };
   const ob=$("#openbrain"); if(ob) ob.onclick=()=>openBrainBoostGate("Earn Bonus Garage Coins", null, "spell");
   const es=$("#earn_spell"); if(es) es.onclick=()=>openBrainBoostGate("Spelling Builder Bonus", null, "spell");
@@ -1629,6 +1743,99 @@ function wireGarage(){
     SFX.tap(); save(); render();
   });
   const csb=$("#carshowbtn"); if(csb) csb.onclick=()=>openCarShowModal();
+}
+
+function getOutlawRankTitle(){
+  const score = (state.bossesBeaten||0)*3 + (state.rivalsWrecked||0) + (state.haulsDone||0)*2 + ((state.barnStep||1)>=4?3:0);
+  if(score >= 15) return "Rank 6: 👑 Off-Road Outlaw King";
+  if(score >= 10) return "Rank 5: 💥 Derby Destroyer";
+  if(score >= 6)  return "Rank 4: 🪝 Heavy Haul Boss";
+  if(score >= 3)  return "Rank 3: 🪨 Rock Crawl Pro";
+  if(score >= 1)  return "Rank 2: 💦 Mud Bog Rookie";
+  return "Rank 1: 🔧 Backyard Wrench";
+}
+
+const BARN_STEPS = [
+  {step:1, name:"Step 1: Weld Rusted Frame & Wire Harness", emoji:"👨‍🏭", cost:60,  desc:"Grind off barn rust, weld boxed steel frame rails & wire the ignition."},
+  {step:2, name:"Step 2: Drop In Twin-Turbo Crate V8",       emoji:"🔥", cost:90,  desc:"Bolt a 750 HP Twin-Turbo V8 & twin diesel stacks into the engine bay."},
+  {step:3, name:"Step 3: Bolt On Dana 60 Axles & 44\" Boggers",emoji:"🛞", cost:110, desc:"Install solid rock-crawler axles, coilovers, and massive 44-inch mud tires."},
+  {step:4, name:"Step 4: Spray Custom Outlaw Paint & Claim Rig!",emoji:"🏆", cost:140, desc:"Finish the bodywork and unlock the Legendary '72 Barn-Find Dually 4x4!"}
+];
+
+function barnFindWorkbenchHtml(){
+  const curStep = state.barnStep || 1;
+  const pct = Math.min(100, Math.round(((curStep - 1) / 4) * 100));
+  if(curStep > 4){
+    return `<div class="card" style="border:2px solid #5bff9b;background:linear-gradient(180deg,#132e28,#141e38)">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div>
+          <b style="color:#5bff9b">🏚️ Barn Find Restoration Complete (100%)!</b>
+          <div class="sub">You rebuilt the Legendary <b>'72 Barn-Find Dually 4x4</b> from a rusted shell!</div>
+        </div>
+        <button class="btn sm green" onclick="selectVehicle('barn72')">🛻 Drive '72 Dually</button>
+      </div>
+    </div>`;
+  }
+  const sObj = BARN_STEPS[curStep - 1];
+  const stepsRow = BARN_STEPS.map(s=>{
+    const done = s.step < curStep, cur = s.step === curStep;
+    return `<div style="flex:1;padding:5px;border-radius:8px;text-align:center;font-size:10.5px;font-weight:800;border:1px solid ${done?'#5bff9b':(cur?'#ffd14d':'#2b365e')};background:${done?'rgba(55,196,106,.22)':(cur?'rgba(255,209,77,.18)':'rgba(10,16,36,.6)')}">
+      ${done?'✅':s.emoji} Step ${s.step}
+    </div>`;
+  }).join("");
+  return `<div class="card" id="barn_workbench" style="border:2px solid #d9822b;background:linear-gradient(180deg,#2b1d16,#161f3d)">
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div>
+        <div style="font-size:11px;color:#ffb142;font-weight:900">🏚️ BARN FIND RESTORATION WORKBENCH (${pct}% BUILT)</div>
+        <b style="font-size:14.5px;color:#fff">Project: '72 Outlaw Monster Dually 4x4</b>
+      </div>
+      <button class="btn sm gray" id="btn_preview_wreck" style="font-size:11px;padding:5px 9px">👀 Preview Wreck in Bay</button>
+    </div>
+    <div class="statbar" style="margin-bottom:8px"><i style="width:${pct}%;background:linear-gradient(90deg,#ff8c1a,#5bff9b)"></i></div>
+    <div class="row" style="gap:5px;margin-bottom:8px">${stepsRow}</div>
+    <div style="background:rgba(8,12,28,.75);border:1px solid #3d4b7a;border-radius:10px;padding:9px;margin-bottom:8px">
+      <div style="font-weight:900;color:#ffd14d;font-size:13px">${sObj.emoji} ${sObj.name}</div>
+      <div style="font-size:11.5px;color:#cbd5e1;margin-top:2px">${sObj.desc}</div>
+    </div>
+    <div class="row" style="gap:8px">
+      <button class="btn gold" id="btn_barn_coins" style="flex:1;padding:9px;font-size:12.5px">🔩 Wrench &amp; Build (🪙${sObj.cost})</button>
+      <button class="btn green" id="btn_barn_brain" style="flex:1;padding:9px;font-size:12.5px">🧠 Build Free via Brain Boost!</button>
+    </div>
+  </div>`;
+}
+
+function completeBarnStep(){
+  const curStep = state.barnStep || 1;
+  if(curStep > 4) return;
+  state.barnStep = curStep + 1;
+  state.previewBarnWreck = true;
+  addXP(35); SFX.level(); confettiBurst();
+  if(state.barnStep > 4){
+    if(!state.owned.includes("barn72")) state.owned.push("barn72");
+    state.current = "barn72";
+    const bc = cfg("barn72");
+    bc.paint = "#ff6b00"; bc.decal = "flames"; bc.lift = true; bc.suspTravel = 0.28;
+    bc.tireRadius = 1.22; bc.tireWidth = 1.32; bc.axleWidth = 0.18;
+    bc.parts = ["bullbar","winch","lights","stacks","roofrack","spare","rollcage"];
+    addCoins(200);
+    save(); render();
+    showModal(`
+      <div class="big-emoji">🏚️➡️🛻</div>
+      <h3>BARN FIND FULLY RESTORED!</h3>
+      <p>You rebuilt the rusted 1972 shell into the <b>🔥 '72 Barn-Find Dually 4x4</b>!</p>
+      <p style="color:var(--coin);font-weight:900">+🪙200 Restoration Bonus · Rig Unlocked in Garage!</p>
+      <button class="btn green" onclick="closeModal()">Take It to the Trails!</button>
+    `);
+  } else {
+    // Visibly upgrade the preview truck as each step completes!
+    state.current = "classic70";
+    const c = cfg("classic70");
+    if(curStep===1){ c.paint = "#8c4a27"; c.decal = "mud"; c.lift = false; }
+    if(curStep===2){ c.engine = "turbo"; c.parts = ["stacks","snorkel"]; }
+    if(curStep===3){ c.lift = true; c.suspTravel = 0.26; c.tireRadius = 1.20; c.tireWidth = 1.28; c.parts = ["stacks","snorkel","bullbar","winch"]; }
+    save(); render();
+    toast(`✅ Restoration Step ${curStep} Complete! (${Math.round(((state.barnStep-1)/4)*100)}% Built)`);
+  }
 }
 
 function openCarShowModal(){
@@ -3052,20 +3259,20 @@ window.checkBrainAnswer = function(){
 };
 
 /* ================= 3D OFF-ROAD OUTLAWS CHAPTERS (360m x 360m OPEN WORLD) =================
-   Massive 360m x 360m Off-Road Park, Raycast Ramps & Bridges, Solid Tree/Building Collisions,
-   Smashable Fences/Crates, Crush Cars, Big Air Jump Meter, Trail Missions & Live Map Builder! */
+   Live AI Rival 4x4 Trucks, Head-to-Head Boss Races, Articulated 3D Trailer Hitch & Hauling,
+   Barn Find Wreck Towing, Raycast Ramps, Solid Collisions, Smashables & Live Map Builder! */
 const CHAPTERS_3D = [
-  { id:"chapter_01_ranch",     num:1, name:"Ch 1: Ranch Trail",   emoji:"🏡", glb:"assets/models/chapters/chapter_01_ranch.glb",     mode:"ranch",     skyTop:"#3a7bd5", skyBot:"#bde0fe", gndCol:0x4d7c38, anchor:[12.5, 1.4, 8.8],  barn:[-28.0, 24.0] },
-  { id:"chapter_02_mudbog",    num:2, name:"Ch 2: Mud Bog Creek", emoji:"🌲", glb:"assets/models/chapters/chapter_02_mudbog.glb",    mode:"mudbog",    skyTop:"#2c4d63", skyBot:"#a8c7db", gndCol:0x3d5232, anchor:[10.5, 1.6, 11.8], barn:[-26.0, 20.0] },
-  { id:"chapter_03_redrock",   num:3, name:"Ch 3: Red Rock Crawl",emoji:"🏜️", glb:"assets/models/chapters/chapter_03_redrock.glb",   mode:"redrock",   skyTop:"#c85a32", skyBot:"#ffe0b2", gndCol:0xb55933, anchor:[8.5, 2.8, -14.8], barn:[-25.0,-24.0] },
-  { id:"chapter_04_dunes",     num:4, name:"Ch 4: Baja Dunes",    emoji:"🏖️", glb:"assets/models/chapters/chapter_04_dunes.glb",     mode:"dunes",     skyTop:"#1d9bf0", skyBot:"#fff1cf", gndCol:0xd9a86c, anchor:[11.5, 2.2, -12.2],barn:[-32.0, 22.0] },
-  { id:"chapter_05_nightcity", num:5, name:"Ch 5: Night City",    emoji:"🌃", glb:"assets/models/chapters/chapter_05_nightcity.glb", mode:"nightcity", skyTop:"#090d24", skyBot:"#311c5c", gndCol:0x242938, anchor:[12.8, 2.5, 8.2],  barn:[-24.0,-22.0] },
-  { id:"chapter_06_arena",     num:6, name:"Ch 6: Monster Arena", emoji:"🏟️", glb:"assets/models/chapters/chapter_06_arena.glb",     mode:"arena",     skyTop:"#ff8c3b", skyBot:"#ffeacc", gndCol:0x785638, anchor:[14.2, 2.0, 0.0],  barn:[-30.0, 24.0] }
+  { id:"chapter_01_ranch",     num:1, name:"Ch 1: Ranch Trail",   emoji:"🏡", glb:"assets/models/chapters/chapter_01_ranch.glb",     mode:"ranch",     skyTop:"#3a7bd5", skyBot:"#bde0fe", gndCol:0x4d7c38, anchor:[12.5, 1.4, 8.8],  barn:[-22.0, 18.0] },
+  { id:"chapter_02_mudbog",    num:2, name:"Ch 2: Mud Bog Creek", emoji:"🌲", glb:"assets/models/chapters/chapter_02_mudbog.glb",    mode:"mudbog",    skyTop:"#2c4d63", skyBot:"#a8c7db", gndCol:0x3d5232, anchor:[10.5, 1.6, 11.8], barn:[-22.0, 16.0] },
+  { id:"chapter_03_redrock",   num:3, name:"Ch 3: Red Rock Crawl",emoji:"🏜️", glb:"assets/models/chapters/chapter_03_redrock.glb",   mode:"redrock",   skyTop:"#c85a32", skyBot:"#ffe0b2", gndCol:0xb55933, anchor:[8.5, 2.8, -14.8], barn:[-22.0,-18.0] },
+  { id:"chapter_04_dunes",     num:4, name:"Ch 4: Baja Dunes",    emoji:"🏖️", glb:"assets/models/chapters/chapter_04_dunes.glb",     mode:"dunes",     skyTop:"#1d9bf0", skyBot:"#fff1cf", gndCol:0xd9a86c, anchor:[11.5, 2.2, -12.2],barn:[-24.0, 18.0] },
+  { id:"chapter_05_nightcity", num:5, name:"Ch 5: Night City",    emoji:"🌃", glb:"assets/models/chapters/chapter_05_nightcity.glb", mode:"nightcity", skyTop:"#090d24", skyBot:"#311c5c", gndCol:0x242938, anchor:[12.8, 2.5, 8.2],  barn:[-20.0,-18.0] },
+  { id:"chapter_06_arena",     num:6, name:"Ch 6: Monster Arena", emoji:"🏟️", glb:"assets/models/chapters/chapter_06_arena.glb",     mode:"arena",     skyTop:"#ff8c3b", skyBot:"#ffeacc", gndCol:0x785638, anchor:[14.2, 2.0, 0.0],  barn:[-24.0, 18.0] }
 ];
 
 let CH3D = null;
 const chEnvCache = {};
-const STAR_RIGS = ["crawler","bouncer","classic70","outlaw69"];
+const STAR_RIGS = ["crawler","bouncer","classic70","outlaw69","barn72"];
 
 function evalChapterTerrainY(mode, x, z){
   const y = -z;
@@ -3088,18 +3295,14 @@ function evalChapterTerrainY(mode, x, z){
   } else if(mode==="arena"){
     baseH = 0.42*Math.exp(-(x*x+y*y)/55.0);
   }
-  // Outer Off-Road Park Zones (360m x 360m):
-  // 1) North-East High Mountain Summit Peak at (x=58, z=-58) climbing up to +18m!
   const dPeak = Math.hypot(x - 58, z + 58);
   if(dPeak < 42){
     baseH += 16.5 * Math.pow(1 - dPeak/42, 1.65);
   }
-  // 2) South-West Deep Mud Bog Trench around (x=-38, z=38)
   const dMud = Math.hypot(x + 38, z - 38);
   if(dMud < 22){
     baseH -= 0.75 * Math.pow(1 - dMud/22, 2);
   }
-  // 3) Outer Canyon Rim Bowl beyond r > 95m
   if(r > 95){
     baseH += Math.min(22.0, (r - 95) * 0.32 * (0.7 + 0.3*Math.sin(Math.atan2(y,x)*6)));
   }
@@ -3107,29 +3310,31 @@ function evalChapterTerrainY(mode, x, z){
 }
 
 function chapter3DScreen(){
-  const chBtns = CHAPTERS_3D.map((c,i)=>`<button class="dchip" data-ch3d="${i}" style="pointer-events:auto;cursor:pointer;font-size:11px;padding:4px 7px;background:${i===0?'rgba(54,201,138,.92)':'rgba(8,12,30,.75)'}">${c.emoji} Ch${c.num}</button>`).join("");
+  const chBtns = CHAPTERS_3D.map((c,i)=>`<button class="dchip" data-ch3d="${i}" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 6px;background:${i===0?'rgba(54,201,138,.92)':'rgba(8,12,30,.75)'}">${c.emoji} Ch${c.num}</button>`).join("");
   return `<div id="driveroot">
     <div id="ch3dstage" style="width:100%;height:100%;position:relative"></div>
 
     <!-- COMPACT SINGLE-STRIP TOP HUD (Fits Mobile 390px cleanly!) -->
-    <div class="dhud" id="outlaws_hud" style="flex-direction:column;gap:4px;padding:6px 8px;pointer-events:none">
-      <div style="display:flex;justify-content:space-between;width:100%;align-items:center;gap:4px;flex-wrap:nowrap;overflow-x:auto">
+    <div class="dhud" id="outlaws_hud" style="flex-direction:column;gap:4px;padding:5px 7px;pointer-events:none">
+      <div style="display:flex;justify-content:space-between;width:100%;align-items:center;gap:3px;flex-wrap:nowrap;overflow-x:auto">
         <div style="display:flex;gap:3px;align-items:center" id="ch3dbar">${chBtns}</div>
-        <div style="display:flex;gap:4px;align-items:center">
-          <button class="dchip" id="btn_mapbuilder" style="pointer-events:auto;cursor:pointer;font-size:11px;padding:4px 8px;background:rgba(255,140,26,.9)">🛠️ Build Map</button>
-          <button class="dchip" id="ch3drigswap" style="pointer-events:auto;cursor:pointer;font-size:11px;padding:4px 8px;background:rgba(155,91,255,.9)">🛻 Switch Rig</button>
-          <button class="dchip" id="btn_cam" style="pointer-events:auto;cursor:pointer;font-size:11px;padding:4px 7px;background:rgba(47,143,255,.85)">🎥 Cam</button>
-          <button class="dchip" id="ch3dexit" style="pointer-events:auto;cursor:pointer;font-size:11px;padding:4px 8px;background:rgba(226,59,59,.88)">✕</button>
+        <div style="display:flex;gap:3px;align-items:center">
+          <button class="dchip" id="btn_bossrace" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 7px;background:rgba(255,193,7,.92);color:#091024;font-weight:900">🏁 Race Boss</button>
+          <button class="dchip" id="btn_hitch" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 7px;background:rgba(0,229,255,.90);color:#091024;font-weight:900">🪝 Hitch Load</button>
+          <button class="dchip" id="btn_mapbuilder" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 7px;background:rgba(255,140,26,.9)">🛠️ Map</button>
+          <button class="dchip" id="ch3drigswap" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 7px;background:rgba(155,91,255,.9)">🛻 Rig</button>
+          <button class="dchip" id="btn_cam" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 6px;background:rgba(47,143,255,.85)">🎥</button>
+          <button class="dchip" id="ch3dexit" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 7px;background:rgba(226,59,59,.88)">✕</button>
         </div>
       </div>
 
-      <!-- COMPACT MISSION & STUNT TICKER STRIP -->
+      <!-- COMPACT ACTIVE CONTRACT, RIVAL & HEALTH TICKER STRIP -->
       <div style="display:flex;justify-content:space-between;align-items:center;width:100%;gap:4px">
-        <span class="dchip" id="ch3dmission" style="font-size:11px;padding:3px 8px;background:rgba(12,20,48,.82);border-color:#5bff9b">🎯 Mission: Hit Stunt Ramp or Climb Summit Peak!</span>
-        <div style="display:flex;gap:4px">
-          <span class="dchip" style="font-size:11px;padding:3px 7px">🚀 Best Air: <b id="ch3dair">0 ft</b></span>
-          <span class="dchip" style="font-size:11px;padding:3px 7px">🏚️ Barn <b id="ch3dbarn">0/1</b></span>
-          <span class="dchip" style="font-size:11px;padding:3px 7px">🪙 <b id="ch3dcoins">0</b></span>
+        <span class="dchip" id="ch3dmission" style="font-size:10.5px;padding:3px 7px;background:rgba(12,20,48,.86);border-color:#5bff9b">🎯 Ram Rivals, 🏁 Race Boss, or 🪝 Hitch Trailer!</span>
+        <div style="display:flex;gap:3px">
+          <span class="dchip" style="font-size:10.5px;padding:3px 6px">🔧 <b id="ch3dhp">100%</b></span>
+          <span class="dchip" style="font-size:10.5px;padding:3px 6px">💥 Wrecks <b id="ch3dwrecks">0/3</b></span>
+          <span class="dchip" style="font-size:10.5px;padding:3px 6px">🪙 <b id="ch3dcoins">0</b></span>
         </div>
       </div>
 
@@ -3175,7 +3380,107 @@ function chapter3DScreen(){
   </div>`;
 }
 
-function start3DChapterMode(initialIdx){
+function buildRivalTruck3D(name, bodyHex, trimHex, isBoss){
+  const grp = new THREE.Group();
+  const bMat = new THREE.MeshStandardMaterial({color:bodyHex, metalness:0.55, roughness:0.25});
+  const tMat = new THREE.MeshStandardMaterial({color:trimHex, metalness:0.75, roughness:0.35});
+  const gMat = new THREE.MeshStandardMaterial({color:0x111822, metalness:0.2, roughness:0.1});
+  const wMat = new THREE.MeshStandardMaterial({color:0x121316, roughness:0.88});
+  const rMat = new THREE.MeshStandardMaterial({color:isBoss?0xffd14d:0xcfd6e6, metalness:0.85, roughness:0.2});
+
+  // Lifted Off-Road Body + Hood + Cab + Bed
+  const lower = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.56, 1.86), bMat);
+  lower.position.set(0, 0.86, 0); lower.castShadow = true; grp.add(lower);
+  const cab = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.52, 1.66), bMat);
+  cab.position.set(0.15, 1.38, 0); cab.castShadow = true; grp.add(cab);
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(1.50, 0.38, 1.68), gMat);
+  glass.position.set(0.15, 1.38, 0); grp.add(glass);
+  // Bullbar & Roof LED Bar
+  const bull = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.45, 1.82), tMat);
+  bull.position.set(1.98, 0.82, 0); grp.add(bull);
+  const led = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.09, 1.25), new THREE.MeshBasicMaterial({color:isBoss?0xffd14d:0x00e5ff}));
+  led.position.set(0.68, 1.68, 0); grp.add(led);
+
+  // 4 Articulated Off-Road Wheels
+  const wheels = [];
+  [[1.25,-0.98],[1.25,0.98],[-1.25,-0.98],[-1.25,0.98]].forEach(wp=>{
+    const wg = new THREE.Group();
+    const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 0.38, 18), wMat);
+    tire.rotation.x = Math.PI/2; tire.castShadow = true; wg.add(tire);
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.40, 14), rMat);
+    rim.rotation.x = Math.PI/2; wg.add(rim);
+    wg.position.set(wp[0], 0.48, wp[1]);
+    grp.add(wg);
+    wheels.push(wg);
+  });
+
+  // Floating 3D Health Bar above Rival Roof
+  const hpBg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 1.6), new THREE.MeshBasicMaterial({color:0x1a1a2e}));
+  hpBg.position.set(0, 2.25, 0); grp.add(hpBg);
+  const hpFg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 1.56), new THREE.MeshBasicMaterial({color:isBoss?0xffd14d:0x5bff9b}));
+  hpFg.position.set(0, 2.25, 0); grp.add(hpFg);
+
+  // Boss Rotating Crown Beacon
+  let crown = null;
+  if(isBoss){
+    crown = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), new THREE.MeshStandardMaterial({color:0xffd14d, emissive:0xcc7a00, metalness:0.9, roughness:0.1}));
+    crown.position.set(0, 2.75, 0); grp.add(crown);
+  }
+  return {grp, wheels, hpFg, crown};
+}
+
+function buildTowableTrailer3D(kind){
+  const grp = new THREE.Group();
+  const steelMat = new THREE.MeshStandardMaterial({color:0x2b313d, metalness:0.75, roughness:0.35});
+  const deckMat  = new THREE.MeshStandardMaterial({color:0x6e4929, roughness:0.85});
+  const wMat     = new THREE.MeshStandardMaterial({color:0x121316, roughness:0.88});
+
+  // Drawbar Tongue (extends from X=0 hitch point back to trailer deck at X=-2.6)
+  const tongue = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.12, 0.22), steelMat);
+  tongue.position.set(-0.9, 0.48, 0); grp.add(tongue);
+  const hitchRing = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.045, 8, 16), new THREE.MeshBasicMaterial({color:0x00e5ff}));
+  hitchRing.rotation.x = Math.PI/2; hitchRing.position.set(0, 0.50, 0); grp.add(hitchRing);
+
+  // Tandem Flatbed Deck
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.16, 2.15), deckMat);
+  deck.position.set(-2.9, 0.56, 0); deck.castShadow = true; grp.add(deck);
+
+  if(kind === "bulldozer"){
+    // Bright Yellow Heavy Bulldozer Load + Timber Logs!
+    const catYellow = new THREE.MeshStandardMaterial({color:0xf5b800, metalness:0.35, roughness:0.35});
+    const tracksMat = new THREE.MeshStandardMaterial({color:0x1c1f24, roughness:0.85});
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.72, 1.35), catYellow);
+    body.position.set(-2.8, 1.15, 0); body.castShadow = true; grp.add(body);
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.68, 1.15), catYellow);
+    cab.position.set(-3.0, 1.78, 0); cab.castShadow = true; grp.add(cab);
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.75, 1.85), steelMat);
+    blade.position.set(-1.55, 1.02, 0); grp.add(blade);
+    [-0.72, 0.72].forEach(z=>{
+      const trk = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.42, 0.34), tracksMat);
+      trk.position.set(-2.8, 0.82, z); grp.add(trk);
+    });
+  } else {
+    // Rusted 1972 Barn-Find Dually Wreck Shell on the trailer!
+    const rustMat = new THREE.MeshStandardMaterial({color:0x8a3b1b, roughness:0.92, metalness:0.30});
+    const wBody = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.62, 1.75), rustMat);
+    wBody.position.set(-2.9, 1.05, 0); wBody.castShadow = true; grp.add(wBody);
+    const wCab = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.54, 1.55), rustMat);
+    wCab.position.set(-2.6, 1.58, 0); grp.add(wCab);
+  }
+
+  // 4 Tandem Trailer Wheels
+  const wheels = [];
+  [[-2.4,-1.08],[-2.4,1.08],[-3.4,-1.08],[-3.4,1.08]].forEach(wp=>{
+    const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.28, 16), wMat);
+    tire.rotation.x = Math.PI/2;
+    tire.position.set(wp[0], 0.38, wp[1]);
+    grp.add(tire);
+    wheels.push(tire);
+  });
+  return {grp, wheels, hitchRing};
+}
+
+function start3DChapterMode(initialIdx, initialContract){
   stopDrive(); stopBattle(); stop3DChapterMode();
   if(!window.THREE || !THREE.GLTFLoader){ toast("3D engine unavailable"); return; }
   $("#screen").innerHTML = chapter3DScreen();
@@ -3252,12 +3557,13 @@ function start3DChapterMode(initialIdx){
     chIdx: initialIdx || 0,
     x: 0, z: 0, y: 0.2, vy: 0, airborne: false, jumpStartPos: null, bestAirFt: 0,
     heading: 0, speed: 0, steer: 0, wheelSpin: 0, camMode: 0, shakeTime: 0,
-    pitch: 0, roll: 0, coins: 0, barnFound: false,
+    pitch: 0, roll: 0, coins: 0, wrecksCount: 0,
     fourWD: true, lowGear: false, diffLock: false, winchActive: false,
     anchorPos: new THREE.Vector3(12.5, 1.4, 8.8),
     input: {gas:false, rev:false, left:false, right:false, nitro:false},
     rideableMeshes: [], obstacleColliders: [], smashables: [], crushCars: [], mudZones: [],
-    missions: [], missionIdx: 0, barnMesh: null,
+    rivals: [], trailers: [], hitchedTrailer: null, dropZonePos: new THREE.Vector3(32, 0, -16),
+    bossRace: null,
     raycaster: new THREE.Raycaster(),
     raf: null, last: 0
   };
@@ -3282,7 +3588,6 @@ function start3DChapterMode(initialIdx){
   };
 
   const addCrushCarRow = (x, z, rotY)=>{
-    const gy = evalChapterTerrainY(CHAPTERS_3D[CH3D.chIdx].mode, x, z);
     const cols = [0xbf2c2c, 0x2c6ebf, 0xd99b26, 0x4b8b3b];
     for(let i=-1;i<=1;i++){
       const cMesh = new THREE.Mesh(
@@ -3323,6 +3628,10 @@ function start3DChapterMode(initialIdx){
     CH3D.obstacleColliders = [];
     CH3D.smashables = [];
     CH3D.crushCars = [];
+    CH3D.rivals = [];
+    CH3D.trailers = [];
+    CH3D.hitchedTrailer = null;
+    CH3D.bossRace = null;
     CH3D.mudZones = [{x:-38, z:38, r:20}, {x:0, z:18, r:10}];
 
     // 1. Massive 360m x 360m Continuous Outer Off-Road Park Terrain Mesh
@@ -3332,7 +3641,6 @@ function start3DChapterMode(initialIdx){
     for(let i=0;i<pos.count;i++){
       const vx = pos.getX(i), vz = pos.getZ(i);
       const hy = evalChapterTerrainY(mode, vx, vz);
-      // Slightly depress central 38m so chapter GLB sits flush without z-fighting
       const cDist = Math.max(Math.abs(vx), Math.abs(vz));
       const blend = cDist < 22 ? -0.06 : 0.0;
       pos.setY(i, hy + blend);
@@ -3343,12 +3651,12 @@ function start3DChapterMode(initialIdx){
     gMesh.receiveShadow = true;
     parkGroup.add(gMesh);
 
-    // 2. Stunt Park Ramps & Crush Car Rows (Right ahead of spawn + around park!)
-    addRideableRamp(13.5, 0.0, 0.0, 6.5, 4.2, 1.85, 0xd97324);          // Launch ramp straight ahead!
-    addCrushCarRow(22.0, 0.0, 0.0);                                      // Crush cars right past ramp!
-    addRideableRamp(32.0, 0.0, Math.PI, 6.5, 4.2, 1.85, 0xd97324);       // Return jump ramp
-    addRideableRamp(-18.0, -22.0, 0.65, 7.5, 4.6, 2.35, 0xc94a29);       // Mega Stunt Ramp NW
-    addRideableRamp(25.0, 28.0, -0.8, 7.0, 4.5, 2.15, 0xd97324);         // SE Tabletop Ramp
+    // 2. Stunt Park Ramps & Crush Car Rows
+    addRideableRamp(13.5, 0.0, 0.0, 6.5, 4.2, 1.85, 0xd97324);
+    addCrushCarRow(22.0, 0.0, 0.0);
+    addRideableRamp(32.0, 0.0, Math.PI, 6.5, 4.2, 1.85, 0xd97324);
+    addRideableRamp(-18.0, -22.0, 0.65, 7.5, 4.6, 2.35, 0xc94a29);
+    addRideableRamp(25.0, 28.0, -0.8, 7.0, 4.5, 2.15, 0xd97324);
 
     // 3. Rideable Rock Crawl Boulders Slab Garden at (x=24, z=-24)
     for(let i=0;i<10;i++){
@@ -3375,7 +3683,7 @@ function start3DChapterMode(initialIdx){
     mudSurf.position.set(-38, evalChapterTerrainY(mode, -38, 38) + 0.32, 38);
     parkGroup.add(mudSurf);
 
-    // 5. Solid Pine Trees & Perimeter Rock Pillars (True Solid Collisions!)
+    // 5. Solid Pine Trees & Perimeter Rock Pillars
     const trunkMat = new THREE.MeshStandardMaterial({color:0x5c3d24, roughness:0.9});
     const leafMat  = new THREE.MeshStandardMaterial({color:0x2d5a27, roughness:0.8});
     const treeCoords = [
@@ -3409,49 +3717,139 @@ function start3DChapterMode(initialIdx){
     addSmashCrateCluster(-16, 14);
     addSmashCrateCluster(38, -22);
 
-    // 7. Summit Peak Beacon at (+58, -58) + Abandoned Barn Find + Winch Anchor
-    const sumY = evalChapterTerrainY(mode, 58, -58);
-    const sumBeacon = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.45, 0.45, 8.0, 12),
-      new THREE.MeshBasicMaterial({color:0xff9f1a, transparent:true, opacity:0.75})
-    );
-    sumBeacon.position.set(58, sumY + 4.0, -58);
-    parkGroup.add(sumBeacon);
+    // 7. Spawn 3 LIVE AI RIVAL 4x4 TRUCKS Roaming the Map!
+    const rivalSpecs = [
+      {name:"👑 BOSS: Redneck Rammer", col:0xd92626, trim:0xffd14d, isBoss:true,  speed:11.8, wps:[[9,-4],[24,-6],[36,8],[18,22],[-12,18],[-18,-8]]},
+      {name:"💀 Swamp Reaper 4x4",     col:0x24c757, trim:0x1b2028, isBoss:false, speed:10.2, wps:[[-6,8],[-22,20],[-32,8],[-14,-14],[8,-12],[14,8]]},
+      {name:"⚡ Baja Bandit V8",       col:0x1d9bf0, trim:0xff8c1a, isBoss:false, speed:11.0, wps:[[14,10],[32,20],[28,-16],[4,-24],[-18,-14],[-8,12]]}
+    ];
+    rivalSpecs.forEach(rs=>{
+      const rMod = buildRivalTruck3D(rs.name, rs.col, rs.trim, rs.isBoss);
+      const sx = rs.wps[0][0], sz = rs.wps[0][1];
+      const sy = evalChapterTerrainY(mode, sx, sz);
+      rMod.grp.position.set(sx, sy, sz);
+      parkGroup.add(rMod.grp);
+      CH3D.rivals.push({
+        name:rs.name, isBoss:rs.isBoss, grp:rMod.grp, wheels:rMod.wheels, hpFg:rMod.hpFg, crown:rMod.crown,
+        x:sx, y:sy, z:sz, heading:0, speed:rs.speed, baseSpeed:rs.speed,
+        wps:rs.wps, wpIdx:1, hp:100, maxHp:100, wrecked:false, hitCooldown:0
+      });
+    });
 
-    const bp = ch.barn || [-28.0, 24.0];
+    // 8. Spawn 2 Towable 3D Trailers (Heavy Bulldozer Flatbed + Barn Find Wreck Dolly) + Delivery Drop Zone!
+    const tHaul = buildTowableTrailer3D("bulldozer");
+    const hx = -6.5, hz = -4.5, hy = evalChapterTerrainY(mode, hx, hz);
+    tHaul.grp.position.set(hx, hy, hz);
+    parkGroup.add(tHaul.grp);
+    CH3D.trailers.push({
+      id:"bulldozer", title:"🚜 Heavy Bulldozer Flatbed", reward:160,
+      grp:tHaul.grp, wheels:tHaul.wheels, hitchRing:tHaul.hitchRing,
+      x:hx, y:hy, z:hz, heading:0, pitch:0, delivered:false
+    });
+
+    const bp = ch.barn || [-22.0, 18.0];
     const bgy = evalChapterTerrainY(mode, bp[0], bp[1]);
-    const barnGrp = new THREE.Group();
-    const rBody = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.95, 1.5), new THREE.MeshStandardMaterial({color:0x8c3b20, roughness:0.85, metalness:0.35}));
-    rBody.position.y = 0.55; barnGrp.add(rBody);
-    const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 4.5, 10), new THREE.MeshBasicMaterial({color:0x5bff9b, transparent:true, opacity:0.7}));
-    beacon.position.y = 2.25; barnGrp.add(beacon);
-    barnGrp.position.set(bp[0], bgy, bp[1]);
-    parkGroup.add(barnGrp);
-    CH3D.barnMesh = {x:bp[0], z:bp[1], mesh:barnGrp, taken:false};
+    const tBarn = buildTowableTrailer3D("barnwreck");
+    tBarn.grp.position.set(bp[0], bgy, bp[1]);
+    parkGroup.add(tBarn.grp);
+    CH3D.trailers.push({
+      id:"barnwreck", title:"🏚️ '72 Barn-Find Dually Wreck", reward:180,
+      grp:tBarn.grp, wheels:tBarn.wheels, hitchRing:tBarn.hitchRing,
+      x:bp[0], y:bgy, z:bp[1], heading:0, pitch:0, delivered:false
+    });
 
+    // Glowing Green Outpost Delivery Drop Zone Pad at (32, -16)
+    const dzX = 32.0, dzZ = -16.0, dzY = evalChapterTerrainY(mode, dzX, dzZ);
+    CH3D.dropZonePos.set(dzX, dzY, dzZ);
+    const dzRing = new THREE.Mesh(
+      new THREE.RingGeometry(3.2, 4.2, 32),
+      new THREE.MeshBasicMaterial({color:0x5bff9b, side:THREE.DoubleSide})
+    );
+    dzRing.rotation.x = -Math.PI/2;
+    dzRing.position.set(dzX, dzY + 0.15, dzZ);
+    parkGroup.add(dzRing);
+    const dzBeacon = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.35, 0.35, 7.0, 12),
+      new THREE.MeshBasicMaterial({color:0x5bff9b, transparent:true, opacity:0.55})
+    );
+    dzBeacon.position.set(dzX, dzY + 3.5, dzZ);
+    parkGroup.add(dzBeacon);
+
+    // Winch Anchor Post
     const ap = ch.anchor || [12.5, 1.4, 8.8];
     const agy = evalChapterTerrainY(mode, ap[0], ap[2]);
     CH3D.anchorPos.set(ap[0], agy + 0.9, ap[2]);
     const ancMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 2.0, 12), new THREE.MeshStandardMaterial({color:0xe23b3b, emissive:0x660000}));
     ancMesh.position.set(ap[0], agy + 1.0, ap[2]);
     parkGroup.add(ancMesh);
-
-    // 8. Live Off-Road Outlaws Trail Missions (Guided by 3D Arrow!)
-    CH3D.missions = [
-      {title:"🚀 Hit the Stunt Ramp & Crush Cars Ahead!", x:18.0, z:0.0, r:5.5, reward:35, done:false},
-      {title:"🪨 Crawl the Boulder Slab Garden (NE)!",   x:23.0, z:-23.0, r:5.5, reward:40, done:false},
-      {title:"🏚️ Discover the Rusty Barn Find Chassis!", x:bp[0], z:bp[1], r:5.0, reward:60, done:false},
-      {title:"💦 Power Through the Deep Mud Bog (SW)!",  x:-38.0, z:38.0, r:7.0, reward:50, done:false},
-      {title:"🏔️ Climb High Mountain Summit Peak (+18m)!",x:58.0, z:-58.0, r:6.5, reward:80, done:false}
-    ];
-    CH3D.missionIdx = 0;
-    CH3D.barnFound = false;
-    $("#ch3dbarn").textContent = "0/1";
-    const mEl = $("#ch3dmission");
-    if(mEl) mEl.textContent = "🎯 " + CH3D.missions[0].title;
   };
 
-  // Live 3D Map Builder: Drop ramps, crush cars, boulders, mud pits, or crates right in front of Jax's truck!
+  // Start Head-to-Head Boss Pink-Slip Race!
+  const startBossRace3D = ()=>{
+    if(!CH3D) return;
+    const boss = CH3D.rivals.find(r=>r.isBoss);
+    if(!boss) return;
+    if(CH3D.bossRace && CH3D.bossRace.gates){
+      CH3D.bossRace.gates.forEach(g=>parkGroup.remove(g.mesh));
+    }
+    const mode = CHAPTERS_3D[CH3D.chIdx].mode;
+    // Line up Player & Boss Truck side-by-side at Starting Line!
+    CH3D.x = 0; CH3D.z = 2.0; CH3D.heading = 0; CH3D.speed = 0;
+    boss.wrecked = false; boss.hp = 100; boss.x = 2.2; boss.z = -2.2; boss.heading = 0; boss.speed = 12.6;
+    const racePts = [[18, 0], [34, 8], [22, 24], [-8, 20], [-18, 0]];
+    const gates = racePts.map((pt, i)=>{
+      const gy = evalChapterTerrainY(mode, pt[0], pt[1]);
+      const gGrp = new THREE.Group();
+      [-2.8, 2.8].forEach(zOff=>{
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 5.2, 10),
+          new THREE.MeshBasicMaterial({color:i===racePts.length-1?0xffd14d:0x00e5ff}));
+        pole.position.set(0, 2.6, zOff); gGrp.add(pole);
+      });
+      const banner = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.7, 5.8),
+        new THREE.MeshBasicMaterial({color:i===racePts.length-1?0xffd14d:0x00e5ff}));
+      banner.position.set(0, 5.0, 0); gGrp.add(banner);
+      gGrp.position.set(pt[0], gy, pt[1]);
+      parkGroup.add(gGrp);
+      return {x:pt[0], z:pt[1], mesh:gGrp, cleared:false};
+    });
+    boss.wps = racePts; boss.wpIdx = 0;
+    CH3D.bossRace = {active:true, gateIdx:0, gates};
+    const mEl = $("#ch3dmission");
+    if(mEl) mEl.textContent = "🏁 BOSS RACE VS 👑 REDNECK RAMMER: Gate 1/5!";
+    SFX.level();
+    showMsg("🏁 BOSS RACE: GO! Beat 👑 Redneck Rammer thru 5 Gates!", 1500);
+  };
+
+  // Hitch or Unhitch 3D Trailer Load (Bulldozer Flatbed or Barn Find Wreck!)
+  const toggleHitchLoad3D = (preferredId)=>{
+    if(!CH3D) return;
+    const hb = $("#btn_hitch");
+    if(CH3D.hitchedTrailer){
+      const nm = CH3D.hitchedTrailer.title;
+      CH3D.hitchedTrailer = null;
+      if(hb){ hb.textContent = "🪝 Hitch Load"; hb.style.background = "rgba(0,229,255,.90)"; }
+      showMsg(`🔓 Unhitched ${nm}`, 900);
+      return;
+    }
+    // Find nearest undelivered trailer (or preferredId if specified, and teleport it right behind truck if >6m away so 1-tap works anywhere!)
+    let cand = CH3D.trailers.find(t=>!t.delivered && t.id===preferredId) ||
+               CH3D.trailers.find(t=>!t.delivered && Math.hypot(CH3D.x - t.x, CH3D.z - t.z) < 9.0) ||
+               CH3D.trailers.find(t=>!t.delivered);
+    if(!cand){
+      showMsg("✅ All Trailer Loads Delivered in this Chapter!", 1000);
+      return;
+    }
+    const hitchX = CH3D.x - Math.cos(CH3D.heading)*2.35;
+    const hitchZ = CH3D.z + Math.sin(CH3D.heading)*2.35;
+    cand.x = hitchX; cand.z = hitchZ; cand.heading = CH3D.heading;
+    CH3D.hitchedTrailer = cand;
+    SFX.buy();
+    if(hb){ hb.textContent = "🪝 Towing Load!"; hb.style.background = "rgba(55,196,106,.95)"; }
+    const mEl = $("#ch3dmission");
+    if(mEl) mEl.textContent = `🪝 Haul ${cand.title} → Green Drop Zone (+🪙${cand.reward})!`;
+    showMsg(`🪝 HITCHED: ${cand.title}! Shift to LOW + 4WD for Hills!`, 1400);
+  };
+
   const dropCustomObstacle = (kind)=>{
     if(!CH3D) return;
     const dist = 9.5;
@@ -3512,7 +3910,6 @@ function start3DChapterMode(initialIdx){
           const box = new THREE.Box3().setFromObject(o);
           const sz = box.getSize(new THREE.Vector3());
           const ctr = box.getCenter(new THREE.Vector3());
-          // Skip giant base terrain slab; classify props as solid colliders vs rideable ramps/bridges/rocks
           if(sz.x < 34 && sz.z < 34){
             if(sz.y > 2.35 && Math.hypot(ctr.x, ctr.z) > 4.0){
               CH3D.obstacleColliders.push({x:ctr.x, z:ctr.z, r:Math.min(2.4, Math.max(sz.x, sz.z)*0.38), label:"🏔️ Obstacle"});
@@ -3531,12 +3928,18 @@ function start3DChapterMode(initialIdx){
         mount(gltf.scene);
       });
     }
-    showMsg(ch.emoji+" "+ch.name+" (360m Open Park)", 1100);
+    showMsg(ch.emoji+" "+ch.name+" — Rivals & Contracts Live!", 1100);
   };
 
   document.querySelectorAll("[data-ch3d]").forEach(b=>{
     b.onclick = ()=>{ SFX.tap(); loadChapterRoom(+b.dataset.ch3d); };
   });
+
+  // Wire Boss Race & Hitch Load HUD Buttons
+  const bBoss = $("#btn_bossrace");
+  if(bBoss) bBoss.onclick = ()=>startBossRace3D();
+  const bHitch = $("#btn_hitch");
+  if(bHitch) bHitch.onclick = ()=>toggleHitchLoad3D();
 
   // Toggle Map Builder Toolbar
   const bMap = $("#btn_mapbuilder");
@@ -3570,7 +3973,7 @@ function start3DChapterMode(initialIdx){
   if(bLow) bLow.onclick = ()=>{
     CH3D.lowGear = !CH3D.lowGear; SFX.tap();
     bLow.style.background = CH3D.lowGear ? "rgba(255,140,26,.92)" : "rgba(8,12,30,.82)";
-    showMsg(CH3D.lowGear ? "⚙️ LOW RANGE CRAWL (2.5x Torque)" : "⚙️ HIGH RANGE GEAR", 850);
+    showMsg(CH3D.lowGear ? "⚙️ LOW RANGE CRAWL (2.5x Pulling Torque!)" : "⚙️ HIGH RANGE GEAR", 850);
   };
   const bDiff = $("#btn_diff");
   if(bDiff) bDiff.onclick = ()=>{
@@ -3587,11 +3990,12 @@ function start3DChapterMode(initialIdx){
     if(CH3D.winchActive) showMsg("🪝 WINCH HOOKED TO ANCHOR!", 900);
   };
 
-  // Switch across all 4 Star Rigs!
+  // Switch across all Star Rigs!
   const bSwap = $("#ch3drigswap");
   if(bSwap) bSwap.onclick = ()=>{
-    const curIdx = STAR_RIGS.indexOf(CH3D.vType);
-    const nextRig = STAR_RIGS[(curIdx + 1) % STAR_RIGS.length];
+    const avail = STAR_RIGS.filter(k=>state.owned.includes(k));
+    const curIdx = avail.indexOf(CH3D.vType);
+    const nextRig = avail[(curIdx + 1) % avail.length] || "crawler";
     state.current = nextRig; save(); SFX.buy();
     mountActiveRig(nextRig);
     const vObj = VEHICLES[nextRig];
@@ -3639,6 +4043,15 @@ function start3DChapterMode(initialIdx){
   document.addEventListener("keyup", CH3D._ku);
 
   loadChapterRoom(CH3D.chIdx);
+  // If launched from a Garage Contract Card, immediately activate that mode!
+  if(initialContract==="boss") setTimeout(()=>startBossRace3D(), 120);
+  else if(initialContract==="haul") setTimeout(()=>toggleHitchLoad3D("bulldozer"), 120);
+  else if(initialContract==="barn") setTimeout(()=>toggleHitchLoad3D("barnwreck"), 120);
+  else if(initialContract==="derby"){
+    const mEl = $("#ch3dmission");
+    if(mEl) mEl.textContent = "💥 DERBY TAKEDOWN: Ram & Wreck the 3 AI Rival Trucks (+🪙75 each)!";
+    showMsg("💥 DERBY MODE: Hit 🔥 NITRO & Ram the 3 AI Rival Trucks!", 1500);
+  }
   CH3D.raf = requestAnimationFrame(step3DChapterFrame);
 }
 
@@ -3680,21 +4093,32 @@ function step3DChapterFrame(now){
   }
   const mudDrag = inMud ? (CH3D.fourWD ? (CH3D.diffLock ? 0.82 : 0.65) : 0.35) : 1.0;
   if(inMud && Math.abs(CH3D.speed) > 1.5){
-    CH3D.vCfg.mudLevel = Math.min(1.0, (CH3D.vCfg.mudLevel||0) + dt*0.2);
+    CH3D.vCfg.mudLevel = Math.min(1.0, (CH3D.vCfg.mudLevel||0) + dt*0.22);
+    cfg(CH3D.vType).mudLevel = CH3D.vCfg.mudLevel;
   }
 
+  // Heavy Trailer Towing Physics: Pulling a loaded trailer weighs the truck down unless in LOW + 4WD!
+  const towing = !!CH3D.hitchedTrailer;
+  const towSpdMult = towing ? (CH3D.lowGear ? 0.78 : 0.72) : 1.0;
+  const towAccMult = towing ? ((CH3D.lowGear && CH3D.fourWD) ? 1.15 : 0.62) : 1.0;
+
   const nitroMult  = inp.nitro ? 1.65 : 1.0;
-  const lowMultSpd = CH3D.lowGear ? 0.58 : 1.0;
-  const lowMultAcc = CH3D.lowGear ? 1.95 : 1.0;
+  const lowMultSpd = CH3D.lowGear ? 0.62 : 1.0;
+  const lowMultAcc = CH3D.lowGear ? 2.05 : 1.0;
   const fourMult   = CH3D.fourWD  ? 1.25 : 0.88;
   const diffMult   = CH3D.diffLock? 1.20 : 1.0;
 
-  const maxSpd = (14.5 + st.speed * 0.065) * lowMultSpd * nitroMult * mudDrag;
-  const accel  = (15.5 + st.power * 0.085) * lowMultAcc * fourMult * diffMult * nitroMult;
+  const maxSpd = (14.5 + st.speed * 0.065) * lowMultSpd * nitroMult * mudDrag * towSpdMult;
+  const accel  = (15.5 + st.power * 0.085) * lowMultAcc * fourMult * diffMult * nitroMult * towAccMult;
 
   if(inp.gas || inp.nitro) CH3D.speed += accel * dt;
   else if(inp.rev) CH3D.speed -= accel * 0.85 * dt;
   else CH3D.speed *= (1 - (inMud ? 4.2 : 2.0) * dt);
+
+  // Uphill gravity drag when towing a heavy load without Low Gear
+  if(towing && CH3D.pitch > 0.08 && !CH3D.lowGear){
+    CH3D.speed -= Math.sin(CH3D.pitch) * 14.0 * dt;
+  }
 
   if(CH3D.winchActive){
     const ax = CH3D.anchorPos.x - CH3D.x, az = CH3D.anchorPos.z - CH3D.z;
@@ -3731,7 +4155,7 @@ function step3DChapterFrame(now){
   let nextX = CH3D.x + Math.cos(CH3D.heading) * CH3D.speed * dt;
   let nextZ = CH3D.z - Math.sin(CH3D.heading) * CH3D.speed * dt;
 
-  // Solid Obstacle Collisions (Trees, Buildings, Rock Pillars - No Ghosting Through!)
+  // Solid Obstacle Collisions (Trees, Buildings, Rock Pillars)
   const truckR = 1.65;
   for(const ob of CH3D.obstacleColliders){
     const dx = nextX - ob.x, dz = nextZ - ob.z;
@@ -3740,21 +4164,83 @@ function step3DChapterFrame(now){
       const nx = dx / dist, nz = dz / dist;
       nextX = ob.x + nx * (minD + 0.08);
       nextZ = ob.z + nz * (minD + 0.08);
-      if(Math.abs(CH3D.speed) > 3.0){
+      if(Math.abs(CH3D.speed) > 3.5){
         SFX.crash();
-        CH3D.shakeTime = 0.28;
+        CH3D.shakeTime = 0.25;
+        CH3D.vCfg.condition = Math.max(25, (CH3D.vCfg.condition||100) - 3);
+        cfg(CH3D.vType).condition = CH3D.vCfg.condition;
+        const hpEl = $("#ch3dhp"); if(hpEl) hpEl.textContent = Math.round(CH3D.vCfg.condition) + "%";
         showMsg(`💥 CRUNCH! Hit ${ob.label}!`, 700);
       }
       CH3D.speed *= -0.35;
     }
   }
 
+  // STEP & COLLIDE WITH LIVE AI RIVAL 4x4 TRUCKS!
+  CH3D.rivals.forEach(rv=>{
+    if(rv.crown) rv.crown.rotation.y += dt * 2.5;
+    if(rv.hitCooldown > 0) rv.hitCooldown -= dt;
+    if(!rv.wrecked){
+      const targetWp = rv.wps[rv.wpIdx % rv.wps.length];
+      const dx = targetWp[0] - rv.x, dz = targetWp[1] - rv.z;
+      const distWp = Math.hypot(dx, dz);
+      if(distWp < 3.5){
+        rv.wpIdx = (rv.wpIdx + 1) % rv.wps.length;
+      } else {
+        const desiredH = Math.atan2(-dz, dx);
+        let diffH = desiredH - rv.heading;
+        while(diffH > Math.PI) diffH -= Math.PI*2;
+        while(diffH < -Math.PI) diffH += Math.PI*2;
+        rv.heading += Math.max(-2.2*dt, Math.min(2.2*dt, diffH));
+      }
+      rv.x += Math.cos(rv.heading) * rv.speed * dt;
+      rv.z -= Math.sin(rv.heading) * rv.speed * dt;
+      rv.y = evalChapterTerrainY(ch.mode, rv.x, rv.z);
+      rv.grp.position.set(rv.x, rv.y, rv.z);
+      rv.grp.rotation.y = rv.heading;
+      rv.wheels.forEach(w=>{ w.rotation.z -= rv.speed * 1.8 * dt; });
+    }
+
+    // Truck-vs-Rival Derby Ramming Collision!
+    const rdx = nextX - rv.x, rdz = nextZ - rv.z;
+    const rdist = Math.hypot(rdx, rdz);
+    if(rdist < 3.4 && rdist > 0.001){
+      const nx = rdx / rdist, nz = rdz / rdist;
+      nextX = rv.x + nx * 3.48;
+      nextZ = rv.z + nz * 3.48;
+      const relSpd = Math.abs(CH3D.speed) + (rv.wrecked ? 0 : rv.speed*0.4);
+      if(relSpd > 4.5 && rv.hitCooldown <= 0 && !rv.wrecked){
+        rv.hitCooldown = 0.55;
+        const dmg = Math.round(28 + relSpd * 1.8);
+        rv.hp = Math.max(0, rv.hp - dmg);
+        rv.hpFg.scale.z = Math.max(0.01, rv.hp / rv.maxHp);
+        rv.x -= nx * 1.6; rv.z -= nz * 1.6;
+        SFX.crash();
+        CH3D.shakeTime = 0.32;
+        CH3D.speed *= 0.45;
+        if(rv.hp <= 0){
+          rv.wrecked = true;
+          rv.grp.rotation.x = 0.35;
+          rv.grp.rotation.z = 0.22;
+          CH3D.wrecksCount = (CH3D.wrecksCount||0) + 1;
+          state.rivalsWrecked = (state.rivalsWrecked||0) + 1;
+          CH3D.coins += 75; addCoins(75); addXP(45); SFX.level(); confettiBurst(); save();
+          const wEl = $("#ch3dwrecks"); if(wEl) wEl.textContent = CH3D.wrecksCount + "/3";
+          $("#ch3dcoins").textContent = CH3D.coins;
+          showMsg(`💥 WRECKED ${rv.name}! +🪙75 DERBY BOUNTY!`, 1600);
+        } else {
+          showMsg(`💥 RAMMED ${rv.name}! (-${dmg} HP)`, 850);
+        }
+      }
+    }
+  });
+
   // Open-World 360m Boundary (±162m Canyon Rim)
   CH3D.x = Math.max(-162, Math.min(162, nextX));
   CH3D.z = Math.max(-162, Math.min(162, nextZ));
   CH3D.wheelSpin = (CH3D.wheelSpin + CH3D.speed * 2.1 * dt) % (Math.PI * 2);
 
-  // 4-Wheel Downward Raycast Height Sampling (Climbs Ramps, Boulders, Bridges & Crush Cars!)
+  // 4-Wheel Downward Raycast Height Sampling
   const chCos = Math.cos(CH3D.heading), chSin = Math.sin(CH3D.heading);
   const wWorld = (lx, lz)=>[CH3D.x + lx*chCos + lz*chSin, CH3D.z - lx*chSin + lz*chCos];
   const pFL = wWorld( 1.42, -0.98), pFR = wWorld( 1.42,  0.98);
@@ -3795,10 +4281,6 @@ function step3DChapterFrame(now){
         if(jumpFt >= 18){
           const bonus = Math.min(80, Math.round(jumpFt * 0.6));
           CH3D.coins += bonus; addCoins(bonus); addXP(15); SFX.coin();
-          if(jumpFt > CH3D.bestAirFt){
-            CH3D.bestAirFt = jumpFt;
-            const aEl = $("#ch3dair"); if(aEl) aEl.textContent = jumpFt + " ft";
-          }
           $("#ch3dcoins").textContent = CH3D.coins;
           showMsg(`🚀 ${jumpFt} FT BIG AIR JUMP! +🪙${bonus}`, 1300);
         }
@@ -3823,6 +4305,89 @@ function step3DChapterFrame(now){
     const rTrav = CH3D.airborne ? -0.14 : Math.max(-0.18, Math.min(0.18, ((hRL+hRR)*0.5 - groundH)*flexFactor));
     const axleTwist = CH3D.airborne ? 0 : Math.max(-0.28, Math.min(0.28, ((hFL - hFR) - (hRL - hRR))*0.78 + Math.sin(now*0.006)*Math.abs(CH3D.speed)*0.012));
     applyRiggedPose(rig, CH3D.steer, CH3D.wheelSpin, fTrav, rTrav, axleTwist, !!CH3D.vCfg.lift);
+  }
+
+  // STEP ARTICULATED 3D TRAILER HITCH & DELIVERY DROP ZONE!
+  if(CH3D.hitchedTrailer){
+    const tr = CH3D.hitchedTrailer;
+    // Hitch pin at rear bumper of Jax's truck (2.25m behind truck center)
+    const hitchX = CH3D.x - Math.cos(CH3D.heading)*2.25;
+    const hitchZ = CH3D.z + Math.sin(CH3D.heading)*2.25;
+    const hitchY = evalChapterTerrainY(ch.mode, hitchX, hitchZ);
+    // Articulated trailer yaw kinematics: trailer swings naturally toward truck heading!
+    const drawbarLen = 3.2;
+    const angDiff = CH3D.heading - tr.heading;
+    tr.heading += Math.sin(angDiff) * (CH3D.speed / drawbarLen) * dt;
+    tr.x = hitchX; tr.z = hitchZ; tr.y = hitchY;
+    const rearX = hitchX - Math.cos(tr.heading)*2.9;
+    const rearZ = hitchZ + Math.sin(tr.heading)*2.9;
+    const rearY = evalChapterTerrainY(ch.mode, rearX, rearZ);
+    tr.pitch = Math.atan2(hitchY - rearY, 2.9);
+
+    tr.grp.position.set(tr.x, tr.y, tr.z);
+    tr.grp.rotation.order = "YXZ";
+    tr.grp.rotation.y = tr.heading;
+    tr.grp.rotation.z = tr.pitch;
+    tr.wheels.forEach(w=>{ w.rotation.z -= CH3D.speed * 2.2 * dt; });
+
+    // Point 3D Arrow toward Outpost Delivery Drop Zone!
+    CH3D.arrowGrp.visible = true;
+    CH3D.arrowGrp.position.set(CH3D.x, CH3D.y + 2.55 + Math.sin(now*0.005)*0.12, CH3D.z);
+    CH3D.arrowGrp.rotation.y = Math.atan2(-(CH3D.dropZonePos.z - CH3D.z), CH3D.dropZonePos.x - CH3D.x);
+
+    // Check if pulled into Delivery Drop Zone!
+    if(Math.hypot(CH3D.x - CH3D.dropZonePos.x, CH3D.z - CH3D.dropZonePos.z) < 5.2){
+      tr.delivered = true;
+      tr.grp.visible = false;
+      CH3D.hitchedTrailer = null;
+      state.haulsDone = (state.haulsDone||0) + 1;
+      CH3D.coins += tr.reward; addCoins(tr.reward); addXP(65); SFX.level(); confettiBurst();
+      if(tr.id === "barnwreck"){
+        state.barnStep = Math.max(2, state.barnStep || 2);
+      }
+      save();
+      const hb = $("#btn_hitch"); if(hb){ hb.textContent = "🪝 Hitch Load"; hb.style.background = "rgba(0,229,255,.90)"; }
+      $("#ch3dcoins").textContent = CH3D.coins;
+      const mEl = $("#ch3dmission");
+      if(mEl) mEl.textContent = `🏆 DELIVERED ${tr.title}! +🪙${tr.reward} Earned!`;
+      showMsg(`🏆 HEAVY HAUL DELIVERED! +🪙${tr.reward} · +⭐65 XP!`, 1800);
+    }
+  } else if(CH3D.bossRace && CH3D.bossRace.active){
+    // STEP HEAD-TO-HEAD BOSS RACE FLARE GATES!
+    const br = CH3D.bossRace;
+    const curGate = br.gates[br.gateIdx];
+    if(curGate){
+      CH3D.arrowGrp.visible = true;
+      CH3D.arrowGrp.position.set(CH3D.x, CH3D.y + 2.55, CH3D.z);
+      CH3D.arrowGrp.rotation.y = Math.atan2(-(curGate.z - CH3D.z), curGate.x - CH3D.x);
+      if(Math.hypot(CH3D.x - curGate.x, CH3D.z - curGate.z) < 4.5){
+        curGate.cleared = true;
+        curGate.mesh.visible = false;
+        br.gateIdx++;
+        SFX.coin();
+        if(br.gateIdx >= br.gates.length){
+          br.active = false;
+          state.bossesBeaten = (state.bossesBeaten||0) + 1;
+          CH3D.coins += 250; addCoins(250); addXP(100); SFX.level(); confettiBurst(); save();
+          $("#ch3dcoins").textContent = CH3D.coins;
+          const mEl = $("#ch3dmission");
+          if(mEl) mEl.textContent = "🏆 BOSS DEFEATED! You Beat 👑 Redneck Rammer (+🪙250)!";
+          showMsg("🏆 PINK-SLIP BOSS RACE WON! +🪙250 · +⭐100 XP!", 2000);
+        } else {
+          const mEl = $("#ch3dmission");
+          if(mEl) mEl.textContent = `🏁 BOSS RACE: Gate ${br.gateIdx+1}/${br.gates.length}! Keep Hammering!`;
+          showMsg(`🏁 GATE ${br.gateIdx}/${br.gates.length} CLEARED!`, 750);
+        }
+      }
+    }
+  } else {
+    // Point 3D Arrow toward nearest active Rival or Trailer!
+    const activeRival = CH3D.rivals.find(r=>!r.wrecked);
+    if(activeRival){
+      CH3D.arrowGrp.visible = true;
+      CH3D.arrowGrp.position.set(CH3D.x, CH3D.y + 2.55 + Math.sin(now*0.005)*0.12, CH3D.z);
+      CH3D.arrowGrp.rotation.y = Math.atan2(-(activeRival.z - CH3D.z), activeRival.x - CH3D.x);
+    }
   }
 
   // Smashable Fences & Crates Physics
@@ -3861,39 +4426,8 @@ function step3DChapterFrame(now){
     }
   });
 
-  // Hidden Barn Find Discovery
-  if(CH3D.barnMesh && !CH3D.barnMesh.taken){
-    if(Math.hypot(CH3D.x - CH3D.barnMesh.x, CH3D.z - CH3D.barnMesh.z) < 3.6){
-      CH3D.barnMesh.taken = true;
-      CH3D.barnMesh.mesh.visible = false;
-      CH3D.coins += 75; addCoins(75); addXP(45); SFX.level(); confettiBurst();
-      $("#ch3dbarn").textContent = "1/1";
-      $("#ch3dcoins").textContent = CH3D.coins;
-      showMsg("🏚️ BARN FIND DISCOVERED! +🪙75 · +⭐45 XP!", 1600);
-    }
-  }
-
-  // Active Trail Mission & 3D Directional Arrow above Truck
-  const curM = CH3D.missions[CH3D.missionIdx];
-  if(curM){
-    CH3D.arrowGrp.visible = true;
-    CH3D.arrowGrp.position.set(CH3D.x, CH3D.y + 2.55 + Math.sin(now*0.005)*0.12, CH3D.z);
-    const mAng = Math.atan2(-(curM.z - CH3D.z), curM.x - CH3D.x);
-    CH3D.arrowGrp.rotation.y = mAng;
-    if(Math.hypot(CH3D.x - curM.x, CH3D.z - curM.z) < curM.r){
-      curM.done = true;
-      CH3D.coins += curM.reward; addCoins(curM.reward); addXP(25); SFX.level();
-      $("#ch3dcoins").textContent = CH3D.coins;
-      CH3D.missionIdx = (CH3D.missionIdx + 1) % CH3D.missions.length;
-      const nxt = CH3D.missions[CH3D.missionIdx];
-      const mEl = $("#ch3dmission");
-      if(mEl) mEl.textContent = "🎯 " + nxt.title;
-      showMsg(`🏆 MISSION COMPLETE! +🪙${curM.reward} → Next: ${nxt.title}`, 1500);
-    }
-  }
-
-  // Camera Modes + Impact Shake
-  const camPresets = [[8.0, 3.3], [12.5, 5.2], [5.4, 2.2]];
+  // Camera Modes + Impact Shake (Widen slightly when towing a trailer so Jax sees his hitched trailer!)
+  const camPresets = towing ? [[10.5, 4.0], [14.0, 5.6], [7.2, 2.8]] : [[8.0, 3.3], [12.5, 5.2], [5.4, 2.2]];
   const cp = camPresets[CH3D.camMode || 0];
   const tx = CH3D.x - Math.cos(CH3D.heading) * cp[0];
   const tz = CH3D.z + Math.sin(CH3D.heading) * cp[0];
@@ -3903,10 +4437,10 @@ function step3DChapterFrame(now){
   CH3D.camera.position.y += (ty - CH3D.camera.position.y) * Math.min(1, dt * 7);
   if(CH3D.shakeTime > 0){
     CH3D.shakeTime -= dt;
-    CH3D.camera.position.x += (Math.random()-0.5)*0.35;
-    CH3D.camera.position.y += (Math.random()-0.5)*0.35;
+    CH3D.camera.position.x += (Math.random()-0.5)*0.38;
+    CH3D.camera.position.y += (Math.random()-0.5)*0.38;
   }
-  CH3D.camera.lookAt(CH3D.x + Math.cos(CH3D.heading)*2.2, CH3D.y + 1.0, CH3D.z - Math.sin(CH3D.heading)*2.2);
+  CH3D.camera.lookAt(CH3D.x + Math.cos(CH3D.heading)*2.0, CH3D.y + 1.0, CH3D.z - Math.sin(CH3D.heading)*2.0);
 
   CH3D.renderer.render(CH3D.scene, CH3D.camera);
 }
