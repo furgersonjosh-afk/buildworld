@@ -1,6 +1,6 @@
 /* BUILD WORLD service worker — makes the app installable and work offline.
    Bump CACHE when you change the cached library assets. */
-const CACHE = "buildworld-v13";
+const CACHE = "buildworld-v14";
 const ASSETS = [
   "./", "./index.html", "./manifest.json",
   "./lib/three.min.js", "./lib/RoundedBoxGeometry.js", "./lib/OrbitControls.js",
@@ -10,8 +10,9 @@ const ASSETS = [
 ];
 
 self.addEventListener("install", (e) => {
+  self.skipWaiting();
   e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE).then((c) => c.addAll(ASSETS))
   );
 });
 
@@ -27,17 +28,22 @@ self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   const url = new URL(e.request.url);
   const isDoc = e.request.mode === "navigate" ||
-                url.pathname.endsWith("/") || url.pathname.endsWith("index.html");
+                url.pathname.endsWith("/") ||
+                url.pathname.endsWith("index.html") ||
+                url.pathname.endsWith(".json");
 
   if (isDoc) {
-    // network-first for the page, so updates show when online; cache when offline
+    // Always bypass browser HTTP disk cache (cache: "no-store") so updates appear immediately on mobile!
     e.respondWith(
-      fetch(e.request)
-        .then((resp) => { const copy = resp.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); return resp; })
+      fetch(e.request, { cache: "no-store" })
+        .then((resp) => {
+          const copy = resp.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy));
+          return resp;
+        })
         .catch(() => caches.match(e.request).then((r) => r || caches.match("./index.html")))
     );
   } else {
-    // cache-first for static assets (fast + offline)
     e.respondWith(
       caches.match(e.request).then((r) =>
         r || fetch(e.request).then((resp) => {

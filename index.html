@@ -441,9 +441,9 @@ function toast(msg){
 const SFX = {
   ctx:null,
   ac(){ if(!this.ctx){ try{ this.ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
-        if(this.ctx && this.ctx.state==="suspended") this.ctx.resume(); return this.ctx; },
+        if(this.ctx && this.ctx.state==="suspended" && !document.hidden) this.ctx.resume().catch(()=>{}); return this.ctx; },
   beep(freq,dur,type,vol){
-    if(!state.sound) return; const ac=this.ac(); if(!ac) return;
+    if(!state.sound || document.hidden) return; const ac=this.ac(); if(!ac) return;
     const o=ac.createOscillator(), g=ac.createGain();
     o.type=type||"square"; o.frequency.value=freq;
     const t=ac.currentTime; g.gain.setValueAtTime(Math.max(0.0001,vol||0.05),t);
@@ -456,26 +456,27 @@ const SFX = {
   level(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>this.beep(f,0.18,"triangle",0.06),i*95)); },
   flip(){ this.beep(300,0.18,"sawtooth",0.05); setTimeout(()=>this.beep(520,0.12,"sawtooth",0.04),80); },
   crash(){ this.beep(150,0.28,"sawtooth",0.08); this.beep(90,0.34,"square",0.06); },
-  rev(){ if(!state.sound) return; const ac=this.ac(); if(!ac) return;
+  rev(){ if(!state.sound || document.hidden) return; const ac=this.ac(); if(!ac) return;
     const o=ac.createOscillator(), g=ac.createGain(); o.type="sawtooth";
     const t=ac.currentTime; o.frequency.setValueAtTime(90,t); o.frequency.exponentialRampToValueAtTime(180,t+0.25);
     g.gain.setValueAtTime(0.05,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.3);
     o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+0.32); }
 };
 
-/* Background music — a simple looping chiptune, synthesized. Toggle with 🎵. */
+/* Background music — a simple looping chiptune, synthesized. Toggle with 🎵.
+   Automatically stops & suspends AudioContext whenever the app is hidden/backgrounded! */
 const MUSIC = {
   timer:null, step:0,
   mel: [659,0,784,0, 880,784,659,0, 587,0,698,0, 784,0,0,0,
         659,0,784,0, 1047,880,784,0, 880,0,784,0, 659,0,0,0],
   bass:[165,0,0,0, 165,0,131,0, 147,0,0,0, 196,0,0,0,
         165,0,0,0, 165,0,131,0, 98,0,0,0, 110,0,0,0],
-  note(f,d,type,vol){ const ac=SFX.ac(); if(!ac) return;
+  note(f,d,type,vol){ if(document.hidden) return; const ac=SFX.ac(); if(!ac) return;
     const o=ac.createOscillator(), g=ac.createGain(); o.type=type; o.frequency.value=f;
     const t=ac.currentTime; g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0001,t+d);
     o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+d+0.02); },
-  start(){ if(this.timer||!state.music) return; this.step=0;
-    this.timer=setInterval(()=>{ if(!state.music){ this.stop(); return; }
+  start(){ if(this.timer||!state.music||document.hidden) return; this.step=0;
+    this.timer=setInterval(()=>{ if(!state.music || document.hidden){ this.stop(); return; }
       const s=this.step%this.mel.length;
       if(this.mel[s])  this.note(this.mel[s], 0.16, "triangle", 0.03);
       if(this.bass[s]) this.note(this.bass[s],0.22, "sine",     0.04);
@@ -483,6 +484,29 @@ const MUSIC = {
     }, 175); },
   stop(){ if(this.timer){ clearInterval(this.timer); this.timer=null; } }
 };
+
+function pauseAllAudioForBackground(){
+  MUSIC.stop();
+  if(SFX.ctx && SFX.ctx.state === "running"){
+    try{ SFX.ctx.suspend().catch(()=>{}); }catch(e){}
+  }
+}
+function resumeAudioFromBackground(){
+  if(document.hidden) return;
+  if(state && state.sound && SFX.ctx && SFX.ctx.state === "suspended"){
+    try{ SFX.ctx.resume().catch(()=>{}); }catch(e){}
+  }
+  if(state && state.music && !document.hidden) MUSIC.start();
+}
+document.addEventListener("visibilitychange", ()=>{
+  if(document.hidden) pauseAllAudioForBackground();
+  else resumeAudioFromBackground();
+});
+window.addEventListener("pagehide", pauseAllAudioForBackground);
+window.addEventListener("blur", pauseAllAudioForBackground);
+window.addEventListener("freeze", pauseAllAudioForBackground);
+window.addEventListener("focus", resumeAudioFromBackground);
+window.addEventListener("pageshow", resumeAudioFromBackground);
 
 function addCoins(n){ state.coins = Math.max(0, state.coins + n); if(n>0) SFX.coin(); save(); refreshTop(); }
 
@@ -3883,64 +3907,98 @@ const TRACK_CONTROL_PTS = [
   [-74, -12], [-56,  24], [-28,  18], [ -8,   4]
 ];
 
+const CHAPTER_MUD_ZONES = {
+  default: [
+    {x:15.0, z:0.0,   r:5.2, name:"Trailhead Mud Puddle", flatY: 0.08},
+    {x:40.0, z:10.0,  r:5.8, name:"Trackside Mud Wallow", flatY: 0.12},
+    {x:95.0, z:-10.0, r:6.5, name:"Backcountry Mud Hole", flatY: 0.20},
+    {x:-70.0,z:-30.0, r:6.8, name:"West Track Mud Bog",   flatY: 0.10},
+    {x:-40.0,z:20.0,  r:6.2, name:"Homestead Mud Pit",    flatY: 0.12},
+    {x:-35.0,z:62.0,  r:13.5,name:"Deep Swamp Trench",    flatY: 0.05}
+  ],
+  nightcity: [
+    {x:25.0, z:15.0,  r:5.2, name:"City Construction Mud Pit", flatY: 0.0}
+  ]
+};
+
+function getMudZonesForMode(mode){
+  return mode === "nightcity" ? CHAPTER_MUD_ZONES.nightcity : CHAPTER_MUD_ZONES.default;
+}
+
 function evalChapterTerrainY(mode, x, z){
+  if(mode==="nightcity") return 0.0;
   const y = -z;
   const r = Math.hypot(x, y);
   let baseH = 0;
   if(mode==="ranch"){
-    baseH = 0.22*Math.cos(x*0.09)*Math.cos(y*0.09) + 0.45*Math.sin(x*0.04+0.5)*Math.sin(y*0.04);
+    // Gentle, smooth greenland meadow undulations so driving sideways across grass is ultra-smooth!
+    baseH = 0.09*Math.cos(x*0.06)*Math.cos(y*0.06) + 0.22*Math.sin(x*0.03+0.5)*Math.sin(y*0.03);
   } else if(mode==="mudbog"){
-    const trench = -0.35*Math.exp(-(y*y)/36.0)*Math.cos(x*0.10);
-    const banks  = 0.30*(1.0 - Math.exp(-(y*y)/45.0)) + 0.15*Math.sin(x*0.08);
-    baseH = trench + banks - 0.06;
+    const trench = -0.22*Math.exp(-(y*y)/42.0)*Math.cos(x*0.08);
+    const banks  = 0.18*(1.0 - Math.exp(-(y*y)/50.0)) + 0.09*Math.sin(x*0.06);
+    baseH = trench + banks - 0.04;
   } else if(mode==="redrock"){
-    const mesa = 0.55*Math.exp(-((x-2)*(x-2)+(y+2)*(y+2))/45.0);
-    const steps = 0.35*Math.sin(x*0.08)*Math.cos(y*0.08);
+    const mesa = 0.35*Math.exp(-((x-2)*(x-2)+(y+2)*(y+2))/55.0);
+    const steps = 0.22*Math.sin(x*0.06)*Math.cos(y*0.06);
     baseH = mesa + Math.max(0.0, steps);
   } else if(mode==="dunes"){
-    baseH = 1.15*Math.sin(x*0.07+y*0.05+0.8) + 0.75*Math.cos(x*0.05-y*0.08) + 0.25;
-  } else if(mode==="nightcity"){
-    return 0.0;
+    baseH = 0.55*Math.sin(x*0.05+y*0.04+0.8) + 0.38*Math.cos(x*0.04-y*0.05) + 0.15;
   } else if(mode==="arena"){
-    baseH = 0.42*Math.exp(-(x*x+y*y)/55.0);
+    baseH = 0.28*Math.exp(-(x*x+y*y)/60.0);
   }
 
-  // Smooth Drive-Over Mountains & Rolling Ridges (gentle drivable grades so truck never glitches in grass!)
-  // Mountain 1: South-East Track Hill Pass at (x=84, z=22), height +6.5m, radius 34m
-  const dM1 = Math.hypot((x - 84)*0.75, (z - 22)*0.75);
-  if(dM1 < 34){
-    baseH += 6.5 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dM1 / 34), 1.45);
+  // Smooth Drive-Over Mountains & Rolling Ridges (placed clear of all mud pits!)
+  // Mountain 1: South-East Track Hill Pass at (x=82, z=28), height +5.8m, radius 32m
+  const dM1 = Math.hypot((x - 82)*0.75, (z - 28)*0.75);
+  if(dM1 < 32){
+    baseH += 5.8 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dM1 / 32), 1.5);
   }
-  // Mountain 2: East Switchback Mountain Pass at (x=110, z=-32), height +9.5m, radius 40m
-  const dM2 = Math.hypot((x - 110)*0.75, (z + 32)*0.75);
-  if(dM2 < 40){
-    baseH += 9.5 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dM2 / 40), 1.45);
+  // Mountain 2: East Switchback Mountain Pass at (x=115, z=-42), height +8.5m, radius 38m
+  const dM2 = Math.hypot((x - 115)*0.75, (z + 42)*0.75);
+  if(dM2 < 38){
+    baseH += 8.5 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dM2 / 38), 1.5);
   }
-  // Mountain 3: West Overlook Drive-Over Mountain at (x=-48, z=48), height +10.2m, radius 38m
-  const dM3 = Math.hypot((x + 48)*0.8, (z - 48)*0.8);
-  if(dM3 < 38){
-    baseH += 10.2 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dM3 / 38), 1.45);
+  // Mountain 3: West Overlook Drive-Over Mountain at (x=-52, z=54), height +8.8m, radius 32m
+  const dM3 = Math.hypot((x + 52)*0.8, (z - 54)*0.8);
+  if(dM3 < 32){
+    baseH += 8.8 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dM3 / 32), 1.5);
   }
-  // Mountain 4: High North-East Summit Peak at (x=135, z=-115), height +22.0m, radius 58m
-  const dPeak = Math.hypot(x - 135, z + 115);
-  if(dPeak < 58){
-    baseH += 22.0 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dPeak / 58), 1.5);
+  // Mountain 4: High North-East Summit Peak at (x=140, z=-120), height +19.0m, radius 56m
+  const dPeak = Math.hypot(x - 140, z + 120);
+  if(dPeak < 56){
+    baseH += 19.0 * Math.pow(0.5 + 0.5*Math.cos(Math.PI * dPeak / 56), 1.5);
   }
-  // Rolling Backcountry Greenland Hills for r > 125m (smooth wavelengths so tires hug every slope!)
-  if(r > 125){
-    const wFactor = Math.min(1.0, (r - 125) / 65.0);
-    const rolling = 6.5 * Math.sin(x*0.018) * Math.cos(z*0.018) +
-                    4.5 * Math.cos(x*0.028 - z*0.024) +
-                    5.5 * Math.max(0, Math.sin(x*0.012 + z*0.014));
-    baseH += wFactor * Math.max(-0.8, rolling);
+  // Rolling Backcountry Greenland Hills for r > 130m
+  if(r > 130){
+    const wFactor = Math.min(1.0, (r - 130) / 70.0);
+    const rolling = 5.2 * Math.sin(x*0.016) * Math.cos(z*0.016) +
+                    3.8 * Math.cos(x*0.024 - z*0.020) +
+                    4.5 * Math.max(0, Math.sin(x*0.011 + z*0.013));
+    baseH += wFactor * Math.max(-0.6, rolling);
   }
 
-  // Smoothly level the Old-School Frontier Town pad (x: -45..+45, z: -120..-68) & Car Wash pads so buildings/puddles sit 100% flat!
+  // Smoothly level the Old-School Frontier Town pad (x: -55..+55, z: -124..-64)
   if(x > -58 && x < 58 && z > -126 && z < -62){
     const tx = Math.max(0, 1 - Math.abs(x)/58);
     const tz = Math.max(0, 1 - Math.abs(z + 92)/32);
-    const flatBlend = Math.min(1, tx * tz * 2.2);
+    const flatBlend = Math.min(1, tx * tz * 2.4);
     baseH = baseH * (1 - flatBlend);
+  }
+
+  // Flatten terrain to a 100% dead-level ground basin under & around EVERY Mud Puddle (so mud NEVER floats!)
+  const mZones = getMudZonesForMode(mode);
+  for(let i=0; i<mZones.length; i++){
+    const mz = mZones[i];
+    const dm = Math.hypot(x - mz.x, z - mz.z);
+    const flatR = mz.r + 12.0; // Cover full 10m grid cells around the mud puddle!
+    const blendR = flatR + 10.0;
+    if(dm <= flatR){
+      return mz.flatY;
+    } else if(dm < blendR){
+      const u = (dm - flatR) / (blendR - flatR);
+      const s = u * u * (3 - 2 * u);
+      baseH = mz.flatY * (1 - s) + baseH * s;
+    }
   }
   return baseH;
 }
@@ -4568,7 +4626,12 @@ function applyXRayAndJBeamState(){
       parkGroup.add(cMesh);
       cMesh.updateMatrixWorld(true);
       CH3D.rideableMeshes.push(cMesh);
-      CH3D.crushCars.push({mesh:cMesh, x:cx, z:cz, crushed:false});
+      const cObj = {
+        x:cx, z:cz, cos:Math.cos(rotY), sin:Math.sin(rotY),
+        halfL:1.85, halfW:1.05, baseY:cy, h:0.80, tabletop:true, isCrushCar:true
+      };
+      CH3D.analyticRamps.push(cObj);
+      CH3D.crushCars.push({mesh:cMesh, x:cx, z:cz, crushed:false, rampRef:cObj});
     }
   };
 
@@ -4589,13 +4652,14 @@ function applyXRayAndJBeamState(){
     });
   };
 
-  // Build a terrain-conformed radial disc/ring mesh so Mud Puddles & Drop Zone Rings NEVER hover on slopes!
+  // Build a terrain-conformed radial disc/ring mesh with optional underground outer skirt so Mud Puddles NEVER float!
   const makeTerrainDiscMesh = (mode, cx, cz, rInner, rOuter, rSegs, thetaSegs, yOff, mat)=>{
     const geo = new THREE.RingGeometry(rInner, rOuter, thetaSegs, rSegs);
     geo.rotateX(-Math.PI/2);
     const pos = geo.attributes.position;
     for(let i=0;i<pos.count;i++){
-      const vx = cx + pos.getX(i), vz = cz + pos.getZ(i);
+      const lx = pos.getX(i), lz = pos.getZ(i);
+      const vx = cx + lx, vz = cz + lz;
       pos.setX(i, vx);
       pos.setZ(i, vz);
       pos.setY(i, getExactTerrainHeight(mode, vx, vz) + yOff);
@@ -4604,6 +4668,47 @@ function applyXRayAndJBeamState(){
     const m = new THREE.Mesh(geo, mat);
     m.receiveShadow = true;
     return m;
+  };
+
+  // Grounded 3D Mud Basin Mesh: Center wet mud sits flush at +0.005m on the dead-flat terrain basin,
+  // and its outer 3D earthen mud bank collar plunges -0.45m UNDERGROUND into the terrain so zero air gap is ever possible!
+  const makeGroundedMudPitMesh = (mode, cx, cz, r, mudPuddleMat, mudBankMat)=>{
+    const grp = new THREE.Group();
+    const centerY = getExactTerrainHeight(mode, cx, cz);
+    // 1) Wet glossy mud water disc sitting flush (+0.005m) on the flat basin floor
+    const mudGeo = new THREE.CircleGeometry(r * 0.96, 32);
+    mudGeo.rotateX(-Math.PI/2);
+    const mPos = mudGeo.attributes.position;
+    for(let i=0;i<mPos.count;i++){
+      const vx = cx + mPos.getX(i), vz = cz + mPos.getZ(i);
+      mPos.setX(i, vx); mPos.setZ(i, vz);
+      mPos.setY(i, getExactTerrainHeight(mode, vx, vz) + 0.005);
+    }
+    mudGeo.computeVertexNormals();
+    const mudMesh = new THREE.Mesh(mudGeo, mudPuddleMat);
+    mudMesh.receiveShadow = true;
+    grp.add(mudMesh);
+
+    // 2) 3D Mud Bank Berm & Underground Skirt (inner edge at +0.012m, outer skirt plunging -0.45m underground!)
+    const bankGeo = new THREE.RingGeometry(r * 0.86, r * 1.24, 32, 3);
+    bankGeo.rotateX(-Math.PI/2);
+    const bPos = bankGeo.attributes.position;
+    for(let i=0;i<bPos.count;i++){
+      const lx = bPos.getX(i), lz = bPos.getZ(i);
+      const rad = Math.hypot(lx, lz);
+      const u = (rad - r*0.86) / (r*0.38); // 0 at inner edge -> 1 at outer edge
+      const vx = cx + lx, vz = cz + lz;
+      const gy = getExactTerrainHeight(mode, vx, vz);
+      // Inner edge flush (+0.008m), mid crest (+0.018m), outer edge buried -0.45m underground!
+      const yOff = (u > 0.75) ? -0.45 : (0.008 + Math.sin(u * Math.PI) * 0.012);
+      bPos.setX(i, vx); bPos.setZ(i, vz);
+      bPos.setY(i, gy + yOff);
+    }
+    bankGeo.computeVertexNormals();
+    const bankMesh = new THREE.Mesh(bankGeo, mudBankMat);
+    bankMesh.receiveShadow = true;
+    grp.add(bankMesh);
+    return grp;
   };
 
   // Build a Solid Wooden Fence with Grounded Posts & Rails that STOPS the truck solid!
@@ -4634,6 +4739,16 @@ function applyXRayAndJBeamState(){
         CH3D.obstacleColliders.push({x:nx, z:nz, r:0.55, label:"🚧 Wooden Fence"});
       }
     }
+    // Continuous solid BoxCollider along the entire fence line so no car can ever slip between posts!
+    CH3D.boxColliders.push({
+      cx: (x1 + x2) * 0.5,
+      cz: (z1 + z2) * 0.5,
+      hx: len * 0.5 + 0.25,
+      hz: 0.42,
+      cos: Math.cos(ang),
+      sin: Math.sin(ang),
+      label: "🚧 Wooden Ranch Fence"
+    });
   };
 
   // Build a Working Drive-Through Car Wash Bay with Solid Side Walls, Spinning Bristle Rollers & Spray Arch!
@@ -4781,6 +4896,13 @@ function applyXRayAndJBeamState(){
           const globe = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 10), winMat);
           globe.position.set(gx, 1.92, b.d*0.5 + 3.8);
           bGrp.add(globe);
+        });
+        const pumpWorldZ = b.z + (b.rotY === 0 ? (b.d*0.5 + 3.8) : -(b.d*0.5 + 3.8));
+        CH3D.boxColliders.push({
+          cx: b.x, cz: pumpWorldZ,
+          hx: 2.35, hz: 0.95,
+          cos: Math.cos(b.rotY), sin: Math.sin(b.rotY),
+          label: "⛽ Red Crown Gas Pumps"
         });
       }
 
@@ -5028,14 +5150,24 @@ function applyXRayAndJBeamState(){
     gGeo.rotateX(-Math.PI/2);
     const pos = gGeo.attributes.position;
     const vCols = new Float32Array(pos.count * 3);
+    const mZonesForCol = getMudZonesForMode(mode);
     for(let i=0;i<pos.count;i++){
       const vx = pos.getX(i), vz = pos.getZ(i);
       const hy = evalChapterTerrainY(mode, vx, vz);
       pos.setY(i, hy);
       const shade = Math.max(0.74, Math.min(1.14, 0.90 + 0.14*Math.sin(vx*0.08)*Math.cos(vz*0.08) + Math.min(0.18, hy*0.03)));
-      vCols[i*3]   = shade * 0.78;
-      vCols[i*3+1] = shade * 0.96;
-      vCols[i*3+2] = shade * 0.74;
+      let rC = shade * 0.78, gC = shade * 0.96, bC = shade * 0.74;
+      for(let mi=0; mi<mZonesForCol.length; mi++){
+        const mz = mZonesForCol[mi];
+        const dm = Math.hypot(vx - mz.x, vz - mz.z);
+        if(dm < mz.r + 7.5){
+          rC = 0.36; gC = 0.24; bC = 0.14; // Rich dark mud-earth vertex color under & around mud pits!
+          break;
+        }
+      }
+      vCols[i*3]   = rC;
+      vCols[i*3+1] = gC;
+      vCols[i*3+2] = bC;
     }
     gGeo.setAttribute("color", new THREE.BufferAttribute(vCols, 3));
     gGeo.computeVertexNormals();
@@ -5108,25 +5240,14 @@ function applyXRayAndJBeamState(){
       CH3D.obstacleColliders.push({x:rx, z:rz, r:rad*1.05, label:"🪨 Solid Boulder"});
     });
 
-    // 4. Terrain-Conformed Glossy Mud Puddles & Deep Mud Bogs (Zero Hovering + Real Sinking & Spherical Splash Blasts!)
-    CH3D.mudZones = (mode === "nightcity") ? [
-      {x:24.0, z:14.0, r:5.2, name:"City Construction Mud Pit"}
-    ] : [
-      {x:13.5, z:1.2,   r:5.2, name:"Trailhead Mud Puddle"},
-      {x:38.0, z:8.0,   r:5.8, name:"Trackside Mud Wallow"},
-      {x:98.0, z:-12.0, r:6.5, name:"Backcountry Mud Hole"},
-      {x:-68.0,z:-28.0, r:6.8, name:"West Track Mud Bog"},
-      {x:-42.0,z:20.0,  r:6.2, name:"Homestead Mud Pit"},
-      {x:-38.0,z:42.0,  r:16.0,name:"Deep Swamp Trench"}
-    ];
+    // 4. Grounded 3D Mud Basins on Dead-Flat Level Ground + Underground Outer Skirt (100% Zero Floating!)
+    CH3D.mudZones = getMudZonesForMode(mode).map(mz=>Object.assign({}, mz));
     const mudTex = makeRealisticTexture("mud_bog", 4, 4);
     const mudPuddleMat = new THREE.MeshStandardMaterial({map:mudTex, color:0x361f0d, roughness:0.12, metalness:0.42, side:THREE.DoubleSide});
     const mudBankMat   = new THREE.MeshStandardMaterial({map:mudTex, color:0x4f3119, roughness:0.68, metalness:0.10, side:THREE.DoubleSide});
     CH3D.mudZones.forEach(mz=>{
-      const bank = makeTerrainDiscMesh(mode, mz.x, mz.z, mz.r*0.85, mz.r*1.22, 3, 28, 0.04, mudBankMat);
-      parkGroup.add(bank);
-      const puddle = makeTerrainDiscMesh(mode, mz.x, mz.z, 0.0, mz.r*0.95, 5, 28, 0.065, mudPuddleMat);
-      parkGroup.add(puddle);
+      const pitGrp = makeGroundedMudPitMesh(mode, mz.x, mz.z, mz.r, mudPuddleMat, mudBankMat);
+      parkGroup.add(pitGrp);
     });
 
     // 5. Realistic 5-Tier Ponderosa Pines: SOFT LEAVES (brush right through & rustle!) + HARD CENTER TRUNK (r = 0.38m stops solid!)
@@ -5259,6 +5380,7 @@ function applyXRayAndJBeamState(){
         const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 5.6, 10),
           new THREE.MeshBasicMaterial({color:i===racePts.length-1?0xffd14d:0x00e5ff}));
         pole.position.set(0, 2.3, zOff); gGrp.add(pole);
+        CH3D.obstacleColliders.push({x:pt[0], z:pt[1]+zOff, r:0.42, label:"🏁 Race Gate Pole"});
       });
       const banner = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.7, 7.8),
         new THREE.MeshBasicMaterial({color:i===racePts.length-1?0xffd14d:0x00e5ff}));
@@ -5332,7 +5454,8 @@ function applyXRayAndJBeamState(){
     } else if(kind==="mud"){
       const mudTex = makeRealisticTexture("mud_bog", 4, 4);
       const mudMat = new THREE.MeshStandardMaterial({map:mudTex, color:0x361f0d, roughness:0.12, metalness:0.42, side:THREE.DoubleSide});
-      const mp = makeTerrainDiscMesh(mode, dx, dz, 0.0, 6.5, 4, 24, 0.065, mudMat);
+      const bankMat = new THREE.MeshStandardMaterial({map:mudTex, color:0x4f3119, roughness:0.68, metalness:0.10, side:THREE.DoubleSide});
+      const mp = makeGroundedMudPitMesh(mode, dx, dz, 6.5, mudMat, bankMat);
       parkGroup.add(mp);
       CH3D.mudZones.push({x:dx, z:dz, r:6.5, name:"Custom Mud Bog"});
       showMsg("💦 DEEP MUD BOG DROPPED AHEAD!", 900);
@@ -5621,6 +5744,7 @@ function applyXRayAndJBeamState(){
     if(mEl) mEl.textContent = "💥 DERBY TAKEDOWN: Ram & Wreck the 3 AI Rival Trucks (+🪙75 each)!";
     showMsg("💥 DERBY MODE: Hit 🔥 NITRO & Ram the 3 AI Rival Trucks!", 1500);
   }
+  if(CH3D.raf) cancelAnimationFrame(CH3D.raf);
   CH3D.raf = requestAnimationFrame(step3DChapterFrame);
 }
 
@@ -5798,9 +5922,10 @@ function drawLiveMinimap(mode){
 
 function step3DChapterFrame(now){
   if(!CH3D) return;
+  if(CH3D.raf) cancelAnimationFrame(CH3D.raf);
   CH3D.raf = requestAnimationFrame(step3DChapterFrame);
   if(!CH3D.last) CH3D.last = now;
-  const rawDt = Math.min((now - CH3D.last)/1000, 0.05);
+  const rawDt = Math.max(0.016, Math.min((now - CH3D.last)/1000, 0.05));
   CH3D.last = now;
   const dt = rawDt * (CH3D.slowMo ? 0.35 : 1.0);
 
@@ -5941,97 +6066,145 @@ function step3DChapterFrame(now){
   }
 
   const prevY = CH3D.y;
-  let nextX = CH3D.x + Math.cos(CH3D.heading) * CH3D.speed * dt;
-  let nextZ = CH3D.z - Math.sin(CH3D.heading) * CH3D.speed * dt;
+  let nextX = CH3D.x;
+  let nextZ = CH3D.z;
+  const totalStepDist = Math.abs(CH3D.speed) * dt;
+  const numSubSteps = Math.max(2, Math.min(8, Math.ceil(totalStepDist / 0.45)));
+  const subDt = dt / numSubSteps;
 
-  // 1. SOFT TREE LEAVES + HARD TREE TRUNK COLLISIONS!
+  for(let sub=0; sub<numSubSteps; sub++){
+    nextX += Math.cos(CH3D.heading) * CH3D.speed * subDt;
+    nextZ -= Math.sin(CH3D.heading) * CH3D.speed * subDt;
+
+    // 1. SOFT TREE LEAVES + HARD TREE TRUNK COLLISIONS!
+    if(CH3D.trees){
+      for(const tr of CH3D.trees){
+        const dx = nextX - tr.x, dz = nextZ - tr.z;
+        const dist = Math.hypot(dx, dz);
+        const hardMin = 1.15 + tr.trunkR; // Hard wooden trunk stem
+        const softMax = 1.35 + tr.leafR;  // Soft outer green pine branches/leaves
+        if(dist < hardMin && dist > 0.001){
+          const nx = dx / dist, nz = dz / dist;
+          nextX = tr.x + nx * (hardMin + 0.06);
+          nextZ = tr.z + nz * (hardMin + 0.06);
+          if(Math.abs(CH3D.speed) > 3.2){
+            SFX.crash(); CH3D.shakeTime = 0.22;
+            showMsg("💥 Hit Solid Tree Trunk!", 650);
+          }
+          CH3D.speed *= -0.25;
+        } else if(dist < softMax){
+          tr.sway = 0.35;
+        }
+      }
+    }
+
+    // 2. SOLID FENCES, POSTS, ROCKS, BOULDERS & VIADUCT COLUMNS
+    const truckR = 1.45;
+    for(const ob of CH3D.obstacleColliders){
+      const dx = nextX - ob.x, dz = nextZ - ob.z;
+      const dist = Math.hypot(dx, dz), minD = truckR + ob.r;
+      if(dist < minD && dist > 0.001){
+        const nx = dx / dist, nz = dz / dist;
+        nextX = ob.x + nx * (minD + 0.06);
+        nextZ = ob.z + nz * (minD + 0.06);
+        if(Math.abs(CH3D.speed) > 3.0){
+          SFX.crash();
+          CH3D.shakeTime = 0.24;
+          CH3D.vCfg.condition = Math.max(25, (CH3D.vCfg.condition||100) - 2);
+          cfg(CH3D.vType).condition = CH3D.vCfg.condition;
+          const hpEl = $("#ch3dhp"); if(hpEl) hpEl.textContent = Math.round(CH3D.vCfg.condition) + "%";
+          showMsg(`💥 Stopped by ${ob.label}!`, 700);
+        }
+        CH3D.speed *= -0.25;
+      }
+    }
+
+    // 3. SOLID TOWN BUILDINGS, CONTINUOUS RANCH FENCES, CAR WASH WALLS, GAS PUMPS & WATER TOWER (Oriented Box Colliders!)
+    if(CH3D.boxColliders){
+      for(const bc of CH3D.boxColliders){
+        const dx = nextX - bc.cx, dz = nextZ - bc.cz;
+        const lx =  dx * bc.cos - dz * bc.sin;
+        const lz =  dx * bc.sin + dz * bc.cos;
+        const padX = bc.hx + 1.35, padZ = bc.hz + 1.35;
+        if(Math.abs(lx) < padX && Math.abs(lz) < padZ){
+          const penX = padX - Math.abs(lx);
+          const penZ = padZ - Math.abs(lz);
+          let nlx = lx, nlz = lz;
+          if(penX < penZ) nlx = (lx >= 0 ? padX + 0.06 : -padX - 0.06);
+          else            nlz = (lz >= 0 ? padZ + 0.06 : -padZ - 0.06);
+          nextX = bc.cx + nlx * bc.cos + nlz * bc.sin;
+          nextZ = bc.cz - nlx * bc.sin + nlz * bc.cos;
+          if(Math.abs(CH3D.speed) > 3.0){
+            SFX.crash(); CH3D.shakeTime = 0.24;
+            showMsg(`💥 Stopped by ${bc.label}!`, 700);
+          }
+          CH3D.speed *= -0.20;
+        }
+      }
+    }
+
+    // 4. SOLID UNHITCHED TRAILERS (Bulldozer Flatbed & Barn-Find Wreck Dolly — Cannot ghost through parked trailers!)
+    if(CH3D.trailers){
+      for(const tr of CH3D.trailers){
+        if(tr.delivered || CH3D.hitchedTrailer === tr) continue;
+        const c = Math.cos(tr.heading || 0), s = Math.sin(tr.heading || 0);
+        const tcx = tr.x - c * 2.1, tcz = tr.z + s * 2.1;
+        const dx = nextX - tcx, dz = nextZ - tcz;
+        const lx =  dx * c - dz * s;
+        const lz =  dx * s + dz * c;
+        const padX = 2.95, padZ = 1.95;
+        if(Math.abs(lx) < padX && Math.abs(lz) < padZ){
+          const penX = padX - Math.abs(lx);
+          const penZ = padZ - Math.abs(lz);
+          let nlx = lx, nlz = lz;
+          if(penX < penZ) nlx = (lx >= 0 ? padX + 0.06 : -padX - 0.06);
+          else            nlz = (lz >= 0 ? padZ + 0.06 : -padZ - 0.06);
+          nextX = tcx + nlx * c + nlz * s;
+          nextZ = tcz - nlx * s + nlz * c;
+          if(Math.abs(CH3D.speed) > 2.5){
+            SFX.crash(); CH3D.shakeTime = 0.20;
+            showMsg(`💥 Stopped by ${tr.title} — Tap 🪝 Hitch Load!`, 950);
+          }
+          CH3D.speed *= -0.20;
+        }
+      }
+    }
+
+    // 5. RAMP SIDE-WALL & ONE-WAY BACK-WALL PROTECTION (Climb up the slope, never clip through vertical sides/backs!)
+    if(CH3D.analyticRamps){
+      for(const r of CH3D.analyticRamps){
+        const dx = nextX - r.x, dz = nextZ - r.z;
+        const lx =  dx * r.cos - dz * r.sin;
+        const lz =  dx * r.sin + dz * r.cos;
+        if(Math.abs(lx) < r.halfL * 0.96 && Math.abs(lz) > r.halfW - 0.25 && Math.abs(lz) < r.halfW + 1.20){
+          if(CH3D.y < r.baseY + 0.48){
+            const pushedLz = lz >= 0 ? (r.halfW + 1.22) : -(r.halfW + 1.22);
+            nextX = r.x + lx * r.cos + pushedLz * r.sin;
+            nextZ = r.z - lx * r.sin + pushedLz * r.cos;
+            CH3D.speed *= 0.45;
+          }
+        }
+        if(!r.tabletop && Math.abs(lz) < r.halfW + 0.8 && lx > r.halfL * 0.75 && lx < r.halfL + 1.25){
+          if(CH3D.y < r.baseY + r.h - 0.55){
+            const pushedLx = r.halfL + 1.28;
+            nextX = r.x + pushedLx * r.cos + lz * r.sin;
+            nextZ = r.z - pushedLx * r.sin + lz * r.cos;
+            CH3D.speed *= -0.25;
+          }
+        }
+      }
+    }
+  }
+
+  // Update tree leaf sway animation once per frame
   if(CH3D.trees){
     for(const tr of CH3D.trees){
-      const dx = nextX - tr.x, dz = nextZ - tr.z;
-      const dist = Math.hypot(dx, dz);
-      const hardMin = 1.15 + tr.trunkR; // Hard wooden trunk stem
-      const softMax = 1.35 + tr.leafR;  // Soft outer green pine branches/leaves
-      if(dist < hardMin && dist > 0.001){
-        const nx = dx / dist, nz = dz / dist;
-        nextX = tr.x + nx * (hardMin + 0.06);
-        nextZ = tr.z + nz * (hardMin + 0.06);
-        if(Math.abs(CH3D.speed) > 3.5){
-          SFX.crash(); CH3D.shakeTime = 0.22;
-          showMsg("💥 Hit Solid Tree Trunk!", 650);
-        }
-        CH3D.speed *= -0.30;
-      } else if(dist < softMax){
-        // Brushing through soft outer pine leaves — truck keeps driving while branches rustle/sway!
-        tr.sway = 0.35;
-      }
       if(tr.sway > 0 && tr.leafGrp){
         tr.sway = Math.max(0, tr.sway - rawDt);
         tr.leafGrp.rotation.z = Math.sin(now*0.035) * tr.sway * 0.32;
         tr.leafGrp.rotation.x = Math.cos(now*0.028) * tr.sway * 0.25;
       } else if(tr.leafGrp){
         tr.leafGrp.rotation.z = 0; tr.leafGrp.rotation.x = 0;
-      }
-    }
-  }
-
-  // 2. SOLID FENCES, POSTS, ROCKS & VIADUCT COLUMNS (No driving through fences, posts, or rocks!)
-  const truckR = 1.45;
-  for(const ob of CH3D.obstacleColliders){
-    const dx = nextX - ob.x, dz = nextZ - ob.z;
-    const dist = Math.hypot(dx, dz), minD = truckR + ob.r;
-    if(dist < minD && dist > 0.001){
-      const nx = dx / dist, nz = dz / dist;
-      nextX = ob.x + nx * (minD + 0.06);
-      nextZ = ob.z + nz * (minD + 0.06);
-      if(Math.abs(CH3D.speed) > 3.2){
-        SFX.crash();
-        CH3D.shakeTime = 0.24;
-        CH3D.vCfg.condition = Math.max(25, (CH3D.vCfg.condition||100) - 2);
-        cfg(CH3D.vType).condition = CH3D.vCfg.condition;
-        const hpEl = $("#ch3dhp"); if(hpEl) hpEl.textContent = Math.round(CH3D.vCfg.condition) + "%";
-        showMsg(`💥 Stopped by ${ob.label}!`, 700);
-      }
-      CH3D.speed *= -0.25;
-    }
-  }
-
-  // 3. SOLID TOWN BUILDINGS, CAR WASH WALLS & WATER TOWER (Oriented Box Colliders!)
-  if(CH3D.boxColliders){
-    for(const bc of CH3D.boxColliders){
-      const dx = nextX - bc.cx, dz = nextZ - bc.cz;
-      const lx =  dx * bc.cos - dz * bc.sin;
-      const lz =  dx * bc.sin + dz * bc.cos;
-      const padX = bc.hx + 1.35, padZ = bc.hz + 1.35;
-      if(Math.abs(lx) < padX && Math.abs(lz) < padZ){
-        const penX = padX - Math.abs(lx);
-        const penZ = padZ - Math.abs(lz);
-        let nlx = lx, nlz = lz;
-        if(penX < penZ) nlx = (lx >= 0 ? padX + 0.05 : -padX - 0.05);
-        else            nlz = (lz >= 0 ? padZ + 0.05 : -padZ - 0.05);
-        nextX = bc.cx + nlx * bc.cos + nlz * bc.sin;
-        nextZ = bc.cz - nlx * bc.sin + nlz * bc.cos;
-        if(Math.abs(CH3D.speed) > 3.2){
-          SFX.crash(); CH3D.shakeTime = 0.24;
-          showMsg(`💥 Stopped by ${bc.label}!`, 700);
-        }
-        CH3D.speed *= -0.20;
-      }
-    }
-  }
-
-  // 4. RAMP SIDE-WALL PROTECTION (Can only drive onto ramps from front/back slope, never clip through side walls!)
-  if(CH3D.analyticRamps){
-    for(const r of CH3D.analyticRamps){
-      const dx = nextX - r.x, dz = nextZ - r.z;
-      const lx =  dx * r.cos - dz * r.sin;
-      const lz =  dx * r.sin + dz * r.cos;
-      if(Math.abs(lx) < r.halfL * 0.85 && Math.abs(lz) > r.halfW - 0.2 && Math.abs(lz) < r.halfW + 1.15){
-        if(CH3D.y < r.baseY + 0.45){
-          const pushedLz = lz >= 0 ? (r.halfW + 1.18) : -(r.halfW + 1.18);
-          nextX = r.x + lx * r.cos + pushedLz * r.sin;
-          nextZ = r.z - lx * r.sin + pushedLz * r.cos;
-          CH3D.speed *= 0.5;
-        }
       }
     }
   }
@@ -6112,8 +6285,12 @@ function step3DChapterFrame(now){
 
   const wheelAvgH = (hFL + hFR + hRL + hRR) * 0.25;
   const groundH = Math.max(wheelAvgH, hCenter - 0.02) + (CH3D.mudSink || 0);
-  const targetPitch = Math.atan2(((hFL+hFR)*0.5) - ((hRL+hRR)*0.5), 2.84);
-  const targetRoll  = Math.atan2(((hFR+hRR)*0.5) - ((hFL+hRL)*0.5), 1.96);
+  const rawPitch = Math.atan2(((hFL+hFR)*0.5) - ((hRL+hRR)*0.5), 2.84);
+  // Correct right-hand-rule roll sign around local +X: positive rotation.x lifts -Z (Left) and lowers +Z (Right),
+  // so rawRoll MUST be atan2(hLeft - hRight, trackWidth) so the car tilts WITH the ground slope instead of opposite!
+  const rawRoll  = Math.atan2(((hFL+hRL)*0.5) - ((hFR+hRR)*0.5), 1.96);
+  const targetPitch = CH3D.onRampThisFrame ? Math.max(-0.42, Math.min(0.42, rawPitch)) : Math.max(-0.18, Math.min(0.18, rawPitch * 0.75));
+  const targetRoll  = CH3D.onRampThisFrame ? Math.max(-0.28, Math.min(0.28, rawRoll))  : Math.max(-0.10, Math.min(0.10, rawRoll  * 0.50));
 
   if(!CH3D.airborne){
     if(CH3D.wasOnRamp && !CH3D.onRampThisFrame && Math.abs(CH3D.speed) > 7.5){
@@ -6158,7 +6335,7 @@ function step3DChapterFrame(now){
   if(CH3D.y < groundH) CH3D.y = groundH;
 
   CH3D.carHolder.position.set(CH3D.x, CH3D.y, CH3D.z);
-  CH3D.carHolder.rotation.order = "YXZ";
+  CH3D.carHolder.rotation.order = "YZX";
   CH3D.carHolder.rotation.y = CH3D.heading;
   CH3D.carHolder.rotation.z = CH3D.pitch;
   CH3D.carHolder.rotation.x = CH3D.roll;
@@ -6168,7 +6345,7 @@ function step3DChapterFrame(now){
     const vibe = (!CH3D.airborne && Math.abs(CH3D.speed) > 0.5) ? Math.sin(now*0.018)*0.018 : 0;
     const fTrav = CH3D.airborne ? -0.10 : vibe;
     const rTrav = CH3D.airborne ? -0.10 : -vibe;
-    const axleTwist = CH3D.airborne ? 0 : Math.max(-0.22, Math.min(0.22, ((hFL - hFR) - (hRL - hRR))*0.65));
+    const axleTwist = CH3D.airborne ? 0 : Math.max(-0.14, Math.min(0.14, ((hFR - hFL) - (hRR - hRL))*0.35));
     applyRiggedPose(rig, CH3D.steer, CH3D.wheelSpin, fTrav, rTrav, axleTwist, !!CH3D.vCfg.lift);
   }
 
@@ -6269,6 +6446,7 @@ function step3DChapterFrame(now){
     if(!sm.hit){
       if(Math.hypot(CH3D.x - sm.x, CH3D.z - sm.z) < 2.35){
         sm.hit = true;
+        CH3D.speed *= 0.80; CH3D.shakeTime = 0.15; SFX.crash();
         sm.vx = Math.cos(CH3D.heading) * Math.max(8, Math.abs(CH3D.speed)*1.2) + (Math.random()-0.5)*4;
         sm.vz = -Math.sin(CH3D.heading) * Math.max(8, Math.abs(CH3D.speed)*1.2) + (Math.random()-0.5)*4;
         sm.vy = 6.5 + Math.random()*3.5;
@@ -6289,10 +6467,11 @@ function step3DChapterFrame(now){
 
   // Crush Cars Flattening when driven over!
   CH3D.crushCars.forEach(cc=>{
-    if(!cc.crushed && Math.hypot(CH3D.x - cc.x, CH3D.z - cc.z) < 2.4 && CH3D.y > cc.mesh.position.y - 0.2){
+    if(!cc.crushed && Math.hypot(CH3D.x - cc.x, CH3D.z - cc.z) < 2.65){
       cc.crushed = true;
       cc.mesh.scale.y = 0.38;
       cc.mesh.position.y -= 0.26;
+      if(cc.rampRef) cc.rampRef.h = 0.32;
       cc.mesh.updateMatrixWorld(true);
       CH3D.coins += 20; addCoins(20); addXP(15); SFX.crash();
       $("#ch3dcoins").textContent = CH3D.coins;
@@ -6666,8 +6845,20 @@ boot();
 
 // Register the service worker so the app installs & works offline
 if("serviceWorker" in navigator){
+  let _refreshingSW = false;
+  const _hadSWController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener("controllerchange", function(){
+    if(!_hadSWController || _refreshingSW) return;
+    _refreshingSW = true;
+    window.location.reload();
+  });
   window.addEventListener("load", function(){
-    navigator.serviceWorker.register("sw.js").catch(function(){});
+    navigator.serviceWorker.register("sw.js?v=14").then(function(reg){
+      try{ reg.update(); }catch(e){}
+      document.addEventListener("visibilitychange", function(){
+        if(document.visibilityState === "visible"){ try{ reg.update(); }catch(e){} }
+      });
+    }).catch(function(){});
   });
 }
 </script>
