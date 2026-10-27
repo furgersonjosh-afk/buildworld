@@ -161,6 +161,13 @@
     user-select:none; z-index:3}
   .dctrl:active{background:rgba(70,110,210,.85); transform:scale(.96)}
   #dgas{right:20px} #dbrake{left:20px}
+  #c3gas, #c3rev, #c3left, #c3right, #c3nitro, #btn_cruise_lock, .dctrl{
+    touch-action:none !important; user-select:none !important;
+    -webkit-user-select:none !important; -webkit-touch-callout:none !important;
+  }
+  #c3gas *, #c3rev *, #c3left *, #c3right *, #c3nitro *, #btn_cruise_lock *{
+    pointer-events:none !important;
+  }
   .flipmsg{position:absolute; top:32%; left:50%; transform:translateX(-50%) scale(.8); font-size:40px;
     font-weight:900; color:#ffd14d; text-shadow:0 3px 10px rgba(0,0,0,.6); pointer-events:none; opacity:0;
     transition:.18s; z-index:4; white-space:nowrap}
@@ -2851,10 +2858,16 @@ function resizeDriveCanvas(){
 
 function bindDriveInput(){
   const gas=$("#dgas"), brake=$("#dbrake");
-  if(gas){ gas.onpointerdown=e=>{e.preventDefault();drive.gas=true;};
-           gas.onpointerup=gas.onpointerleave=gas.onpointercancel=()=>drive.gas=false; }
-  if(brake){ brake.onpointerdown=e=>{e.preventDefault();drive.brake=true;};
-             brake.onpointerup=brake.onpointerleave=brake.onpointercancel=()=>drive.brake=false; }
+  if(gas){
+    gas.oncontextmenu=e=>{e.preventDefault();return false;};
+    gas.onpointerdown=e=>{e.preventDefault();try{gas.setPointerCapture(e.pointerId);}catch(_){}drive.gas=true;drive.brake=false;};
+    gas.onpointerup=gas.onpointercancel=gas.onlostpointercapture=()=>{drive.gas=false;};
+  }
+  if(brake){
+    brake.oncontextmenu=e=>{e.preventDefault();return false;};
+    brake.onpointerdown=e=>{e.preventDefault();try{brake.setPointerCapture(e.pointerId);}catch(_){}drive.brake=true;};
+    brake.onpointerup=brake.onpointercancel=brake.onlostpointercapture=()=>{drive.brake=false;};
+  }
   _dkd=e=>{ if(["ArrowRight","ArrowUp"," "].includes(e.key)){drive.gas=true;e.preventDefault();}
             if(["ArrowLeft","ArrowDown"].includes(e.key)){drive.brake=true;e.preventDefault();} };
   _dku=e=>{ if(["ArrowRight","ArrowUp"," "].includes(e.key))drive.gas=false;
@@ -4127,49 +4140,46 @@ function chapter3DScreen(){
         <button class="dchip" id="btn_winch" style="pointer-events:auto;cursor:pointer;font-size:10px;padding:3px 6px;background:rgba(226,59,59,.88)">🪝 WINCH</button>
         <button class="dchip" id="ch3dlift"  style="pointer-events:auto;cursor:pointer;font-size:10px;padding:3px 6px;background:rgba(255,140,26,.85)">LIFT</button>
       </div>
-      <div style="display:flex;gap:10px">
-        <button class="dctrl" id="c3left" style="position:static;width:68px;height:68px;font-size:26px;background:rgba(15,23,42,0.82)">◀</button>
-        <button class="dctrl" id="c3right" style="position:static;width:68px;height:68px;font-size:26px;background:rgba(15,23,42,0.82)">▶</button>
+      <div style="display:flex;gap:12px">
+        <button class="dctrl" id="c3left" style="position:static;width:72px;height:72px;font-size:28px;background:rgba(15,23,42,0.85)">◀</button>
+        <button class="dctrl" id="c3right" style="position:static;width:72px;height:72px;font-size:28px;background:rgba(15,23,42,0.85)">▶</button>
       </div>
     </div>
 
-    <!-- BOTTOM-RIGHT PRO TACHOMETER GAUGE, START ENGINE, SLOW-MO & METALLIC PEDALS (Matches Jax's Photos!) -->
-    <div style="position:absolute;right:12px;bottom:12px;display:flex;align-items:flex-end;gap:10px;z-index:4;pointer-events:none">
-      <!-- START ENGINE, SLOW-MO & CIRCULAR TACHOMETER DIAL -->
-      <div style="display:flex;align-items:flex-end;gap:6px;pointer-events:auto">
-        <div style="display:flex;flex-direction:column;gap:5px;align-items:center">
-          <button id="btn_slowmo" title="Slow-Motion Physics (0.35x)" style="cursor:pointer;width:36px;height:36px;border-radius:50%;border:2px solid #94a3b8;background:radial-gradient(circle,#334155,#0f172a);color:#e2e8f0;font-size:15px">🕒</button>
-          <button id="btn_start_eng" title="Start / Rev Engine" style="cursor:pointer;width:46px;height:46px;border-radius:50%;border:2px solid #64748b;background:radial-gradient(circle,#1e293b,#090d16);color:#f8fafc;font-size:8px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;box-shadow:0 3px 8px rgba(0,0,0,0.6)">
-            <span id="eng_led" style="width:14px;height:4px;border-radius:2px;background:#ff5f00;margin-bottom:3px;box-shadow:0 0 6px #ff5f00"></span>
-            START<br/>ENGINE
-          </button>
-        </div>
-
-        <!-- Circular Tachometer & Speedometer Gauge -->
-        <div style="width:94px;height:94px;border-radius:50%;background:radial-gradient(circle,#1e293b 0%,#090d16 78%);border:3px solid #475569;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.65)">
-          <div style="font-size:9px;color:#ef4444;font-weight:900;letter-spacing:0.5px">RPM x1000</div>
-          <div id="ch3dmph" style="font-size:24px;font-weight:900;color:#ffffff;line-height:1;margin:2px 0">0</div>
-          <div style="display:flex;gap:4px;align-items:center">
-            <span style="font-size:8.5px;color:#94a3b8;font-weight:800">MPH</span>
-            <span id="ch3dgear" style="font-size:10px;background:#ef4444;color:#fff;font-weight:900;padding:0 4px;border-radius:3px">G1</span>
+    <!-- BOTTOM-RIGHT ERGONOMIC PEDAL BAY (Wide 76x112px Gas Pedal, 24px Gap from Brake, Auto-Gas Latch & Compact Gauge) -->
+    <div style="position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;z-index:4;pointer-events:none">
+      <!-- Upper Cluster: Slow-Mo, Start Engine, Compact Tachometer & Auto-Gas Cruise Lock -->
+      <div style="display:flex;align-items:center;gap:6px;pointer-events:auto">
+        <button id="btn_slowmo" title="Slow-Motion Physics (0.35x)" style="cursor:pointer;width:34px;height:34px;border-radius:50%;border:2px solid #94a3b8;background:radial-gradient(circle,#334155,#0f172a);color:#e2e8f0;font-size:14px">🕒</button>
+        <button id="btn_start_eng" title="Start / Rev Engine" style="cursor:pointer;width:42px;height:42px;border-radius:50%;border:2px solid #64748b;background:radial-gradient(circle,#1e293b,#090d16);color:#f8fafc;font-size:7.5px;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;box-shadow:0 3px 8px rgba(0,0,0,0.6)">
+          <span id="eng_led" style="width:12px;height:4px;border-radius:2px;background:#4ade80;margin-bottom:2px;box-shadow:0 0 6px #4ade80"></span>
+          START<br/>ENGINE
+        </button>
+        <div style="width:78px;height:78px;border-radius:50%;background:radial-gradient(circle,#1e293b 0%,#090d16 78%);border:2.5px solid #475569;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.65)">
+          <div style="font-size:7.5px;color:#ef4444;font-weight:900">RPM</div>
+          <div id="ch3dmph" style="font-size:20px;font-weight:900;color:#ffffff;line-height:1">0</div>
+          <div style="display:flex;gap:3px;align-items:center">
+            <span style="font-size:7.5px;color:#94a3b8;font-weight:800">MPH</span>
+            <span id="ch3dgear" style="font-size:9px;background:#ef4444;color:#fff;font-weight:900;padding:0 3px;border-radius:3px">G1</span>
           </div>
-          <button id="c3nitro" style="cursor:pointer;margin-top:3px;font-size:9px;padding:1px 6px;border-radius:6px;border:1px solid #ffd14d;background:linear-gradient(180deg,#ff5f00,#d91b1b);color:#fff;font-weight:900">🔥 NITRO</button>
+          <button id="c3nitro" style="cursor:pointer;margin-top:2px;font-size:8.5px;padding:1px 5px;border-radius:5px;border:1px solid #ffd14d;background:linear-gradient(180deg,#ff5f00,#d91b1b);color:#fff;font-weight:900">🔥 NITRO</button>
         </div>
+        <button id="btn_cruise_lock" title="Latch Gas Pedal ON Hands-Free" style="cursor:pointer;padding:6px 9px;border-radius:999px;border:2px solid #4ade80;background:rgba(15,23,42,0.92);color:#4ade80;font-size:10.5px;font-weight:900;box-shadow:0 3px 10px rgba(0,0,0,0.5)">🔒 AUTO GAS</button>
       </div>
 
-      <!-- BRUSHED-METAL BRAKE & GAS FOOT PEDALS -->
-      <div style="display:flex;gap:8px;align-items:flex-end;pointer-events:auto">
-        <button id="c3rev" title="Brake / Reverse" style="cursor:pointer;width:54px;height:66px;border-radius:8px;border:2px solid #94a3b8;background:linear-gradient(180deg,#cbd5e1,#64748b);box-shadow:inset 0 2px 4px #fff, 0 4px 10px rgba(0,0,0,0.6);display:flex;flex-direction:column;justify-content:space-evenly;align-items:center;padding:6px">
-          <span style="width:82%;height:7px;background:#1e293b;border-radius:2px"></span>
-          <span style="width:82%;height:7px;background:#1e293b;border-radius:2px"></span>
-          <span style="width:82%;height:7px;background:#1e293b;border-radius:2px"></span>
-          <span style="font-size:9px;font-weight:900;color:#0f172a">BRAKE</span>
+      <!-- Lower Thumb Zone: Shorter Brake Pedal on Left + 24px Safety Gap + Huge Wide 76x112px Gas Pedal on Right! -->
+      <div style="display:flex;align-items:flex-end;pointer-events:auto">
+        <button id="c3rev" title="Brake / Reverse" style="cursor:pointer;width:52px;height:64px;margin-right:24px;border-radius:9px;border:2.5px solid #f87171;background:linear-gradient(180deg,#cbd5e1,#64748b);box-shadow:inset 0 2px 4px #fff, 0 4px 10px rgba(0,0,0,0.6);display:flex;flex-direction:column;justify-content:space-evenly;align-items:center;padding:5px;transition:transform 0.06s, box-shadow 0.06s">
+          <span style="width:82%;height:6px;background:#1e293b;border-radius:2px"></span>
+          <span style="width:82%;height:6px;background:#1e293b;border-radius:2px"></span>
+          <span style="font-size:8.5px;font-weight:900;color:#7f1d1d">BRAKE ▼</span>
         </button>
-        <button id="c3gas" title="Gas / Throttle" style="cursor:pointer;width:48px;height:96px;border-radius:9px;border:2px solid #cbd5e1;background:linear-gradient(180deg,#e2e8f0,#64748b);box-shadow:inset 0 2px 5px #fff, 0 4px 12px rgba(0,0,0,0.65);display:flex;flex-direction:column;justify-content:space-evenly;align-items:center;padding:8px 5px">
-          <span style="width:72%;height:14px;background:#1e293b;border-radius:3px"></span>
-          <span style="width:72%;height:14px;background:#1e293b;border-radius:3px"></span>
-          <span style="width:72%;height:14px;background:#1e293b;border-radius:3px"></span>
-          <span style="font-size:9.5px;font-weight:900;color:#0f172a">GAS</span>
+        <button id="c3gas" title="Hold to Accelerate" style="cursor:pointer;width:76px;height:112px;border-radius:12px;border:3px solid #4ade80;background:linear-gradient(180deg,#e2e8f0 0%,#94a3b8 55%,#475569 100%);box-shadow:inset 0 2px 6px #fff, 0 5px 14px rgba(0,0,0,0.75);display:flex;flex-direction:column;justify-content:space-evenly;align-items:center;padding:7px 6px;transition:transform 0.06s, box-shadow 0.06s">
+          <span id="gas_led_bar" style="width:80%;height:7px;background:#16a34a;border-radius:4px;box-shadow:0 0 6px #4ade80"></span>
+          <span style="width:76%;height:13px;background:#0f172a;border-radius:3px"></span>
+          <span style="width:76%;height:13px;background:#0f172a;border-radius:3px"></span>
+          <span style="width:76%;height:13px;background:#0f172a;border-radius:3px"></span>
+          <span style="font-size:12px;font-weight:900;color:#052e16;letter-spacing:0.5px">GAS ▲</span>
         </button>
       </div>
     </div>
@@ -4534,7 +4544,7 @@ function applyXRayAndJBeamState(){
     pitch: 0, roll: 0, coins: 0, wrecksCount: 0, trackIdx: 1, lapsDone: 0,
     fourWD: true, lowGear: false, diffLock: false, winchActive: false, xrayOn: false, jbeamOn: false, slowMo: false, engineRunning: true,
     anchorPos: new THREE.Vector3(12.5, 1.4, 8.8),
-    input: {gas:false, rev:false, left:false, right:false, nitro:false},
+    input: {gas:false, rev:false, left:false, right:false, nitro:false}, cruiseGas: false, _gasPid: null,
     rideableMeshes: [], analyticRamps: [], obstacleColliders: [], boxColliders: [], trees: [],
     smashables: [], crushCars: [], mudZones: [], mudParticles: [], mudRipples: [],
     carWashBays: [], washBrushes: [], trackPoints: [], trackGates: [],
@@ -5697,10 +5707,83 @@ function applyXRayAndJBeamState(){
   const ex = $("#ch3dexit");
   if(ex) ex.onclick = ()=>{ stop3DChapterMode(); setScreen("garage"); };
 
+  const updatePedalVisuals = ()=>{
+    if(!CH3D) return;
+    const gasBtn = $("#c3gas"), revBtn = $("#c3rev"), ledBar = $("#gas_led_bar"), cruiseBtn = $("#btn_cruise_lock");
+    const gasOn = !!(CH3D.input.gas || CH3D.cruiseGas);
+    const revOn = !!CH3D.input.rev;
+    if(gasBtn){
+      gasBtn.style.transform = gasOn ? "scale(0.95)" : "scale(1)";
+      gasBtn.style.borderColor = gasOn ? "#22c55e" : "#4ade80";
+      gasBtn.style.background = gasOn ? "linear-gradient(180deg,#86efac 0%,#4ade80 60%,#16a34a 100%)" : "linear-gradient(180deg,#e2e8f0 0%,#94a3b8 55%,#475569 100%)";
+      gasBtn.style.boxShadow = gasOn ? "0 0 20px rgba(74,222,128,0.9), inset 0 2px 6px #fff" : "inset 0 2px 6px #fff, 0 5px 14px rgba(0,0,0,0.75)";
+    }
+    if(ledBar){
+      ledBar.style.background = gasOn ? "#fff" : "#16a34a";
+    }
+    if(revBtn){
+      revBtn.style.transform = revOn ? "scale(0.95)" : "scale(1)";
+      revBtn.style.background = revOn ? "linear-gradient(180deg,#fca5a5,#ef4444)" : "linear-gradient(180deg,#cbd5e1,#64748b)";
+      revBtn.style.boxShadow = revOn ? "0 0 16px rgba(239,68,68,0.85)" : "inset 0 2px 4px #fff, 0 4px 10px rgba(0,0,0,0.6)";
+    }
+    if(cruiseBtn){
+      cruiseBtn.textContent = CH3D.cruiseGas ? "🔒 AUTO GAS: ON" : "🔒 AUTO GAS";
+      cruiseBtn.style.background = CH3D.cruiseGas ? "linear-gradient(180deg,#4ade80,#16a34a)" : "rgba(15,23,42,0.92)";
+      cruiseBtn.style.color = CH3D.cruiseGas ? "#052e16" : "#4ade80";
+    }
+  };
+
+  const bCruise = $("#btn_cruise_lock");
+  if(bCruise){
+    bCruise.oncontextmenu = e => { e.preventDefault(); return false; };
+    bCruise.onclick = e => {
+      e.preventDefault();
+      if(!CH3D) return;
+      CH3D.cruiseGas = !CH3D.cruiseGas;
+      if(CH3D.cruiseGas) CH3D.input.rev = false;
+      SFX.tap();
+      updatePedalVisuals();
+      showMsg(CH3D.cruiseGas ? "🔒 AUTO GAS LOCKED ON — Hands-Free Full Throttle!" : "🔓 Auto Gas Released", 950);
+    };
+  }
+
+  // Rock-Solid Pointer Capture + Mutual-Exclusion Touch Hold (Never drops out if thumb slides, never hits Brake accidentally!)
   const bindBtn = (sel, k)=>{
     const b = $(sel); if(!b) return;
-    b.onpointerdown = e=>{ e.preventDefault(); if(CH3D) CH3D.input[k]=true; };
-    b.onpointerup = b.onpointerleave = b.onpointercancel = ()=>{ if(CH3D) CH3D.input[k]=false; };
+    b.oncontextmenu = e => { e.preventDefault(); return false; };
+    b.onpointerdown = e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if(!CH3D) return;
+      // Mutual exclusion: if Gas is actively held by a finger, ignore accidental Brake touches!
+      if(k === "rev" && CH3D.input.gas && CH3D._gasPid !== null && CH3D._gasPid !== e.pointerId){
+        return;
+      }
+      try { b.setPointerCapture(e.pointerId); } catch(_){}
+      b._pid = e.pointerId;
+      if(k === "gas"){
+        CH3D._gasPid = e.pointerId;
+        CH3D.input.gas = true;
+        CH3D.input.rev = false;
+      } else if(k === "rev"){
+        CH3D.input.rev = true;
+        CH3D.cruiseGas = false; // Touching Brake immediately unlocks Auto-Gas!
+      } else {
+        CH3D.input[k] = true;
+      }
+      updatePedalVisuals();
+    };
+    const release = e => {
+      if(!CH3D) return;
+      if(b._pid !== undefined && b._pid !== null && e && e.pointerId !== undefined && e.pointerId !== b._pid) return;
+      b._pid = null;
+      if(k === "gas") CH3D._gasPid = null;
+      CH3D.input[k] = false;
+      updatePedalVisuals();
+    };
+    b.onpointerup = release;
+    b.onpointercancel = release;
+    b.onlostpointercapture = release;
   };
   bindBtn("#c3gas","gas"); bindBtn("#c3rev","rev"); bindBtn("#c3left","left"); bindBtn("#c3right","right"); bindBtn("#c3nitro","nitro");
 
@@ -5744,7 +5827,6 @@ function applyXRayAndJBeamState(){
     if(mEl) mEl.textContent = "💥 DERBY TAKEDOWN: Ram & Wreck the 3 AI Rival Trucks (+🪙75 each)!";
     showMsg("💥 DERBY MODE: Hit 🔥 NITRO & Ram the 3 AI Rival Trucks!", 1500);
   }
-  if(CH3D.raf) cancelAnimationFrame(CH3D.raf);
   CH3D.raf = requestAnimationFrame(step3DChapterFrame);
 }
 
@@ -6024,7 +6106,7 @@ function step3DChapterFrame(now){
   const maxSpd = (16.5 + st.speed * 0.075) * lowMultSpd * nitroMult * mudDrag * towSpdMult * (laws.speedMult||1.0);
   const accel  = (18.5 + st.power * 0.095) * lowMultAcc * fourMult * diffMult * nitroMult * towAccMult * (laws.speedMult||1.0);
 
-  if(inp.gas || inp.nitro) CH3D.speed += accel * dt;
+  if(inp.gas || CH3D.cruiseGas || inp.nitro) CH3D.speed += accel * dt;
   else if(inp.rev) CH3D.speed -= accel * 0.88 * dt;
   else CH3D.speed *= (1 - (inMud ? 3.5 : 1.8) * dt);
 
@@ -6853,7 +6935,7 @@ if("serviceWorker" in navigator){
     window.location.reload();
   });
   window.addEventListener("load", function(){
-    navigator.serviceWorker.register("sw.js?v=14").then(function(reg){
+    navigator.serviceWorker.register("sw.js?v=15").then(function(reg){
       try{ reg.update(); }catch(e){}
       document.addEventListener("visibilitychange", function(){
         if(document.visibilityState === "visible"){ try{ reg.update(); }catch(e){} }
