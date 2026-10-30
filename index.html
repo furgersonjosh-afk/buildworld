@@ -406,14 +406,15 @@ function load(){
 function save(){ try{ localStorage.setItem("buildworld", JSON.stringify(state)); }catch(e){} }
 
 function cfg(type){
-  const defPaint = type==="bouncer" ? "#24c757" : (type==="crawler" ? "#eb4214" : (type==="classic70" ? "#d9822b" : (type==="outlaw69" ? "#2f8fff" : (type==="gtr34" ? "#1d4ed8" : (type==="supra98" ? "#f59e0b" : (type==="nekoma18" ? "#e2e8f0" : "#dc2626"))))));
+  const defPaint = type==="bouncer" ? "#24c757" : (type==="crawler" ? "#eb4214" : (type==="classic70" ? "#d9822b" : (type==="outlaw69" ? "#2f8fff" : (type==="gtr34" ? "#1d4ed8" : (type==="supra98" ? "#f59e0b" : (type==="nekoma18" ? "#e2e8f0" : ((isRaceCarType(type) && RACE_CAR_SPECS[type].paint) || "#dc2626")))))));
   if(!state.configs[type]) state.configs[type] = {paint:defPaint, wheel:"#c9ccd6", parts:[]};
   const c = state.configs[type];
   if(!c.parts) c.parts=[];
   if(!c.rim) c.rim=(type==="crawler"||type==="bouncer"||type==="monster"||type==="tractor"||type==="dirtbike"||type==="atv")?"offroad":"sport";
-  const isHyper = (type==="lmp1"||type==="m40"||type==="supra98"||type==="nekoma18"||type==="gtr34"||type==="supercar");
+  const isHyper = (isRaceCarType(type)||type==="supercar");
   if(c.lift===undefined) c.lift=(type==="bouncer");
   if(isHyper && !c._hyperInit){ c.lift=false; c.suspTravel=0.06; c.tireRadius=0.90; c.tireWidth=1.15; c.rim="sport"; c.wheel="#fbbf24"; c._hyperInit=true; }
+  raceCarCfgInit(type, c);
   if(c.tint===undefined) c.tint=false;
   if(!c.wheel) c.wheel="#c9ccd6";
   if(!c.engine) c.engine="stock";
@@ -1126,6 +1127,816 @@ const CAR_PROFILE = {
   bigrig:  {h:1.70, p:[[.5,.10],[.5,.9],[.32,.94],[.2,.62],[-.5,.62],[-.5,.10]]},
 };
 
+/* RACE_CARS_V18_START — procedural realistic race-car bodies (v18).
+   Each car: own lofted body (profile y1, crown, plan width w), auto wheel-arch cut-outs + fender humps,
+   greenhouse glass + roof cap + pillars, splitter/canards/skirts/diffuser, per-car wing/aero,
+   multi-spoke rims + low-profile tires + discs/calipers, livery (made-up sponsors only). */
+var RACE_CAR_SPECS = {
+  lmp1: { fenderPop:0.32, len:4.65, axleF:1.55, axleR:-1.45, r:0.35, tw:[0.30,0.34], floor:0.12, exp:0.7, tumble:0.08,
+    y1:[[2.33,0.30],[2.0,0.40],[1.5,0.50],[0.9,0.58],[0.4,0.60],[-0.5,0.68],[-1.6,0.78],[-2.2,0.80],[-2.33,0.62]],
+    crown:[[2.33,-0.02],[1.5,-0.16],[0.6,-0.10],[-0.6,-0.10],[-1.6,-0.14],[-2.33,-0.04]],
+    w:[[2.33,0.80],[1.9,0.98],[1.5,1.0],[0,0.97],[-1.5,1.0],[-2.33,0.96]],
+    cab:{xf:0.95, xr:-0.65, roof:1.04, ws:0.62, rw:0.45, gw:0.50, top:0.74, pillar:0.03},
+    wing:{type:"lmp", x:-2.12, y:1.00, span:1.92, chord:0.40}, fin:true,
+    heads:{type:"top", x:1.88, z:0.74, w:0.34, h:0.07, shape:"slim"}, tails:{type:"bar", h:0.05},
+    splitter:true, canards:1, skirts:true, diffuser:1.2, exhaust:"twinCenter",
+    liv:{num:"7", sponsor:"VOLTRIX", stripe:null, accent:"#111827"}, spokes:5, wheel:"#1f2937", caliper:"#ef4444",
+    vName:"Gamma Lucille '67 LMP", emoji:"🏎️" },
+  m40: { len:4.40, axleF:1.30, axleR:-1.35, r:0.35, tw:[0.29,0.34], floor:0.12, exp:0.8, tumble:0.12,
+    y1:[[2.2,0.40],[1.8,0.55],[1.2,0.66],[0.6,0.78],[-0.2,0.82],[-1.6,0.86],[-2.2,0.84]],
+    crown:[[2.2,0.03],[1.3,0.0],[0,0.05],[-1.3,0.02],[-2.2,0.02]],
+    w:[[2.2,0.80],[1.8,0.95],[1.3,0.99],[0,0.97],[-1.35,1.02],[-2.2,0.98]],
+    cab:{xf:0.70, xr:-0.72, roof:1.12, ws:0.75, rw:0.85, gw:0.80, top:0.68},
+    wing:{type:"integrated", x:-2.06, y:0.98, span:1.98, chord:0.30}, naca:true,
+    heads:{type:"top", x:1.78, z:0.62, w:0.30, h:0.12, shape:"rect"}, tails:{type:"round", n:2, r:0.07},
+    splitter:true, canards:1, skirts:true, diffuser:1, exhaust:"triple",
+    liv:{num:"40", sponsor:"ROSSO FUEL", stripe:null, accent:"#fde047"}, spokes:5, wheel:"#d1d5db", caliper:"#fbbf24",
+    vName:"Fabrizio M40 '92", emoji:"🇮🇹" },
+  gtr34: { len:4.45, axleF:1.35, axleR:-1.32, r:0.35, tw:[0.30,0.32], floor:0.13, exp:0.42, tumble:0.06,
+    y1:[[2.22,0.60],[2.1,0.72],[1.2,0.80],[0.6,0.84],[-0.9,0.90],[-1.6,0.92],[-2.1,0.92],[-2.22,0.76]],
+    crown:[[2.2,0.04],[1.35,0.02],[-1.3,0.02],[-2.2,0.04]],
+    w:[[2.22,0.92],[2.0,0.98],[0,0.99],[-2.0,0.99],[-2.22,0.94]],
+    cab:{xf:0.55, xr:-0.95, roof:1.36, ws:0.62, rw:0.42, gw:0.88, top:0.78},
+    wing:{type:"gt", x:-2.0, y:1.24, span:1.86, chord:0.32, postH:0.32}, hoodVents:true,
+    heads:{type:"face", y:0.56, z:0.62, w:0.36, h:0.12, shape:"rect", grille:true}, tails:{type:"round", n:2, r:0.085, face:true},
+    splitter:true, canards:2, skirts:true, diffuser:1, exhaust:"single",
+    liv:{num:"34", sponsor:"KITSUNE OIL", stripe:null, accent:"#e5e7eb"}, spokes:6, wheel:"#9ca3af", caliper:"#ef4444",
+    vName:"Kitsune R34 V-Spec '99", emoji:"🇯🇵" },
+  supra98: { len:4.40, axleF:1.30, axleR:-1.30, r:0.35, tw:[0.30,0.33], floor:0.13, exp:0.9, tumble:0.12,
+    y1:[[2.2,0.46],[1.9,0.60],[1.2,0.74],[0.5,0.82],[-1.0,0.88],[-1.8,0.90],[-2.2,0.80]],
+    crown:[[2.2,0.06],[1.3,0.03],[-1.3,0.04],[-2.2,0.06]],
+    w:[[2.2,0.84],[1.8,0.97],[0,0.99],[-1.6,1.0],[-2.2,0.90]],
+    cab:{xf:0.50, xr:-1.0, roof:1.28, ws:0.75, rw:0.60, gw:0.82, top:0.66},
+    wing:{type:"hoop", x:-1.92, y:1.08, span:1.80, chord:0.26},
+    heads:{type:"top", x:1.86, z:0.66, w:0.36, h:0.10, shape:"swept"}, tails:{type:"round", n:2, r:0.08, face:true},
+    splitter:true, canards:1, skirts:true, diffuser:1, exhaust:"single",
+    liv:{num:"98", sponsor:"SUNRISE TUNING", stripe:null, accent:"#111827"}, spokes:10, wheel:"#e5e7eb", caliper:"#ef4444",
+    vName:"Yuta Sudo RZ '98", emoji:"🔥" },
+  nekoma18: { len:4.50, axleF:1.40, axleR:-1.35, r:0.36, tw:[0.31,0.35], floor:0.12, exp:0.7, tumble:0.10,
+    y1:[[2.25,0.50],[1.9,0.66],[1.2,0.80],[0.5,0.86],[-1.2,0.92],[-2.0,0.94],[-2.25,0.84]],
+    crown:[[2.2,0.05],[1.4,0.0],[-1.35,0.0],[-2.2,0.05]],
+    w:[[2.25,0.88],[1.9,1.0],[1.4,1.03],[0.2,0.98],[-1.35,1.04],[-2.25,0.96]],
+    cab:{xf:0.60, xr:-1.25, roof:1.32, ws:0.70, rw:0.95, gw:0.84, top:0.70},
+    wing:{type:"gt", x:-2.05, y:1.28, span:2.0, chord:0.36, postH:0.36}, hoodVents:true,
+    heads:{type:"top", x:1.92, z:0.68, w:0.38, h:0.08, shape:"swept"}, tails:{type:"ring", n:2, r:0.09, face:true},
+    splitter:true, canards:2, skirts:true, diffuser:1.2, exhaust:"twin",
+    liv:{num:"18", sponsor:"NEKO GRIP", stripe:"#dc2626", accent:"#dc2626"}, spokes:10, wheel:"#1f2937", caliper:"#f97316",
+    vName:"Nekoma GTO '18", emoji:"⚡" },
+  veyron: { len:4.45, axleF:1.33, axleR:-1.35, r:0.36, tw:[0.30,0.35], floor:0.12, exp:1.0, tumble:0.14,
+    y1:[[2.22,0.42],[1.9,0.56],[1.2,0.68],[0.5,0.78],[-0.5,0.84],[-1.6,0.84],[-2.22,0.74]],
+    crown:[[2.2,0.08],[0,0.08],[-2.2,0.08]],
+    w:[[2.22,0.80],[1.8,0.98],[0,1.0],[-2.22,0.94]],
+    cab:{xf:0.65, xr:-0.55, roof:1.16, ws:0.80, rw:0.30, gw:0.74, top:0.60, twoTone:"#0f172a"},
+    wing:{type:"active", x:-1.86, y:0.95, span:1.62, chord:0.36, postH:0.08}, roofScoop:"twin", horseshoe:true,
+    heads:{type:"top", x:1.86, z:0.60, w:0.30, h:0.10, shape:"swept"}, tails:{type:"bar", h:0.05},
+    splitter:true, canards:1, skirts:true, diffuser:1, exhaust:"centerBig",
+    liv:{num:"16", sponsor:"AZURE CHRONO", stripe:null, accent:"#0f172a"}, spokes:8, wheel:"#cbd5e1", caliper:"#2563eb",
+    vName:"Azure Seize 16.4", emoji:"💎" },
+  countach: { len:4.20, axleF:1.24, axleR:-1.24, r:0.35, tw:[0.29,0.36], floor:0.12, exp:0.35, tumble:0.10,
+    y1:[[2.1,0.36],[1.6,0.50],[1.0,0.62],[0.6,0.70],[-0.6,0.84],[-1.6,0.86],[-2.1,0.82]],
+    crown:[[2.1,0.02],[0,0.02],[-2.1,0.02]],
+    w:[[2.1,0.86],[1.6,0.95],[0,0.98],[-1.2,1.03],[-2.1,1.0]],
+    cab:{xf:0.78, xr:-0.45, roof:1.07, ws:1.00, rw:0.35, gw:0.82, top:0.64},
+    wing:{type:"vwing", x:-1.90, y:1.08, span:1.92, chord:0.34, postH:0.2}, airboxes:true, naca:true,
+    heads:{type:"top", x:1.66, z:0.56, w:0.36, h:0.14, shape:"popup"}, tails:{type:"rect", w:0.42, h:0.10, face:true},
+    splitter:true, canards:1, skirts:true, diffuser:1, exhaust:"quad",
+    liv:{num:"77", sponsor:"ZENITH OIL", stripe:null, accent:"#111827"}, spokes:5, wheel:"#e5e7eb", caliper:"#fbbf24",
+    vName:"Toreador LP-77", emoji:"🐂" },
+  evo10: { len:4.50, axleF:1.36, axleR:-1.30, r:0.36, tw:[0.29,0.30], floor:0.18, exp:0.55, tumble:0.08,
+    y1:[[2.25,0.64],[2.1,0.78],[1.4,0.88],[0.8,0.92],[-1.4,0.98],[-2.0,1.0],[-2.25,0.86]],
+    crown:[[2.2,0.05],[0,0.05],[-2.2,0.05]],
+    w:[[2.25,0.90],[2.0,0.98],[0,0.97],[-2.25,0.95]],
+    cab:{xf:0.70, xr:-1.25, roof:1.44, ws:0.70, rw:0.45, gw:0.86, top:0.80},
+    wing:{type:"gt", x:-2.06, y:1.16, span:1.70, chord:0.28, postH:0.16}, roofScoop:"single", hoodVents:true,
+    mudflaps:true, rallyLights:"bumper",
+    heads:{type:"face", y:0.70, z:0.62, w:0.40, h:0.10, shape:"rect", grille:true}, tails:{type:"rect", w:0.36, h:0.12, face:true},
+    splitter:true, canards:0, skirts:true, diffuser:0.8, exhaust:"single",
+    liv:{num:"10", sponsor:"MAPLE RALLY", stripe:null, accent:"#111827"}, spokes:6, wheel:"#f8fafc", caliper:"#ef4444",
+    vName:"Kaizen Evo X Rally", emoji:"🌲" },
+  charger69: { len:4.70, axleF:1.42, axleR:-1.42, r:0.36, rearR:0.39, tw:[0.29,0.40], floor:0.14, exp:0.45, tumble:0.06,
+    y1:[[2.35,0.74],[2.2,0.84],[1.0,0.88],[0.5,0.90],[-1.4,0.92],[-2.25,0.92],[-2.35,0.80]],
+    crown:[[2.3,0.04],[0,0.04],[-2.3,0.04]],
+    w:[[2.35,0.92],[2.1,0.97],[0,0.98],[-2.35,0.96]],
+    cab:{xf:0.20, xr:-1.25, roof:1.32, ws:0.60, rw:0.55, gw:0.86, top:0.72},
+    wing:{type:"ducktail", x:-2.30, y:0.94, span:1.86, chord:0.16}, blower:true, wheelieBar:true,
+    heads:{type:"face", y:0.66, z:0.58, w:0.0, h:0.0, shape:"round4", grille:true, full:true}, tails:{type:"bar", h:0.10, face:true},
+    splitter:false, canards:0, skirts:false, diffuser:0, exhaust:"quad",
+    liv:{num:"42", sponsor:"BIG BLOCK SODA", stripe:"#f8fafc", stripeType:"tail", accent:"#f8fafc"}, spokes:5, wheel:"#d1d5db", caliper:"#ef4444",
+    vName:"Charger R/T '69 Drag", emoji:"🐏" },
+  ae86: { len:4.15, axleF:1.20, axleR:-1.20, r:0.33, tw:[0.26,0.28], floor:0.14, exp:0.40, tumble:0.08,
+    y1:[[2.08,0.62],[1.9,0.72],[1.0,0.78],[0.6,0.80],[-1.6,0.90],[-2.08,0.88]],
+    crown:[[2.0,0.03],[0,0.03],[-2.0,0.03]],
+    w:[[2.08,0.88],[1.9,0.94],[0,0.95],[-2.08,0.93]],
+    cab:{xf:0.62, xr:-1.82, roof:1.36, ws:0.68, rw:0.34, gw:0.90, top:0.82},
+    wing:{type:"roof", x:-1.86, y:1.36, span:1.40, chord:0.20},
+    heads:{type:"top", x:1.80, z:0.58, w:0.34, h:0.12, shape:"popup"}, tails:{type:"rect", w:0.50, h:0.14, face:true},
+    splitter:true, canards:0, skirts:true, diffuser:0.6, exhaust:"single",
+    liv:{num:"86", sponsor:"MOUNTAIN TOFU", stripe:null, lower:"#111827", accent:"#111827"}, spokes:8, wheel:"#d1d5db", caliper:"#ef4444",
+    vName:"Hachi-Roku Panda '86", emoji:"🍱" },
+  viper99: { len:4.50, axleF:1.40, axleR:-1.30, r:0.36, tw:[0.30,0.36], floor:0.12, exp:0.85, tumble:0.14,
+    y1:[[2.25,0.48],[1.9,0.64],[1.2,0.76],[0.3,0.82],[-0.4,0.84],[-1.6,0.86],[-2.25,0.80]],
+    crown:[[2.2,0.06],[0,0.06],[-2.2,0.06]],
+    w:[[2.25,0.82],[1.9,0.96],[1.4,1.02],[0.6,0.95],[-1.3,1.03],[-2.25,0.94]],
+    cab:{xf:-0.05, xr:-1.15, roof:1.20, ws:0.75, rw:0.50, gw:0.76, top:0.62},
+    wing:{type:"gt", x:-2.06, y:1.14, span:1.86, chord:0.30, postH:0.24}, hoodVents:true, sideExhaust:true,
+    heads:{type:"top", x:1.86, z:0.62, w:0.32, h:0.10, shape:"swept"}, tails:{type:"rect", w:0.34, h:0.08, face:true},
+    splitter:true, canards:2, skirts:true, diffuser:1, exhaust:"none",
+    liv:{num:"99", sponsor:"STRIKE MOTOR", stripe:"#f8fafc", stripeType:"dual", accent:"#f8fafc"}, spokes:5, wheel:"#e5e7eb", caliper:"#ef4444",
+    vName:"Serpent GTS '99", emoji:"🐍" },
+  stratos: { len:3.90, axleF:1.10, axleR:-1.10, r:0.34, tw:[0.30,0.33], floor:0.15, exp:0.6, tumble:0.12,
+    y1:[[1.95,0.44],[1.6,0.58],[1.1,0.68],[0.7,0.74],[-0.7,0.86],[-1.6,0.88],[-1.95,0.84]],
+    crown:[[1.9,0.04],[0,0.04],[-1.9,0.04]],
+    w:[[1.95,0.86],[1.6,0.97],[0,0.99],[-1.95,0.98]],
+    cab:{xf:0.85, xr:-0.40, roof:1.15, ws:0.75, rw:0.30, gw:0.92, top:0.55},
+    wing:{type:"roof", x:-0.62, y:1.17, span:1.30, chord:0.22}, rallyLights:"hood", mudflaps:true,
+    heads:{type:"top", x:1.62, z:0.58, w:0.34, h:0.12, shape:"popup"}, tails:{type:"round", n:1, r:0.10, face:true},
+    splitter:false, canards:0, skirts:true, diffuser:0.6, exhaust:"twin",
+    liv:{num:"4", sponsor:"AZURRO TEA", stripe:"#facc15", stripeType:"center", accent:"#facc15"}, spokes:5, wheel:"#e5e7eb", caliper:"#ef4444",
+    vName:"Stratosfera HF '74", emoji:"🚀" },
+  gt3rs: { fenderPop:0.16, len:4.45, axleF:1.30, axleR:-1.15, r:0.35, tw:[0.30,0.37], floor:0.12, exp:0.9, tumble:0.12,
+    y1:[[2.22,0.46],[2.0,0.54],[1.3,0.62],[0.6,0.72],[0.2,0.78],[-1.0,0.86],[-1.8,0.84],[-2.22,0.74]],
+    crown:[[2.2,-0.02],[1.3,-0.16],[0.6,-0.04],[-0.6,0.0],[-1.15,-0.08],[-2.2,0.02]],
+    w:[[2.22,0.82],[1.9,0.96],[1.3,0.99],[0.3,0.93],[-1.15,1.04],[-2.22,0.96]],
+    cab:{xf:0.45, xr:-1.00, roof:1.30, ws:0.72, rw:0.95, gw:0.78, top:0.62},
+    wing:{type:"swan", x:-1.95, y:1.24, span:1.86, chord:0.36}, hoodVents:true,
+    heads:{type:"top", x:1.80, z:0.70, w:0.24, h:0.16, shape:"oval"}, tails:{type:"bar", h:0.04, face:true},
+    splitter:true, canards:2, skirts:true, diffuser:1.2, exhaust:"twinCenter",
+    liv:{num:"91", sponsor:"KESTREL GRIP", stripe:"#111827", stripeType:"side", accent:"#111827"}, spokes:10, wheel:"#111827", caliper:"#facc15",
+    vName:"Kestrel 9 RS", emoji:"🦅" },
+  subaru98: { len:4.35, axleF:1.28, axleR:-1.25, r:0.35, tw:[0.30,0.31], floor:0.16, exp:0.50, tumble:0.08,
+    y1:[[2.18,0.62],[2.05,0.74],[1.3,0.84],[0.6,0.88],[-1.4,0.94],[-2.0,0.96],[-2.18,0.84]],
+    crown:[[2.1,0.05],[0,0.05],[-2.1,0.05]],
+    w:[[2.18,0.90],[1.9,0.97],[1.28,1.05],[0.6,0.94],[-0.6,0.94],[-1.25,1.05],[-2.18,0.95]],
+    cab:{xf:0.58, xr:-1.20, roof:1.40, ws:0.70, rw:0.45, gw:0.86, top:0.80},
+    wing:{type:"gt", x:-1.96, y:1.22, span:1.76, chord:0.26, postH:0.26}, hoodScoop:true, roofScoop:"single", mudflaps:true,
+    heads:{type:"face", y:0.66, z:0.62, w:0.38, h:0.12, shape:"rect", grille:true}, tails:{type:"rect", w:0.40, h:0.12, face:true},
+    splitter:true, canards:1, skirts:true, diffuser:0.8, exhaust:"single",
+    liv:{num:"22", sponsor:"STAR CLUSTER", stripe:null, accent:"#facc15"}, spokes:6, wheel:"#d4af37", caliper:"#ef4444",
+    vName:"Pleiad 22B Rally '98", emoji:"⭐" },
+  rx7: { fenderPop:0.12, len:4.30, axleF:1.25, axleR:-1.25, r:0.35, tw:[0.29,0.32], floor:0.12, exp:1.0, tumble:0.14,
+    y1:[[2.15,0.42],[1.8,0.56],[1.2,0.68],[0.5,0.76],[-0.8,0.84],[-1.7,0.84],[-2.15,0.74]],
+    crown:[[2.1,0.0],[1.25,-0.06],[0.3,0.04],[-1.25,-0.04],[-2.1,0.04]],
+    w:[[2.15,0.80],[1.8,0.96],[1.25,1.0],[0.3,0.92],[-1.25,1.0],[-2.15,0.92]],
+    cab:{xf:0.55, xr:-0.95, roof:1.20, ws:0.80, rw:0.70, gw:0.70, top:0.55},
+    wing:{type:"hoop", x:-1.90, y:1.02, span:1.70, chord:0.24},
+    heads:{type:"top", x:1.72, z:0.60, w:0.32, h:0.12, shape:"popup"}, tails:{type:"round", n:3, r:0.06, face:true},
+    splitter:true, canards:1, skirts:true, diffuser:1, exhaust:"twin",
+    liv:{num:"13", sponsor:"ROTOR WORKS", stripe:null, accent:"#111827"}, spokes:5, wheel:"#e5e7eb", caliper:"#ef4444",
+    vName:"Rotary Spirit FD '93", emoji:"🌀" }
+};
+var RACE_CAR_TYPES = Object.keys(RACE_CAR_SPECS);
+function isRaceCarType(t){ return !!(t && typeof RACE_CAR_SPECS!=="undefined" && RACE_CAR_SPECS && RACE_CAR_SPECS[t]); }
+function _rcInterp(keys, x){
+  // keys sorted by x DESC (front -> rear) or ASC; handle both, smoothstep between keys
+  const k = keys[0][0] > keys[keys.length-1][0] ? keys.slice().reverse() : keys;
+  if(x <= k[0][0]) return k[0][1];
+  if(x >= k[k.length-1][0]) return k[k.length-1][1];
+  for(let i=0;i<k.length-1;i++){
+    const a=k[i], b=k[i+1];
+    if(x>=a[0] && x<=b[0]){ let t=(x-a[0])/((b[0]-a[0])||1); t=t*t*(3-2*t); return a[1]+(b[1]-a[1])*t; }
+  }
+  return k[k.length-1][1];
+}
+// Body cross-section sampler for a race spec at station x (metres, +X forward).
+function _rcSection(S, x){
+  const L=S.len, half=L/2;
+  const tEnd = Math.max(0, (Math.abs(x)-(half-0.32))/0.32);           // 0..1 toward nose/tail tip
+  const y0 = S.floor + tEnd*tEnd*0.12;
+  let y1 = _rcInterp(S.y1, x);
+  let crown = _rcInterp(S.crown, x);
+  let w = _rcInterp(S.w, x);
+  const zi = 0.62;                                                     // inner face of wheel arch
+  let nY = y0;
+  let ys = y1 - crown;                                                 // shoulder height
+  let ys0 = ys;
+  [[S.axleF, S.r], [S.axleR, S.rearR||S.r]].forEach(([ax, rr])=>{
+    const Ra0 = rr + 0.035, dx0 = Math.abs(x-ax), hoodMin0 = rr + Ra0 + 0.04 - (S.fenderPop!==undefined ? S.fenderPop : 0.09);
+    if(dx0 < Ra0+0.55 && y1 < hoodMin0){ const f=Math.max(0,(dx0-Ra0*0.6)/(0.55+Ra0*0.4)); const hm = hoodMin0 + (y1-hoodMin0)*(0.5-0.5*Math.cos(Math.min(1,f)*Math.PI)); if(y1<hm){ ys += hm-y1; ys0 = ys; y1=hm; } }
+  });
+  [[S.axleF, S.r], [S.axleR, S.rearR||S.r]].forEach(([ax, rr])=>{
+    const Ra = rr + 0.035, dx = Math.abs(x-ax), peak = rr + Ra + 0.04;
+    if(dx < Ra){ nY = Math.max(nY, rr + Math.sqrt(Ra*Ra-dx*dx)); }
+    if(peak > ys0){
+      // fender hump: full height over the arch, cosine blend back to the body line over 0.5 m
+      let need = peak;
+      if(dx > Ra*0.55){ const f=Math.min(1,(dx-Ra*0.55)/0.55); need = peak + (ys0-peak)*(0.5-0.5*Math.cos(f*Math.PI)); }
+      if(ys < need) ys = need;
+    }
+  });
+  if(nY > ys-0.03) nY = ys-0.03;
+  return {y0, y1, ys, w, zi, nY, tumble:S.tumble, exp:S.exp};
+}
+// Half outline (z>=0), from bottom centre round to top centre.
+function _rcHalfOutline(sec){
+  const P=[];
+  const {y0,y1,ys,w,zi,nY,tumble,exp}=sec;
+  P.push([0,y0]); P.push([zi,y0]);
+  P.push([zi,nY]); P.push([w*0.985,nY]); P.push([w*0.985,nY]);    // duplicated corner = crisp arch edge
+  P.push([w,nY+0.03]);
+  const wT = w*(1-tumble);
+  for(let k=1;k<=4;k++){ const f=k/4; P.push([w - (w-wT)*f*f, nY+0.03 + (ys-nY-0.03)*f]); }
+  for(let j=1;j<=6;j++){
+    const a=j/6*Math.PI/2, c=Math.pow(Math.cos(a),exp), s=Math.pow(Math.sin(a),exp);
+    P.push([wT*c, ys + (y1-ys)*s]);
+  }
+  P[P.length-1][0]=0;
+  return P;
+}
+// Generic lofter: rings[] of [x, [[z,y]...half]] -> mirrored closed rings + end caps.
+function _rcLoft(rings, capEnds){
+  const pos=[], idx=[];
+  let M=0;
+  rings.forEach(([x,half])=>{
+    const ring=[];
+    for(let i=half.length-1;i>=0;i--) ring.push([half[i][0], half[i][1]]);
+    for(let i=1;i<half.length-1;i++) ring.push([-half[i][0], half[i][1]]);
+    M=ring.length;
+    ring.forEach(p=>pos.push(x,p[1],p[0]));
+  });
+  for(let s=0;s<rings.length-1;s++){
+    for(let i=0;i<M;i++){
+      const a=s*M+i, b=s*M+(i+1)%M, c=(s+1)*M+i, d=(s+1)*M+(i+1)%M;
+      idx.push(a,c,b, b,c,d);
+    }
+  }
+  if(capEnds){
+    [0, rings.length-1].forEach((s,si)=>{
+      let cx=0,cy=0,cz=0; for(let i=0;i<M;i++){ cx+=pos[(s*M+i)*3]; cy+=pos[(s*M+i)*3+1]; cz+=pos[(s*M+i)*3+2]; }
+      const ci=pos.length/3; pos.push(cx/M,cy/M,cz/M);
+      for(let i=0;i<M;i++){ const a=s*M+i, b=s*M+(i+1)%M; if(si===0) idx.push(ci,b,a); else idx.push(ci,a,b); }
+    });
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos,3));
+  geo.setIndex(idx); geo.computeVertexNormals();
+  return geo;
+}
+function _rcBodyGeo(S){
+  const N=64, half=S.len/2, rings=[];
+  for(let i=0;i<=N;i++){
+    // denser sampling at nose/tail ends
+    let u=i/N; u = 0.5 - 0.5*Math.cos(u*Math.PI); u = u*0.5 + (i/N)*0.5;
+    const x = -half + u*S.len;
+    rings.push([x, _rcHalfOutline(_rcSection(S,x))]);
+  }
+  return _rcLoft(rings, true);
+}
+// Greenhouse (cabin) profile: roof height & half-widths over x.
+function _rcCabinAt(S, x){
+  const C=S.cab;
+  if(x>C.xf || x<C.xr) return null;
+  const sec=_rcSection(S,x);
+  const yb = sec.ys + (sec.y1-sec.ys)*0.55 - 0.015;
+  const wb = sec.w*(1-sec.tumble)*C.gw/ (C.gw>0.7?1:1);
+  let h;
+  if(x > C.xf-C.ws){ const f=(C.xf-x)/C.ws; h = Math.sin(f*Math.PI/2); }
+  else if(x < C.xr+C.rw){ const f=(x-C.xr)/C.rw; h = Math.pow(Math.sin(f*Math.PI/2), 0.85); }
+  else h = 1;
+  const roofY = C.roof - Math.pow(Math.abs((x-(C.xf-C.ws+C.xr+C.rw)/2)/((C.xf-C.ws-(C.xr+C.rw))/2+0.6)),2)*0.03;
+  const yt = yb + (roofY-yb)*h;
+  return {yb, wb, yt, wt: wb*C.top + (wb-wb*C.top)*(1-h)*0.35, h};
+}
+function _rcCabinHalf(cs, upper){
+  const {yb,wb,yt,wt}=cs, P=[];
+  const hgt=Math.max(0.004, yt-yb);
+  if(!upper){
+    P.push([0,yb]); P.push([wb,yb]);
+    for(let k=1;k<=3;k++){ const f=k/4; P.push([wb-(wb-wt)*Math.pow(f,1.3), yb+hgt*0.86*f]); }
+  } else {
+    P.push([0,yb+hgt*0.56]); P.push([wt+(wb-wt)*0.30, yb+hgt*0.56]);
+  }
+  P.push([wt, yb+hgt*0.86]);
+  for(let j=1;j<=4;j++){ const a=j/4*Math.PI/2; P.push([wt*Math.pow(Math.cos(a),0.7), yb+hgt*0.86 + hgt*0.14*Math.pow(Math.sin(a),0.7)]); }
+  P[P.length-1][0]=0;
+  return P;
+}
+function _rcCabinGeo(S, upper, x0, x1, grow){
+  const rings=[], N=28;
+  for(let i=0;i<=N;i++){
+    const x = x1 + (x0-x1)*(i/N);
+    const cs=_rcCabinAt(S, Math.min(S.cab.xf, Math.max(S.cab.xr, x))); if(!cs) continue;
+    if(grow){ cs.wt+=grow; cs.wb+=grow; cs.yt+=grow; }
+    rings.push([x, _rcCabinHalf(cs, upper)]);
+  }
+  rings.reverse();
+  return _rcLoft(rings, true);
+}
+
+function _rcSailGeo(S, x0, x1, sd, grow){
+  const pos=[], idx=[], N=14, K=5;
+  for(let i=0;i<=N;i++){
+    const x=x0+(x1-x0)*i/N, cs=_rcCabinAt(S, Math.min(S.cab.xf, Math.max(S.cab.xr, x))); if(!cs) continue;
+    const hgt=Math.max(0.004, cs.yt-cs.yb);
+    for(let k=0;k<=K;k++){ const f=k/K*0.88; const z=(cs.wb-(cs.wb-cs.wt)*Math.pow(f/0.86,1.3))+grow; pos.push(x, cs.yb+hgt*f, sd*Math.max(z, cs.wt+grow)); }
+  }
+  const rows=pos.length/3/(K+1);
+  for(let i=0;i<rows-1;i++) for(let k=0;k<K;k++){ const a=i*(K+1)+k, b=a+1, c=a+K+1, d=c+1; idx.push(a,c,b,b,c,d); }
+  const g=new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos,3)); g.setIndex(idx); g.computeVertexNormals(); return g;
+}
+const _rcTexCache = {};
+function _rcCarbonTex(){
+  if(_rcTexCache.carbon) return _rcTexCache.carbon;
+  const cv=document.createElement("canvas"); cv.width=cv.height=64; const x=cv.getContext("2d");
+  x.fillStyle="#15171c"; x.fillRect(0,0,64,64);
+  for(let i=0;i<8;i++) for(let j=0;j<8;j++){
+    const g=x.createLinearGradient(i*8,j*8,i*8+8,j*8+8);
+    const on=(i+j)%2===0; g.addColorStop(0,on?"#2a2e37":"#0d0f13"); g.addColorStop(1,on?"#121418":"#262a32");
+    x.fillStyle=g; x.fillRect(i*8,j*8,8,8);
+  }
+  const t=new THREE.CanvasTexture(cv); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(6,6);
+  return (_rcTexCache.carbon=t);
+}
+function _rcLiveryTex(S, side){
+  const key="liv_"+S.liv.num+"_"+S.liv.sponsor+"_"+side;
+  if(_rcTexCache[key]) return _rcTexCache[key];
+  const cv=document.createElement("canvas"); cv.width=512; cv.height=192; const x=cv.getContext("2d");
+  x.clearRect(0,0,512,192);
+  // number roundel
+  x.fillStyle="#ffffff"; x.beginPath(); x.arc(256,92,74,0,Math.PI*2); x.fill();
+  x.lineWidth=8; x.strokeStyle="#111827"; x.stroke();
+  x.fillStyle="#111827"; x.font="900 92px Arial Black, Arial, sans-serif"; x.textAlign="center"; x.textBaseline="middle";
+  x.fillText(S.liv.num, 256, 98);
+  // sponsor plates (made-up brands only)
+  const plate=(txt, cx, cy, wpx, bg, fg, fs)=>{
+    x.fillStyle=bg; x.fillRect(cx-wpx/2, cy-20, wpx, 40);
+    x.fillStyle=fg; x.font="900 "+fs+"px Arial, sans-serif"; x.fillText(txt, cx, cy+2);
+  };
+  plate(S.liv.sponsor, 90, 150, 170, "#111827", "#fde047", 22);
+  plate("JAX BUILD WORLD", 422, 150, 170, "#f8fafc", "#111827", 19);
+  plate("TURBO-JX", 84, 52, 140, "rgba(255,255,255,0.92)", "#dc2626", 22);
+  plate("GRIPZ", 428, 52, 120, "#dc2626", "#ffffff", 24);
+  const t=new THREE.CanvasTexture(cv); if(THREE.SRGBColorSpace) t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=4;
+  return (_rcTexCache[key]=t);
+}
+function _rcMats(S, c){
+  const paintCol = new THREE.Color(c.paint || "#dc2626");
+  const paint = new THREE.MeshPhysicalMaterial({color:paintCol, metalness:0.55, roughness:0.22, clearcoat:1.0, clearcoatRoughness:0.06, envMapIntensity:1.35, side:THREE.DoubleSide});
+  applyFinish(paint, c.finish); paint.name="Truck_Paint_Primary";
+  const glass = new THREE.MeshPhysicalMaterial({color:new THREE.Color(c.tint?0x020305:0x0a111c), metalness:0.55, roughness:0.05, envMapIntensity:0.9, transparent:true, opacity:c.tint?0.97:0.92, side:THREE.DoubleSide});
+  glass.name="Window_Glass";
+  const carbon = new THREE.MeshStandardMaterial({color:0xffffff, map:_rcCarbonTex(), metalness:0.35, roughness:0.38, envMapIntensity:1.0, side:THREE.DoubleSide});
+  carbon.name="Carbon_Fiber";
+  const black = new THREE.MeshStandardMaterial({color:0x0b0c10, metalness:0.2, roughness:0.6, side:THREE.DoubleSide}); black.name="Trim_Black";
+  const chrome = new THREE.MeshStandardMaterial({color:0xe5e7eb, metalness:1.0, roughness:0.12, envMapIntensity:1.4}); chrome.name="Chrome";
+  const rim = new THREE.MeshStandardMaterial({color:new THREE.Color(c.wheel || S.wheel), metalness:0.88, roughness:0.24, envMapIntensity:1.3}); rim.name="Rim_Alloy";
+  const tire = new THREE.MeshStandardMaterial({color:0x141518, metalness:0.0, roughness:0.86}); tire.name="Tire_Rubber";
+  const disc = new THREE.MeshStandardMaterial({color:0x6b7280, metalness:0.9, roughness:0.35}); disc.name="Brake_Disc";
+  const caliper = new THREE.MeshStandardMaterial({color:new THREE.Color(S.caliper||"#ef4444"), metalness:0.4, roughness:0.35}); caliper.name="Brake_Caliper";
+  const lightsOn = (c.parts||[]).includes("lights");
+  const head = new THREE.MeshStandardMaterial({color:0xffffff, emissive:0xfff4d6, emissiveIntensity:lightsOn?3.2:1.4, metalness:0.1, roughness:0.1}); head.name="Headlight_Emissive";
+  const tail = new THREE.MeshStandardMaterial({color:0xb91c1c, emissive:0xff0000, emissiveIntensity:2.6, roughness:0.3}); tail.name="Taillight_Emissive";
+  const accent = new THREE.MeshStandardMaterial({color:new THREE.Color(S.liv.stripe || S.liv.accent || "#f8fafc"), metalness:0.3, roughness:0.3, side:THREE.DoubleSide}); accent.name="Livery_Stripe";
+  const twoTone = new THREE.MeshPhysicalMaterial({color:new THREE.Color((S.cab&&S.cab.twoTone)||S.liv.lower||"#0f172a"), metalness:0.6, roughness:0.25, clearcoat:1, clearcoatRoughness:0.08, side:THREE.DoubleSide}); twoTone.name="Livery_TwoTone";
+  const interior = new THREE.MeshStandardMaterial({color:0x1a1c22, roughness:0.9}); interior.name="Interior";
+  return {paint, glass, carbon, black, chrome, rim, tire, disc, caliper, head, tail, accent, twoTone, interior};
+}
+// Wheel node: geometry sized so that the rig's default race tireRadius(0.90)/tireWidth(1.15) scale lands on rEff/wEff.
+function _rcWheel(name, S, M, rEff, wEff, side){
+  const g=new THREE.Group(); g.name=name;
+  const rN = rEff/0.90, wN = wEff/1.15, sg = side;           // side: -1 left (-Z), +1 right (+Z)
+  // low-profile tire via lathe (rounded shoulders)
+  const pts=[]; const ri=rN*0.74, ro=rN, hw=wN/2;
+  pts.push(new THREE.Vector2(ri, -hw)); pts.push(new THREE.Vector2(ro-0.03, -hw)); pts.push(new THREE.Vector2(ro-0.008, -hw+0.02));
+  pts.push(new THREE.Vector2(ro, -hw+0.05)); pts.push(new THREE.Vector2(ro, hw-0.05)); pts.push(new THREE.Vector2(ro-0.008, hw-0.02));
+  pts.push(new THREE.Vector2(ro-0.03, hw)); pts.push(new THREE.Vector2(ri, hw));
+  const tg=new THREE.LatheGeometry(pts, 30); tg.rotateX(Math.PI/2);
+  const tire=new THREE.Mesh(tg, M.tire); tire.castShadow=true; g.add(tire);
+  // rim barrel + lip
+  const barrel=new THREE.Mesh(new THREE.CylinderGeometry(ri*0.99, ri*0.99, wN*0.92, 24, 1, true), M.black);
+  barrel.rotation.x=Math.PI/2; g.add(barrel);
+  const lip=new THREE.Mesh(new THREE.TorusGeometry(ri*0.97, 0.014, 6, 30), M.rim);
+  lip.position.z = sg*(hw-0.01); g.add(lip);
+  // brake disc (inside the spokes)
+  const disc=new THREE.Mesh(new THREE.CylinderGeometry(ri*0.80, ri*0.80, 0.028, 22), M.disc);
+  disc.rotation.x=Math.PI/2; disc.position.z = sg*(hw*0.25); g.add(disc);
+  // spokes
+  const n=S.spokes||5, faceZ=sg*(hw-0.035);
+  const spokeL = ri*0.86, spokeW = n>=8 ? 0.028 : 0.05;
+  for(let i=0;i<n;i++){
+    const a=i/n*Math.PI*2;
+    const sp=new THREE.Mesh(new THREE.BoxGeometry(spokeL, spokeW, 0.035), M.rim);
+    sp.position.set(Math.cos(a)*spokeL*0.55, Math.sin(a)*spokeL*0.55, faceZ);
+    sp.rotation.z=a; g.add(sp);
+    if(n<=6){ // split-5/6 spoke look
+      const sp2=new THREE.Mesh(new THREE.BoxGeometry(spokeL*0.8, 0.022, 0.03), M.rim);
+      sp2.position.set(Math.cos(a+0.16)*spokeL*0.6, Math.sin(a+0.16)*spokeL*0.6, faceZ-sg*0.012);
+      sp2.rotation.z=a+0.16; g.add(sp2);
+    }
+  }
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(ri*0.22, ri*0.26, 0.05, 14), M.rim);
+  hub.rotation.x=Math.PI/2; hub.position.z=faceZ; g.add(hub);
+  const nut=new THREE.Mesh(new THREE.CylinderGeometry(ri*0.09, ri*0.09, 0.07, 6), M.chrome);
+  nut.rotation.x=Math.PI/2; nut.position.z=faceZ+sg*0.012; g.add(nut);
+  _rcMergeStatic(g);
+  g.userData.mudRingR = rN*0.96;
+  return g;
+}
+// Box strut between two points (pillars, posts, tubes)
+function _rcStrut(p1, p2, t, d, mat){
+  const a=new THREE.Vector3(...p1), b=new THREE.Vector3(...p2), L=a.distanceTo(b);
+  const m=new THREE.Mesh(new THREE.BoxGeometry(L, t, d), mat);
+  m.position.copy(a).add(b).multiplyScalar(0.5);
+  const dir=b.clone().sub(a).normalize();
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(1,0,0), dir);
+  return m;
+}
+// Aerofoil wing element spanning Z (chord along X), with angle of attack.
+function _rcPlane(span, chord, thick, mat){
+  const sh=new THREE.Shape();
+  sh.moveTo(chord/2, 0); sh.quadraticCurveTo(chord*0.25, thick*1.2, -chord/2, thick*0.35);
+  sh.lineTo(-chord/2, -thick*0.15); sh.quadraticCurveTo(chord*0.1, -thick*0.2, chord/2, 0);
+  const geo=new THREE.ExtrudeGeometry(sh, {depth:span, bevelEnabled:false, steps:1});
+  geo.translate(0,0,-span/2);
+  return new THREE.Mesh(geo, mat);
+}
+// Merge every static mesh under `root` into one mesh per material (huge draw-call saving for phones).
+function _rcMergeStatic(root){
+  root.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  const buckets = new Map(), victims = [];
+  root.traverse(o=>{
+    if(!o.isMesh || o.userData.noMerge) return;
+    const mat=o.material; if(Array.isArray(mat)) return;
+    if(!buckets.has(mat)) buckets.set(mat, []);
+    buckets.get(mat).push(o); victims.push(o);
+  });
+  victims.forEach(o=>{ if(o.parent) o.parent.remove(o); });
+  buckets.forEach((list, mat)=>{
+    const needUV = !!mat.map;
+    const P=[], N=[], U=[];
+    list.forEach(o=>{
+      let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+      if(!g.attributes.normal) g.computeVertexNormals();
+      const m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
+      g.applyMatrix4(m);
+      P.push(g.attributes.position.array); N.push(g.attributes.normal.array);
+      if(needUV){ const cnt=g.attributes.position.count; U.push(g.attributes.uv ? g.attributes.uv.array : new Float32Array(cnt*2)); }
+      g.dispose();
+    });
+    const cat=(arrs)=>{ let n=0; arrs.forEach(a=>n+=a.length); const out=new Float32Array(n); let k=0; arrs.forEach(a=>{ out.set(a,k); k+=a.length; }); return out; };
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(cat(P),3));
+    geo.setAttribute("normal", new THREE.BufferAttribute(cat(N),3));
+    if(needUV) geo.setAttribute("uv", new THREE.BufferAttribute(cat(U),2));
+    geo.computeBoundingSphere();
+    const mesh=new THREE.Mesh(geo, mat);
+    mesh.castShadow = !(mat.transparent);
+    mesh.userData.keepGeo = true;
+    root.add(mesh);
+  });
+}
+function buildRaceCar3D(g, type, c){
+  const S = RACE_CAR_SPECS[type]; if(!S) return false;
+  c = c || cfg(type);
+  const M = _rcMats(S, c);
+  const half = S.len/2;
+  const body = new THREE.Group(); body.name="Body_Shell";
+  const add = (m, parent)=>{ m.castShadow=true; m.receiveShadow=false; (parent||body).add(m); return m; };
+  const topAt = x => { const s=_rcSection(S,x); return s.y1; };
+  const shoulderAt = x => { const s=_rcSection(S,x); return {y:s.ys, w:s.w*(1-s.tumble), wOut:s.w}; };
+
+  // 1) main lofted shell (clearcoat paint)
+  add(new THREE.Mesh(_rcBodyGeo(S), M.paint));
+  // undertray
+  const ut=new THREE.Mesh(new THREE.BoxGeometry(S.len*0.86, 0.02, 1.22), M.black); ut.position.set(0, S.floor+0.012, 0); add(ut);
+  // arch liners (dark) so wheel wells read as openings
+  [[S.axleF,S.r],[S.axleR,S.rearR||S.r]].forEach(([ax,rr])=>{
+    [-1,1].forEach(sd=>{
+      const lg=new THREE.CylinderGeometry(rr+0.03, rr+0.03, 0.36, 20, 1, true, Math.PI/2, Math.PI);
+      lg.rotateX(Math.PI/2);
+      const ln=new THREE.Mesh(lg, M.black); ln.position.set(ax, rr, sd*0.80); add(ln);
+    });
+  });
+
+  // 2) greenhouse: glass loft, paint roof cap, pillars, cabin interior + roll cage
+  const C=S.cab;
+  add(new THREE.Mesh(_rcCabinGeo(S, false, C.xr, C.xf, 0), M.glass)).castShadow=false;
+  const capMat = C.twoTone ? M.twoTone : M.paint;
+  add(new THREE.Mesh(_rcCabinGeo(S, true, C.xr+C.rw*0.55, C.xf-C.ws*0.72, 0.012), capMat));
+  if(C.rw < 0.8 && !C.noSail){ [-1,1].forEach(sd=>{ const sl=new THREE.Mesh(_rcSailGeo(S, C.xr, C.xr+C.rw+ (C.sail!==undefined?C.sail:0.22), sd, 0.008), capMat); add(sl); }); }
+  const pt = C.pillar || 0.05;
+  const csF = _rcCabinAt(S, C.xf-0.01), csT = _rcCabinAt(S, C.xf-C.ws*0.98), csR=_rcCabinAt(S, C.xr+0.01), csRT=_rcCabinAt(S, C.xr+C.rw*0.98);
+  [-1,1].forEach(sd=>{
+    add(_rcStrut([C.xf-0.01, csF.yb, sd*csF.wb], [C.xf-C.ws*0.98, csT.yt-0.01, sd*(csT.wt+0.01)], pt, pt*1.2, capMat));
+    if(C.rw < 0.8) add(_rcStrut([C.xr+0.02, csR.yb, sd*csR.wb], [C.xr+C.rw*0.98, csRT.yt-0.01, sd*(csRT.wt+0.01)], pt*1.6, pt*1.4, capMat));
+    const xm=(C.xf-C.ws+C.xr+C.rw)/2, csM=_rcCabinAt(S, xm);
+    add(_rcStrut([xm, csM.yb, sd*csM.wb*0.99], [xm-0.04, csM.yt-0.02, sd*csM.wt*1.0], pt, pt, M.black));
+  });
+  const xmid=(C.xf+C.xr)/2, csMid=_rcCabinAt(S, xmid);
+  const inter=new THREE.Mesh(new THREE.BoxGeometry((C.xf-C.xr)*0.8, 0.05, csMid.wb*1.8), M.interior); inter.position.set(xmid, csMid.yb-0.01, 0); add(inter);
+  [-1,1].forEach(sd=>{
+    if(S.cab.gw<0.6 && sd>0) return;
+    const seat=new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.42, 0.34), M.interior);
+    seat.position.set(xmid-0.18, csMid.yb+0.16, sd*(S.cab.gw<0.6?0:0.30)); seat.rotation.z=0.25; add(seat);
+  });
+  const cageA=_rcCabinAt(S, xmid-0.15); const cage=new THREE.Mesh(new THREE.TorusGeometry(Math.min(cageA.wt, (cageA.yt-cageA.yb))*0.82, 0.018, 6, 16, Math.PI), M.black);
+  cage.position.set(xmid-0.15, cageA.yb, 0); cage.rotation.y=Math.PI/2; cage.scale.set(1, (cageA.yt-cageA.yb-0.04)/(Math.min(cageA.wt,(cageA.yt-cageA.yb))*0.82), cageA.wt*0.95/(Math.min(cageA.wt,(cageA.yt-cageA.yb))*0.82)); add(cage);
+
+  // 3) aero: splitter, canards, side skirts, diffuser
+  const noseS=_rcSection(S, half-0.06);
+  if(S.splitter){
+    const sp=new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.025, noseS.w*2.0), M.carbon); sp.position.set(half-0.06, noseS.y0-0.012, 0); add(sp);
+    [-1,1].forEach(sd=>{ const st=_rcStrut([half-0.02, noseS.y0-0.01, sd*noseS.w*0.6],[half-0.12, noseS.y0+0.06, sd*noseS.w*0.6],0.012,0.012,M.black); add(st); });
+  }
+  for(let k=0;k<(S.canards||0);k++){
+    const xs=half-0.16-k*0.06, sS=_rcSection(S,xs);
+    [-1,1].forEach(sd=>{
+      const cn=new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.012, 0.12), M.carbon);
+      cn.position.set(xs, sS.y0+0.10+k*0.08, sd*(sS.w+0.04)); cn.rotation.set(0, 0, 0.22+k*0.08); cn.rotation.x = sd*0.18; add(cn);
+    });
+  }
+  if(S.skirts){
+    const xa=S.axleF-(S.r+0.06), xb=S.axleR+((S.rearR||S.r)+0.06), xm=(xa+xb)/2, sM=_rcSection(S,xm);
+    [-1,1].forEach(sd=>{ const sk=new THREE.Mesh(new THREE.BoxGeometry(xa-xb, 0.07, 0.05), M.carbon); sk.position.set(xm, S.floor+0.02, sd*(sM.w+0.008)); add(sk); });
+  }
+  if(S.diffuser){
+    const tailS=_rcSection(S, -half+0.15), dl=0.5*S.diffuser;
+    const df=new THREE.Mesh(new THREE.BoxGeometry(dl, 0.02, tailS.w*1.5), M.carbon);
+    df.position.set(-half+dl/2-0.02, S.floor+0.10, 0); df.rotation.z=-0.22; add(df);
+    for(let f=-2;f<=2;f++){ const fin=new THREE.Mesh(new THREE.BoxGeometry(dl*0.95, 0.14, 0.014), M.carbon); fin.position.set(-half+dl/2-0.02, S.floor+0.08, f*tailS.w*0.3); add(fin); }
+  }
+  _rcAddWing(S, M, body, add, topAt, shoulderAt);
+  _rcAddDetails(S, M, c, body, add, topAt, shoulderAt);
+  _rcAddLivery(S, M, body, add, topAt);
+
+  // 4) wheels (separate spinning nodes) + calipers on the body
+  const _calipers=[];
+  const nodes={}, restPos={};
+  const rF=S.r, rR=S.rearR||S.r, twF=S.tw[0], twR=S.tw[1];
+  const wDefs=[["Wheel_FL",S.axleF,rF,twF,-1],["Wheel_FR",S.axleF,rF,twF,1],["Wheel_RL",S.axleR,rR,twR,-1],["Wheel_RR",S.axleR,rR,twR,1]];
+  wDefs.forEach(([nm,ax,rr,tw,sd])=>{
+    const w=_rcWheel(nm, S, M, rr, tw, sd);
+    w.position.set(ax, rr + 0.048 - (rr/0.9-rr*1.0/0.9)*0 , sd*0.80);
+    // rig lowers wheels by (tireRadius-1)*0.48 => compensate so default 0.90 sits on the ground exactly
+    w.position.y = rr + 0.048;
+    g.add(w); nodes[nm]=w; restPos[nm]=w.position.clone();
+    const cal=new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.10, 0.05), M.caliper);
+    cal.position.set(ax-0.05, rr+rr*0.40, sd*0.86); cal.rotation.z=0.5; _calipers.push(cal);
+  });
+  _calipers.forEach(cl=>body.add(cl));
+  _rcMergeStatic(body);
+  body.position.y = 0.048;                       // rig adds wDelta (-0.048 at tireRadius .90)
+  g.add(body); nodes.Body_Shell=body; restPos.Body_Shell=body.position.clone();
+  g.userData.rig={nodes, restPos, c};
+  g.userData.raceCar=type;
+  applyRiggedPose(g.userData.rig, 0.25, 0, 0, 0, 0, false);
+  if(typeof ensureTruckMudSystem === "function" && typeof updateTruckVisualMud === "function" && g!==window._rcThumbGroup){
+    ensureTruckMudSystem(g, type); updateTruckVisualMud(g, (c && c.mudLevel) || 0);
+  }
+  return true;
+}
+function _rcAddWing(S, M, body, add, topAt, shoulderAt){
+  const W=S.wing; if(!W) return;
+  const deckY = topAt(W.x);
+  if(W.type==="ducktail"){
+    const sh=shoulderAt(W.x);
+    const lip=new THREE.Mesh(new THREE.BoxGeometry(W.chord, 0.05, sh.w*2*0.98), M.paint); lip.position.set(W.x, Math.max(deckY, sh.y)+0.03, 0); lip.rotation.z=-0.35; add(lip);
+    return;
+  }
+  if(W.type==="roof"){
+    const rx=Math.max(W.x, S.cab.xr+0.06), rc=_rcCabinAt(S, rx), ry=(rc?rc.yt:W.y)+0.045, sp=Math.min(W.span, (rc?rc.wb*2:W.span));
+    const pl=_rcPlane(sp, W.chord, 0.04, M.paint); pl.position.set(rx-0.02, ry, 0); pl.rotation.z=0.20; add(pl);
+    [-1,1].forEach(sd=>{ const ep=new THREE.Mesh(new THREE.BoxGeometry(W.chord*0.9,0.08,0.02), M.paint); ep.position.set(rx-0.02, ry-0.03, sd*sp/2); add(ep); });
+    return;
+  }
+  const mainMat = M.carbon;
+  if(W.type==="vwing"){
+    [-1,1].forEach(sd=>{
+      const pl=_rcPlane(W.span/2, W.chord, 0.05, M.paint); pl.position.set(W.x, W.y, sd*W.span/4); pl.rotation.set(sd*0.16, 0, 0.12); add(pl);
+      const ep=new THREE.Mesh(new THREE.BoxGeometry(W.chord*1.1, 0.16, 0.02), M.paint); ep.position.set(W.x, W.y+sd*0+0.04, sd*W.span/2); add(ep);
+    });
+    const py=new THREE.Mesh(new THREE.BoxGeometry(W.chord*0.8, W.y-deckY, 0.06), M.paint); py.position.set(W.x, (W.y+deckY)/2, 0); add(py);
+    return;
+  }
+  const pl=_rcPlane(W.span, W.chord, 0.05, mainMat); pl.position.set(W.x, W.y, 0); pl.rotation.z = W.type==="active"?0.10:0.16; add(pl);
+  if(W.type!=="active"){
+    const fl=_rcPlane(W.span*0.98, W.chord*0.45, 0.03, mainMat); fl.position.set(W.x-W.chord*0.48, W.y+0.06, 0); fl.rotation.z=0.42; add(fl);
+    const gur=new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.035, W.span*0.98), M.black); gur.position.set(W.x-W.chord*0.72, W.y+0.11, 0); add(gur);
+  }
+  // endplates
+  const epH = W.type==="integrated" ? (W.y - shoulderAt(W.x).y + 0.12) : 0.24;
+  [-1,1].forEach(sd=>{
+    const ep=new THREE.Mesh(new THREE.BoxGeometry(W.chord*1.25, epH, 0.018), W.type==="integrated"?M.paint:mainMat);
+    ep.position.set(W.x-0.04, W.type==="integrated" ? W.y+0.06-epH/2 : W.y+0.04, sd*(W.span/2+0.01)); add(ep);
+  });
+  // mounts
+  if(W.type==="gt" || W.type==="active"){
+    [-1,1].forEach(sd=>{ const z=sd*W.span*0.27; const p=new THREE.Mesh(new THREE.BoxGeometry(W.chord*0.55, W.y-deckY+0.02, 0.025), mainMat); p.position.set(W.x+0.02, (W.y+deckY)/2-0.01, z); add(p); });
+  } else if(W.type==="swan"){
+    [-1,1].forEach(sd=>{ const z=sd*W.span*0.24;
+      add(_rcStrut([W.x+0.32, deckY-0.01, z],[W.x+0.18, W.y+0.16, z], 0.05, 0.025, mainMat));
+      add(_rcStrut([W.x+0.18, W.y+0.16, z],[W.x-0.05, W.y+0.06, z], 0.045, 0.025, mainMat)); });
+  } else if(W.type==="hoop"){
+    [-1,1].forEach(sd=>{ const sh=shoulderAt(W.x+0.1); const z=sd*(W.span/2-0.02);
+      add(_rcStrut([W.x+0.22, sh.y-0.01, sd*sh.w*0.96],[W.x, W.y, z], 0.06, 0.035, M.paint)); });
+  } else if(W.type==="lmp"){
+    [-1,1].forEach(sd=>{ const z=sd*0.16; add(_rcStrut([W.x+0.30, topAt(W.x+0.3)-0.01, z],[W.x+0.02, W.y+0.08, z], 0.05, 0.025, mainMat)); });
+  }
+}
+function _rcAddDetails(S, M, c, body, add, topAt, shoulderAt){
+  const half=S.len/2;
+  const slopeAt = x => Math.atan2(topAt(x+0.05)-topAt(x-0.05), 0.1);
+  // headlights
+  const H=S.heads;
+  if(H.type==="top"){
+    [-1,1].forEach(sd=>{
+      const y=topAt(H.x)+0.004, ang=slopeAt(H.x);
+      let m;
+      if(H.shape==="oval"){ m=new THREE.Mesh(new THREE.SphereGeometry(1,16,10,0,Math.PI*2,0,Math.PI/2), M.head); m.scale.set(H.h*0.9, 0.06, H.w/2); }
+      else if(H.shape==="popup"){ m=new THREE.Mesh(new THREE.BoxGeometry(H.h, 0.012, H.w), M.black); }
+      else { m=new THREE.Mesh(new THREE.BoxGeometry(H.w*0.9, 0.016, H.h*1.3), M.head); if(H.shape==="swept") m.rotation.y=sd*0.35; }
+      const sh=shoulderAt(H.x);
+      const yy = H.shape==="oval" ? Math.max(y, sh.y-0.01) : y;
+      m.position.set(H.x, yy, sd*H.z); m.rotation.z=ang; add(m);
+      if(H.shape==="popup"){ const dl=new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, H.w*0.8), M.head); dl.position.set(half-0.03, _rcSection(S,half-0.03).y0+0.12, sd*H.z); add(dl); }
+    });
+    const nS=_rcSection(S, half), fh=Math.max(0.05,(nS.y1-nS.y0));
+    const intake=new THREE.Mesh(new THREE.PlaneGeometry(nS.w*1.25, fh*0.5), M.black); intake.rotation.y=Math.PI/2; intake.position.set(half+0.004, nS.y0+fh*0.42, 0); add(intake);
+  } else {
+    const fx=half+0.004, fS=_rcSection(S, half);
+    if(H.grille){ const gr=new THREE.Mesh(new THREE.PlaneGeometry(fS.w*(H.full?1.7:1.0), (H.full?0.16:0.10)), M.black); gr.rotation.y=Math.PI/2; gr.position.set(fx+0.002, H.y-(H.full?0.0:0.08), 0); add(gr); }
+    [-1,1].forEach(sd=>{
+      if(H.shape==="round4"){
+        [0.42,0.68].forEach(zf=>{ const r=new THREE.Mesh(new THREE.CircleGeometry(0.065,16), M.head); r.rotation.y=Math.PI/2; r.position.set(fx+0.006, H.y, sd*fS.w*zf); add(r); });
+      } else { const hl=new THREE.Mesh(new THREE.PlaneGeometry(H.w, H.h), M.head); hl.rotation.y=Math.PI/2; hl.position.set(fx+0.004, H.y, sd*H.z); add(hl); }
+    });
+  }
+  // taillights
+  const T=S.tails, rx=-half-0.004, rS=_rcSection(S,-half), tY = T.face ? (rS.y0 + (rS.y1-rS.y0)*0.72) : (rS.y1-0.04);
+  const backPlane=(w,h,y,z,mat)=>{ const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h), mat); m.rotation.y=-Math.PI/2; m.position.set(rx-0.002, y, z); add(m); return m; };
+  if(T.type==="bar"){ backPlane(rS.w*1.7, T.h, tY, 0, M.tail); }
+  else if(T.type==="rect"){ [-1,1].forEach(sd=>backPlane(T.w, T.h, tY, sd*rS.w*0.62, M.tail)); }
+  else { // round / ring
+    [-1,1].forEach(sd=>{ for(let i=0;i<T.n;i++){ const z=sd*rS.w*(0.78-i*0.24);
+      const geo = T.type==="ring" ? new THREE.RingGeometry(T.r*0.55, T.r, 18) : new THREE.CircleGeometry(T.r, 18);
+      const m=new THREE.Mesh(geo, M.tail); m.rotation.y=-Math.PI/2; m.position.set(rx-0.004, tY, z); add(m); } });
+  }
+  // exhaust tips
+  const exY = S.floor+0.12;
+  const tip=(z,r)=>{ const e=new THREE.Mesh(new THREE.CylinderGeometry(r,r*0.9,0.16,14,1,true), M.chrome); e.rotation.z=Math.PI/2; e.position.set(-half-0.03, exY, z); add(e);
+    const inn=new THREE.Mesh(new THREE.CircleGeometry(r*0.85,12), M.black); inn.rotation.y=-Math.PI/2; inn.position.set(-half+0.0, exY, z); add(inn); };
+  ({single:()=>tip(-0.55,0.055), twin:()=>{tip(-0.5,0.05);tip(0.5,0.05);}, twinCenter:()=>{tip(-0.1,0.05);tip(0.1,0.05);},
+    triple:()=>{tip(-0.14,0.045);tip(0,0.045);tip(0.14,0.045);}, quad:()=>{[-0.62,-0.48,0.48,0.62].forEach(z=>tip(z,0.045));},
+    centerBig:()=>tip(0,0.09), none:()=>{}}[S.exhaust||"single"]||(()=>{}))();
+  if(S.sideExhaust){ [-1,1].forEach(sd=>{ const sM=_rcSection(S,0.1); const e=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.0,12), M.chrome); e.rotation.z=Math.PI/2; e.position.set(-0.1, S.floor+0.06, sd*(sM.w+0.03)); add(e); }); }
+  // fin (LMP)
+  if(S.fin){
+    const x0=S.cab.xr+0.1, x1=S.wing.x+0.05, sh=new THREE.Shape();
+    sh.moveTo(x0, _rcCabinAt(S,S.cab.xr+0.12).yt-0.02); sh.lineTo(x1, S.wing.y+0.02); sh.lineTo(x1, topAt(x1)-0.02); sh.lineTo(x0+0.1, topAt(x0+0.1)-0.02); sh.closePath();
+    const fg=new THREE.ExtrudeGeometry(sh,{depth:0.02,bevelEnabled:false}); fg.translate(0,0,-0.01); add(new THREE.Mesh(fg, M.paint));
+  }
+  // hood vents / NACA ducts
+  if(S.hoodVents || S.naca){
+    const xv=S.axleF-0.25, y=topAt(xv)+0.004, a=slopeAt(xv);
+    [-1,1].forEach(sd=>{ const v=new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.012, S.naca?0.10:0.26), M.black); v.position.set(xv, y, sd*(S.naca?0.22:0.30)); v.rotation.z=a; add(v);
+      if(!S.naca) for(let l=0;l<4;l++){ const lv=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.02,0.24), M.carbon); lv.position.set(xv-0.12+l*0.08, y+0.008, sd*0.30); lv.rotation.z=a; add(lv); } });
+  }
+  if(S.hoodScoop){ const xs=S.axleF-0.45, y=topAt(xs); const hs=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.08,0.46), M.paint); hs.position.set(xs, y+0.035, 0); hs.rotation.z=slopeAt(xs); add(hs);
+    const mo=new THREE.Mesh(new THREE.PlaneGeometry(0.4,0.06), M.black); mo.rotation.y=Math.PI/2; mo.position.set(xs+0.212, y+0.04, 0); add(mo); }
+  if(S.blower){ const xs=0.95, y=topAt(xs);
+    const bl=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.16,0.36), M.chrome); bl.position.set(xs, y+0.08, 0); add(bl);
+    const sc=new THREE.Mesh(new THREE.BoxGeometry(0.34,0.16,0.30), M.black); sc.position.set(xs+0.02, y+0.24, 0); add(sc);
+    [-1,0,1].forEach(z=>{ const bt=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,0.07), M.chrome); bt.position.set(xs+0.19, y+0.27, z*0.09); add(bt); }); }
+  if(S.roofScoop){
+    const xs=S.cab.xr+S.cab.rw+0.15, cs=_rcCabinAt(S, Math.min(S.cab.xf-S.cab.ws, xs));
+    const pods = S.roofScoop==="twin" ? [-0.42,0.42] : [0];
+    pods.forEach(z=>{
+      const yy = S.roofScoop==="twin" ? topAt(S.cab.xr-0.1)+0.08 : cs.yt+0.035;
+      const sc=new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.08, S.roofScoop==="twin"?0.22:0.36), M.paint);
+      sc.position.set(S.roofScoop==="twin"?S.cab.xr-0.1:xs, yy, z); add(sc);
+      const mo=new THREE.Mesh(new THREE.PlaneGeometry(S.roofScoop==="twin"?0.2:0.32,0.06), M.black); mo.rotation.y=Math.PI/2; mo.position.set((S.roofScoop==="twin"?S.cab.xr-0.1:xs)+0.202, yy+0.005, z); add(mo);
+    });
+  }
+  if(S.airboxes){ [-1,1].forEach(sd=>{ const xa=S.cab.xr-0.12, sh=shoulderAt(xa); const ab=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.12,0.26), M.paint); ab.position.set(xa, sh.y+0.04, sd*(sh.w-0.16)); add(ab);
+    const mo=new THREE.Mesh(new THREE.PlaneGeometry(0.24,0.09), M.black); mo.rotation.y=Math.PI/2; mo.position.set(xa+0.212, sh.y+0.045, sd*(sh.w-0.16)); add(mo); }); }
+  if(S.horseshoe){ const fS=_rcSection(S,half-0.02); const hs=new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.018, 8, 18, Math.PI*1.4), M.chrome); hs.rotation.y=Math.PI/2; hs.rotation.x=Math.PI*0.8; hs.position.set(half+0.01, (fS.y0+fS.y1)/2, 0); add(hs); }
+  if(S.rallyLights){
+    const pods = S.rallyLights==="hood" ? [-0.36,-0.12,0.12,0.36] : [-0.5,-0.2,0.2,0.5];
+    pods.forEach(z=>{
+      const x = S.rallyLights==="hood" ? half-0.32 : half+0.06, y = S.rallyLights==="hood" ? topAt(half-0.32)+0.09 : _rcSection(S,half).y0+0.16;
+      const cup=new THREE.Mesh(new THREE.CylinderGeometry(0.085,0.085,0.07,16), M.black); cup.rotation.z=Math.PI/2; cup.position.set(x, y, z); add(cup);
+      const lens=new THREE.Mesh(new THREE.CircleGeometry(0.072,16), M.head); lens.rotation.y=Math.PI/2; lens.position.set(x+0.037, y, z); add(lens);
+    });
+  }
+  if(S.mudflaps){ [[S.axleF-S.r-0.08],[S.axleR-(S.rearR||S.r)-0.08]].forEach(([x])=>{ [-1,1].forEach(sd=>{ const sM=_rcSection(S,x); const mf=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.24,0.30), M.black); mf.position.set(x, S.floor+0.04, sd*(sM.w-0.18)); add(mf); }); }); }
+  if(S.wheelieBar){ [-1,1].forEach(sd=>{ add(_rcStrut([-half+0.1, S.floor+0.08, sd*0.32],[-half-0.42, 0.11, sd*0.30], 0.03,0.03, M.chrome)); });
+    [-1,1].forEach(sd=>{ const wh=new THREE.Mesh(new THREE.CylinderGeometry(0.065,0.065,0.05,12), M.tire); wh.rotation.x=Math.PI/2; wh.position.set(-half-0.42, 0.075, sd*0.30); add(wh); }); }
+  if((c.parts||[]).includes("underglow")){
+    const ug=new THREE.Mesh(new THREE.PlaneGeometry(S.len*0.75, 1.3), new THREE.MeshBasicMaterial({color:0x00e5ff, transparent:true, opacity:0.55, name:"Underglow_Emissive"}));
+    ug.material.name="Underglow_Emissive"; ug.rotation.x=-Math.PI/2; ug.position.set(0, 0.02, 0); add(ug);
+  }
+}
+function _rcAddLivery(S, M, body, add, topAt){
+  // side door decals (number roundel + made-up sponsors)
+  const xm=(S.axleF+S.axleR)/2 - 0.05;
+  [-1,1].forEach(sd=>{
+    const tex=_rcLiveryTex(S, sd);
+    const mat=new THREE.MeshStandardMaterial({map:tex, transparent:true, roughness:0.35, metalness:0.1, depthWrite:false, polygonOffset:true, polygonOffsetFactor:-2});
+    mat.name="Livery_Decal";
+    const sec=_rcSection(S, xm);
+    const yC = sec.y0 + (sec.ys - sec.y0)*0.52, hh=Math.min(0.36, (sec.ys-sec.y0)*0.62);
+    const pl=new THREE.Mesh(new THREE.PlaneGeometry(hh*2.66, hh), mat);
+    // sample side z at that height
+    const f=Math.max(0,Math.min(1,(yC-sec.nY-0.03)/Math.max(0.01,sec.ys-sec.nY-0.03)));
+    const zS = sec.w - (sec.w - sec.w*(1-sec.tumble))*f*f + 0.012;
+    pl.position.set(xm, yC, sd*zS); pl.rotation.y = sd>0 ? 0 : Math.PI; pl.castShadow=false; body.add(pl);
+  });
+  // lower two-tone band (e.g. panda)
+  if(S.liv.lower){
+    [-1,1].forEach(sd=>{ const sM=_rcSection(S,0); const b=new THREE.Mesh(new THREE.BoxGeometry(S.len*0.98, 0.20, 0.02), M.twoTone); b.position.set(0, S.floor+0.16, sd*(sM.w+0.004)); add(b); });
+  }
+  if(!S.liv.stripe) return;
+  const st=S.liv.stripeType||"center", half=S.len/2;
+  const ribbon=(xa, xb, z, wdt, yFn)=>{
+    const pos=[], idx=[], N=24;
+    for(let i=0;i<=N;i++){ const x=xa+(xb-xa)*i/N, y=yFn(x)+0.006; pos.push(x,y,z-wdt/2, x,y,z+wdt/2); if(i<N){ const a=i*2; idx.push(a,a+2,a+1, a+1,a+2,a+3); } }
+    const gg=new THREE.BufferGeometry(); gg.setAttribute("position", new THREE.Float32BufferAttribute(pos,3)); gg.setIndex(idx); gg.computeVertexNormals();
+    const m=new THREE.Mesh(gg, M.accent); m.castShadow=false; body.add(m);
+  };
+  const roofFn = x=>{ const cs=_rcCabinAt(S,x); return cs ? cs.yt+0.012 : topAt(x); };
+  const zs = st==="dual" ? [-0.16,0.16] : [0];
+  const wd = st==="dual" ? 0.13 : 0.30;
+  if(st==="tail"){ ribbon(-half+0.02, -half+0.55, 0, 1.4, topAt); return; }
+  if(st==="side"){ [-1,1].forEach(sd=>{ const sM=_rcSection(S,0); const b=new THREE.Mesh(new THREE.BoxGeometry(S.len*0.62, 0.05, 0.01), M.accent); b.position.set(0.05, S.floor+0.22, sd*(sM.w+0.01)); body.add(b); }); return; }
+  zs.forEach(z=>{
+    ribbon(S.cab.xf-0.02, half-0.03, z, wd, topAt);
+    ribbon(S.cab.xr+S.cab.rw*0.6, S.cab.xf-S.cab.ws*0.75, z, wd*0.9, roofFn);
+    ribbon(-half+0.03, S.cab.xr+0.02, z, wd, topAt);
+  });
+}
+// ---- Real dealership thumbnails rendered from the 3D race-car builder (cached data URLs) ----
+var _rcThumb = {r:null, scene:null, cam:null, cache:{}};
+function _rcThumbInit(){
+  if(_rcThumb.r) return _rcThumb;
+  const r=new THREE.WebGLRenderer({antialias:true, alpha:true, preserveDrawingBuffer:true});
+  r.setPixelRatio(1); r.setSize(360,170);
+  if(THREE.SRGBColorSpace) r.outputColorSpace=THREE.SRGBColorSpace;
+  r.toneMapping=THREE.ACESFilmicToneMapping; r.toneMappingExposure=1.05;
+  const scene=new THREE.Scene();
+  try{ const pm=new THREE.PMREMGenerator(r); scene.environment=pm.fromScene(new THREE.RoomEnvironment(r),0.04).texture; }catch(e){}
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 0.9));
+  const dl=new THREE.DirectionalLight(0xffffff, 1.6); dl.position.set(4,6,3); scene.add(dl);
+  const sh=new THREE.Mesh(new THREE.CircleGeometry(2.6, 32), new THREE.MeshBasicMaterial({color:0x000000, transparent:true, opacity:0.35}));
+  sh.rotation.x=-Math.PI/2; sh.scale.set(1.0,0.48,1); sh.position.y=0.002; scene.add(sh);
+  const cam=new THREE.PerspectiveCamera(26, 360/170, 0.1, 60);
+  cam.position.set(4.7, 1.75, 6.2); cam.lookAt(0, 0.42, 0);
+  Object.assign(_rcThumb, {r, scene, cam});
+  return _rcThumb;
+}
+function raceCarThumbURL(type, col){
+  const key=type+"|"+col;
+  if(_rcThumb.cache[key]) return _rcThumb.cache[key];
+  const T=_rcThumbInit();
+  const g=new THREE.Group(); window._rcThumbGroup=g;
+  const base=cfg(type);
+  const c=Object.assign({}, base, {paint:col||base.paint, parts:[], mudLevel:0, tireRadius:0.90, tireWidth:1.15, suspTravel:0.06, axleWidth:0.04, finish:"gloss"});
+  buildRaceCar3D(g, type, c);
+  window._rcThumbGroup=null;
+  g.rotation.y = 0.0;
+  T.scene.add(g); T.r.render(T.scene, T.cam);
+  const url=T.r.domElement.toDataURL("image/png");
+  T.scene.remove(g); if(typeof disposeGroup==="function") disposeGroup(g);
+  _rcThumb.cache[key]=url;
+  return url;
+}
+function _rcFillThumbs(){
+  const els=[...document.querySelectorAll("[data-rcthumb]")].sort((a,b)=>(parseFloat(b.style.width)||0)-(parseFloat(a.style.width)||0));
+  let i=0;
+  const step=()=>{
+    if(i>=els.length) return;
+    const el=els[i++]; const [t,col]=el.getAttribute("data-rcthumb").split("|");
+    try{
+      const url=raceCarThumbURL(t, col);
+      el.innerHTML=`<img src="${url}" alt="${t}" style="width:100%;height:100%;object-fit:contain;display:block">`;
+      el.removeAttribute("data-rcthumb");
+    }catch(e){ console.warn("thumb", t, e); }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+// cfg() hook: race-car defaults (low ride, low-profile tires, per-car rims) applied once per save.
+function raceCarCfgInit(type, c){
+  if(!isRaceCarType(type)) return; const S=RACE_CAR_SPECS[type]; if(c._race18) return;
+  c.lift=false; c.suspTravel=0.06; c.tireRadius=0.90; c.tireWidth=1.15; c.axleWidth=0.04; c.rim="sport";
+  c.wheel=S.wheel; c._hyperInit=true; c._race18=true;
+}
+var _RC_META = {
+  lmp1:{paint:"#dc2626",cost:0}, m40:{paint:"#e11d48",cost:180}, gtr34:{paint:"#2563eb",cost:160}, supra98:{paint:"#f59e0b",cost:150},
+  nekoma18:{paint:"#e2e8f0",cost:220}, veyron:{paint:"#0284c7",cost:260,name:"Chevalier SS '14"}, countach:{paint:"#facc15",cost:210,name:"Toro LP500 '85"},
+  evo10:{paint:"#ef4444",cost:170,name:"Fujiwara X Rally '15"}, charger69:{paint:"#1e293b",cost:190,name:"Brawler R/T 440 '69"},
+  ae86:{paint:"#f8fafc",cost:120,name:"Akina Trueno Apex '85"}, viper99:{paint:"#1d4ed8",cost:200,name:"Venom GTS Coupe '99"},
+  stratos:{paint:"#16a34a",cost:170,name:"Azzurra Stratosfera '74"}, gt3rs:{paint:"#f97316",cost:230,name:"Kestrel 9 RS '16"},
+  subaru98:{paint:"#0369a1",cost:180,name:"Pleiades 22B WRC '98"}, rx7:{paint:"#eab308",cost:160,name:"Rotor Spirit FD '97"}
+};
+RACE_CAR_TYPES.forEach(t=>{
+  const S=RACE_CAR_SPECS[t], m=_RC_META[t]||{};
+  S.paint = m.paint || "#dc2626";
+  if(!VEHICLES[t]) VEHICLES[t] = {name:m.name||S.vName, emoji:S.emoji||"🏎️", level:1, cost:m.cost||150, weight:95, grip:90, parts:["spoiler","lights","underglow"]};
+});
+try{ if(state && Array.isArray(state.unlockedDealerIds)) state.unlockedDealerIds.forEach(id=>{ if(RACE_CAR_SPECS[id] && !state.owned.includes(id)) state.owned.push(id); }); }catch(e){}
+/* RACE_CARS_V18_END */
+
+
 // Real 3D car models (.glb) per body type. EMPTY by default = use the built-in
 // shapes. To use a realistic model: drop a .glb in assets/models/ and add e.g.
 //   supercar: "assets/models/apex-gt.glb"
@@ -1136,11 +1947,6 @@ const CAR_MODELS = {
   classic70: "assets/models/jax_classic_70s_03.glb",
   outlaw69:  "assets/models/jax_muscle_outlaw_04.glb",
   barn72:    "assets/models/jax_classic_70s_03.glb",
-  lmp1:      "assets/models/jax_lmp_hypercar_05.glb",
-  m40:       "assets/models/jax_lmp_hypercar_05.glb",
-  gtr34:     "assets/models/jax_muscle_outlaw_04.glb",
-  supra98:   "assets/models/jax_lmp_hypercar_05.glb",
-  nekoma18:  "assets/models/jax_lmp_hypercar_05.glb",
   truck:   "assets/models/pickup-quaternius.glb",   // CC0 Quaternius pickup
   armored: "assets/models/pickup-armored.glb",      // CC0 Quaternius armored pickup
   dump:    "assets/models/dump-truck.glb",          // CC-BY "jeremy"
@@ -1158,6 +1964,7 @@ function showroomBuildCar(type,c){
   if(sr.carGroup){ sr.scene.remove(sr.carGroup); disposeGroup(sr.carGroup); }
   const g=new THREE.Group();
   sr.carGroup=g; sr.scene.add(g);
+  if(isRaceCarType(type)){ buildRaceCar3D(g,type,c); return; }
   if(CAR_MODELS[type] && window.THREE && THREE.GLTFLoader){ loadCarModel(g,type,c,CAR_MODELS[type]); return; }
   buildProceduralCar(g,type,c);
 }
@@ -1471,6 +2278,7 @@ function placeModel(g,type,c,scene){
   }
 }
 function loadCarModel(g,type,c,url){
+  if(isRaceCarType(type)){ buildRaceCar3D(g,type,c); return; }
   try{
     if(gltfCache[url]){ placeModel(g,type,c,gltfCache[url]); return; }
     new THREE.GLTFLoader().load(url, function(gltf){
@@ -1481,6 +2289,7 @@ function loadCarModel(g,type,c,url){
 }
 
 function buildProceduralCar(g,type,c){
+  if(isRaceCarType(type)){ buildRaceCar3D(g,type,c); return; }
   const s=carSpec3D(type);
   const lift=c.lift?0.20:0;
   const paint=new THREE.MeshPhysicalMaterial({color:new THREE.Color(c.paint||"#e23b3b"),
@@ -1695,7 +2504,7 @@ function garageScreen(){
   const type = state.current, c = cfg(type), v = VEHICLES[type];
   const vtiles = Object.keys(VEHICLES).map(k=>{
     const vv=VEHICLES[k], owned=state.owned.includes(k), locked=state.level<vv.level;
-    const is3D = (k==="crawler"||k==="bouncer"||k==="classic70"||k==="outlaw69"||k==="barn72");
+    const is3D = (k==="crawler"||k==="bouncer"||k==="classic70"||k==="outlaw69"||k==="barn72"||isRaceCarType(k));
     const cls = "tile "+(k===type?"sel ":"")+(owned?"owned ":"")+(locked?"locked":"");
     const badge3d = is3D ? `<div style="font-size:9px;background:#1f9e69;color:#fff;border-radius:6px;padding:1px 5px;display:inline-block;margin-top:2px">3D RIGGED</div>` : "";
     const foot = owned ? badge3d : (locked ? `<div class="lock">🔒 Lv${vv.level}</div>` : `<div class="price">🪙${vv.cost}</div>`);
@@ -2123,16 +2932,16 @@ const DEALERSHIP_CATALOG = [
   {id:"gtr34",    vKey:"gtr34",    name:"KITSUNE R34 V-SPEC '99",flag:"🇯🇵 JP", pp:615, col:"#2563eb", silhouette:"coupe", cc:"2568 cc", drive:"AWD", hp:"330 bhp / 6800 rpm", tq:"40.0 kgfm / 4400 rpm", dim:"4600 / 1785 / 1360 mm", wt:"1560 kg", asp:"TT",     cost:160},
   {id:"supra98",  vKey:"supra98",  name:"YUTA SUDO RZ '98",      flag:"🇯🇵 JP", pp:598, col:"#f59e0b", silhouette:"coupe", cc:"2997 cc", drive:"FR",  hp:"325 bhp / 5600 rpm", tq:"44.0 kgfm / 4000 rpm", dim:"4514 / 1811 / 1275 mm", wt:"1510 kg", asp:"TT",     cost:150},
   {id:"nekoma18", vKey:"nekoma18", name:"NEKOMA GTO '18",        flag:"🇯🇵 JP", pp:672, col:"#e2e8f0", silhouette:"super", cc:"3799 cc", drive:"AWD", hp:"600 bhp / 6800 rpm", tq:"66.5 kgfm / 3600 rpm", dim:"4690 / 1895 / 1370 mm", wt:"1720 kg", asp:"TT",     cost:220},
-  {id:"veyron",   vKey:"supercar", name:"CHEVALIER SS '14",      flag:"🇫🇷 FR", pp:740, col:"#0284c7", silhouette:"lmp",   cc:"7993 cc", drive:"AWD", hp:"1184 bhp / 6400 rpm",tq:"153.0 kgfm / 3000 rpm",dim:"4462 / 1998 / 1190 mm", wt:"1888 kg", asp:"Quad-T", cost:240},
-  {id:"countach", vKey:"m40",      name:"TORO LP500 QUATTRO '85",flag:"🇮🇹 IT", pp:635, col:"#facc15", silhouette:"super", cc:"5167 cc", drive:"MR",  hp:"455 bhp / 7000 rpm", tq:"51.0 kgfm / 5200 rpm", dim:"4140 / 2000 / 1070 mm", wt:"1490 kg", asp:"NA V12", cost:200},
-  {id:"evo10",    vKey:"gtr34",    name:"FUJIWARA X RALLY '15",  flag:"🇯🇵 JP", pp:575, col:"#ef4444", silhouette:"coupe", cc:"1998 cc", drive:"AWD", hp:"303 bhp / 6500 rpm", tq:"42.2 kgfm / 3500 rpm", dim:"4495 / 1810 / 1480 mm", wt:"1420 kg", asp:"TC",     cost:140},
-  {id:"charger69",vKey:"outlaw69", name:"BRAWLER R/T 440 '69",   flag:"🇺🇸 US", pp:620, col:"#1e293b", silhouette:"muscle",cc:"7206 cc", drive:"4WD", hp:"620 bhp / 5800 rpm", tq:"78.5 kgfm / 3800 rpm", dim:"4480 / 2180 / 1540 mm", wt:"1850 kg", asp:"SC V8",  cost:0},
-  {id:"ae86",     vKey:"car",      name:"AKINA TRUENO APEX '85", flag:"🇯🇵 JP", pp:465, col:"#f8fafc", silhouette:"coupe", cc:"1587 cc", drive:"FR",  hp:"150 bhp / 7600 rpm", tq:"16.5 kgfm / 5600 rpm", dim:"4205 / 1625 / 1335 mm", wt:"940 kg",  asp:"NA",     cost:0},
-  {id:"viper99",  vKey:"m40",      name:"VENOM GTS COUPE '99",   flag:"🇺🇸 US", pp:640, col:"#1d4ed8", silhouette:"super", cc:"7990 cc", drive:"FR",  hp:"450 bhp / 5200 rpm", tq:"67.7 kgfm / 3700 rpm", dim:"4488 / 1923 / 1194 mm", wt:"1530 kg", asp:"NA V10", cost:190},
-  {id:"stratos",  vKey:"lmp1",     name:"ALITALIA STRATOS '74",  flag:"🇮🇹 IT", pp:560, col:"#16a34a", silhouette:"super", cc:"2418 cc", drive:"MR",  hp:"280 bhp / 7800 rpm", tq:"28.5 kgfm / 5000 rpm", dim:"3710 / 1750 / 1114 mm", wt:"980 kg",  asp:"NA V6",  cost:170},
-  {id:"gt3rs",    vKey:"nekoma18", name:"STUTTGART GT3 RS '16",  flag:"🇩🇪 DE", pp:665, col:"#f97316", silhouette:"super", cc:"3996 cc", drive:"RR",  hp:"500 bhp / 8250 rpm", tq:"46.9 kgfm / 6250 rpm", dim:"4545 / 1880 / 1291 mm", wt:"1420 kg", asp:"NA",     cost:210},
-  {id:"subaru98", vKey:"gtr34",    name:"PLEIADES 22B WRC '98",  flag:"🇯🇵 JP", pp:580, col:"#0369a1", silhouette:"coupe", cc:"2212 cc", drive:"AWD", hp:"280 bhp / 6000 rpm", tq:"37.0 kgfm / 3200 rpm", dim:"4365 / 1770 / 1390 mm", wt:"1270 kg", asp:"TC",     cost:150},
-  {id:"rx7",      vKey:"supra98",  name:"EFINI ROTARY FD3S '97", flag:"🇯🇵 JP", pp:570, col:"#eab308", silhouette:"coupe", cc:"1308 cc", drive:"FR",  hp:"276 bhp / 6500 rpm", tq:"32.0 kgfm / 5000 rpm", dim:"4285 / 1760 / 1230 mm", wt:"1280 kg", asp:"TT",     cost:145},
+  {id:"veyron",   vKey:"veyron", name:"CHEVALIER SS '14",      flag:"🇫🇷 FR", pp:740, col:"#0284c7", silhouette:"lmp",   cc:"7993 cc", drive:"AWD", hp:"1184 bhp / 6400 rpm",tq:"153.0 kgfm / 3000 rpm",dim:"4462 / 1998 / 1190 mm", wt:"1888 kg", asp:"Quad-T", cost:240},
+  {id:"countach", vKey:"countach",      name:"TORO LP500 QUATTRO '85",flag:"🇮🇹 IT", pp:635, col:"#facc15", silhouette:"super", cc:"5167 cc", drive:"MR",  hp:"455 bhp / 7000 rpm", tq:"51.0 kgfm / 5200 rpm", dim:"4140 / 2000 / 1070 mm", wt:"1490 kg", asp:"NA V12", cost:200},
+  {id:"evo10",    vKey:"evo10",    name:"FUJIWARA X RALLY '15",  flag:"🇯🇵 JP", pp:575, col:"#ef4444", silhouette:"coupe", cc:"1998 cc", drive:"AWD", hp:"303 bhp / 6500 rpm", tq:"42.2 kgfm / 3500 rpm", dim:"4495 / 1810 / 1480 mm", wt:"1420 kg", asp:"TC",     cost:140},
+  {id:"charger69",vKey:"charger69", name:"BRAWLER R/T 440 '69",   flag:"🇺🇸 US", pp:620, col:"#1e293b", silhouette:"muscle",cc:"7206 cc", drive:"4WD", hp:"620 bhp / 5800 rpm", tq:"78.5 kgfm / 3800 rpm", dim:"4480 / 2180 / 1540 mm", wt:"1850 kg", asp:"SC V8",  cost:0},
+  {id:"ae86",     vKey:"ae86",      name:"AKINA TRUENO APEX '85", flag:"🇯🇵 JP", pp:465, col:"#f8fafc", silhouette:"coupe", cc:"1587 cc", drive:"FR",  hp:"150 bhp / 7600 rpm", tq:"16.5 kgfm / 5600 rpm", dim:"4205 / 1625 / 1335 mm", wt:"940 kg",  asp:"NA",     cost:0},
+  {id:"viper99",  vKey:"viper99",      name:"VENOM GTS COUPE '99",   flag:"🇺🇸 US", pp:640, col:"#1d4ed8", silhouette:"super", cc:"7990 cc", drive:"FR",  hp:"450 bhp / 5200 rpm", tq:"67.7 kgfm / 3700 rpm", dim:"4488 / 1923 / 1194 mm", wt:"1530 kg", asp:"NA V10", cost:190},
+  {id:"stratos",  vKey:"stratos",     name:"AZZURRA STRATOSFERA '74", flag:"🇮🇹 IT", pp:560, col:"#16a34a", silhouette:"super", cc:"2418 cc", drive:"MR",  hp:"280 bhp / 7800 rpm", tq:"28.5 kgfm / 5000 rpm", dim:"3710 / 1750 / 1114 mm", wt:"980 kg",  asp:"NA V6",  cost:170},
+  {id:"gt3rs",    vKey:"gt3rs", name:"KESTREL 9 RS '16",       flag:"🇩🇪 DE", pp:665, col:"#f97316", silhouette:"super", cc:"3996 cc", drive:"RR",  hp:"500 bhp / 8250 rpm", tq:"46.9 kgfm / 6250 rpm", dim:"4545 / 1880 / 1291 mm", wt:"1420 kg", asp:"NA",     cost:210},
+  {id:"subaru98", vKey:"subaru98",    name:"PLEIADES 22B WRC '98",  flag:"🇯🇵 JP", pp:580, col:"#0369a1", silhouette:"coupe", cc:"2212 cc", drive:"AWD", hp:"280 bhp / 6000 rpm", tq:"37.0 kgfm / 3200 rpm", dim:"4365 / 1770 / 1390 mm", wt:"1270 kg", asp:"TC",     cost:150},
+  {id:"rx7",      vKey:"rx7",  name:"ROTOR SPIRIT FD '97",    flag:"🇯🇵 JP", pp:570, col:"#eab308", silhouette:"coupe", cc:"1308 cc", drive:"FR",  hp:"276 bhp / 6500 rpm", tq:"32.0 kgfm / 5000 rpm", dim:"4285 / 1760 / 1230 mm", wt:"1280 kg", asp:"TT",     cost:145},
   {id:"crawler",  vKey:"crawler",  name:"TRX PREDATOR 4x4 '25",  flag:"🇺🇸 US", pp:610, col:"#ea580c", silhouette:"truck", cc:"6166 cc", drive:"4WD", hp:"702 bhp / 6100 rpm", tq:"89.8 kgfm / 4800 rpm", dim:"5916 / 2235 / 2055 mm", wt:"2880 kg", asp:"SC V8",  cost:0},
   {id:"bouncer",  vKey:"bouncer",  name:"VIPER ROCK BOUNCER",    flag:"🇺🇸 US", pp:645, col:"#22c55e", silhouette:"truck", cc:"7000 cc", drive:"4WD", hp:"850 bhp / 6800 rpm", tq:"98.0 kgfm / 4600 rpm", dim:"4420 / 2420 / 1980 mm", wt:"1780 kg", asp:"SC V8",  cost:0},
   {id:"classic70",vKey:"classic70",name:"'78 OUTLAW SQUAREBODY", flag:"🇺🇸 US", pp:565, col:"#d97706", silhouette:"truck", cc:"7440 cc", drive:"4WD", hp:"485 bhp / 5200 rpm", tq:"74.0 kgfm / 3400 rpm", dim:"5380 / 2280 / 2040 mm", wt:"2420 kg", asp:"NA V8",  cost:0},
@@ -2141,6 +2950,16 @@ const DEALERSHIP_CATALOG = [
 ];
 
 function dealerCarSvg(item, w, h){
+  if(isRaceCarType(item.vKey)){
+    const key=item.vKey+"|"+(item.col||"#dc2626"), url=_rcThumb.cache[key];
+    const ww=(w||140), hh=Math.round(ww*0.47);
+    const box=`display:block;margin:0 auto;width:${ww}px;height:${hh}px`;
+    if(url) return `<span style="${box}"><img src="${url}" alt="${item.vKey}" style="width:100%;height:100%;object-fit:contain;display:block"></span>`;
+    return `<span data-rcthumb="${key}" style="${box}">${_dealerCarSvgLegacy(item, ww, hh)}</span>`;
+  }
+  return _dealerCarSvgLegacy(item, w, h);
+}
+function _dealerCarSvgLegacy(item, w, h){
   const c = item.col || "#dc2626";
   if(item.silhouette === "lmp" || item.silhouette === "super"){
     return `<svg viewBox="0 0 220 90" width="${w||140}" height="${h||56}" style="display:block;margin:0 auto">
@@ -2258,6 +3077,7 @@ window.openDealershipModal = function(selId){
       </div>
     </div>
   `);
+  setTimeout(()=>{ try{ _rcFillThumbs(); }catch(e){} }, 40);
 };
 
 window.equipDealerCar = function(id, goCity){
@@ -3744,7 +4564,7 @@ const CHAPTERS_3D = [
 
 let CH3D = null;
 const chEnvCache = {};
-const STAR_RIGS = ["lmp1","m40","gtr34","supra98","nekoma18","crawler","bouncer","classic70","outlaw69","barn72"];
+const STAR_RIGS = ["lmp1","m40","gtr34","supra98","nekoma18","veyron","countach","evo10","charger69","ae86","viper99","stratos","gt3rs","subaru98","rx7","crawler","bouncer","classic70","outlaw69","barn72"];
 const _REAL_TEX_CACHE = {};
 
 function makeRealisticTexture(kind, repX, repY){
@@ -4551,7 +5371,7 @@ function start3DChapterMode(initialIdx, initialContract){
 
 
 function buildXRayAndJBeamOverlays(carHolder, rType){
-  const isLow = (rType==="lmp1"||rType==="m40"||rType==="supra98"||rType==="nekoma18"||rType==="gtr34"||rType==="supercar");
+  const isLow = (isRaceCarType(rType)||rType==="supercar");
   const yBase = isLow ? 0.42 : 0.78;
   const roofY = isLow ? 0.96 : 1.72;
 
@@ -4682,7 +5502,7 @@ const _MUD_DARK_COLOR = new THREE.Color(0x361f0d);
 
 window.ensureTruckMudSystem = function(carHolder, rType){
   if(!carHolder || carHolder.userData.mudClumpGroup) return;
-  const isLow = (rType==="lmp1"||rType==="m40"||rType==="supra98"||rType==="nekoma18"||rType==="gtr34"||rType==="supercar");
+  const isLow = (isRaceCarType(rType)||rType==="supercar");
   const yBase = isLow ? 0.36 : 0.72;
 
   // 1. Save clean material states for live mud coating & car-wash scrubbing
@@ -4748,7 +5568,7 @@ window.ensureTruckMudSystem = function(carHolder, rType){
     ["Wheel_FL","Wheel_FR","Wheel_RL","Wheel_RR"].forEach(wk=>{
       const wn = rig.nodes[wk];
       if(wn){
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.095, 8, 20), wetMudMat);
+        const ring = new THREE.Mesh(new THREE.TorusGeometry((wn.userData.mudRingR||0.46), (wn.userData.mudRingR?0.07:0.095), 8, 20), wetMudMat);
         ring.visible = false;
         wn.add(ring);
         wheelMudRings.push(ring);
@@ -4813,7 +5633,13 @@ window.updateTruckVisualMud = function(carHolder, mudLevel){
     carHolder.userData.mudPaintMats = null;
     const rc = Object.assign({}, cfg(rType));
     if(CH3D){ CH3D.vType = rType; CH3D.vCfg = rc; }
-    if(gltfCache[CAR_MODELS[rType]]){
+    if(isRaceCarType(rType)){
+      buildRaceCar3D(carHolder, rType, rc);
+      buildXRayAndJBeamOverlays(carHolder, rType);
+      applyXRayAndJBeamState();
+      ensureTruckMudSystem(carHolder, rType);
+      updateTruckVisualMud(carHolder, rc.mudLevel || 0);
+    } else if(gltfCache[CAR_MODELS[rType]]){
       placeModel(carHolder, rType, rc, gltfCache[CAR_MODELS[rType]]);
       buildXRayAndJBeamOverlays(carHolder, rType);
       applyXRayAndJBeamState();
@@ -7478,7 +8304,7 @@ if("serviceWorker" in navigator){
     window.location.reload();
   });
   window.addEventListener("load", function(){
-    navigator.serviceWorker.register("sw.js?v=17").then(function(reg){
+    navigator.serviceWorker.register("sw.js?v=18").then(function(reg){
       try{ reg.update(); }catch(e){}
       document.addEventListener("visibilitychange", function(){
         if(document.visibilityState === "visible"){ try{ reg.update(); }catch(e){} }
