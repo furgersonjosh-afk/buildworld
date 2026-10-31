@@ -2035,6 +2035,8 @@ try{ if(state && Array.isArray(state.unlockedDealerIds)) state.unlockedDealerIds
 // shapes. To use a realistic model: drop a .glb in assets/models/ and add e.g.
 //   supercar: "assets/models/apex-gt.glb"
 // (get one free from Meshy.ai, or buy from Sketchfab — see docs/PROJECT-MAP.md)
+// v20: yaw (radians) that turns each GLB's nose onto local +X (game forward).
+const MODEL_YAW_FIX = { truck: Math.PI/2, armored: Math.PI/2, dump: -Math.PI/2, bigrig: Math.PI/2 };
 const CAR_MODELS = {
   crawler:   "assets/models/jax_test_crawler_01.glb",
   bouncer:   "assets/models/jax_bouncer_02.glb",
@@ -2314,6 +2316,16 @@ function applyRiggedPose(rig, steerRad, wheelSpin, fTrav, rTrav, rollRad, lift){
 function placeModel(g,type,c,scene){
   const s=carSpec3D(type);
   const m=scene.clone(true);
+  // v20: the game drives along local +X. Third-party GLBs authored nose-along-Z
+  // must be yawed so their nose points down +X (otherwise they crab sideways).
+  const yawFix = MODEL_YAW_FIX[type];
+  if(yawFix) m.rotation.y = yawFix;
+  else {
+    const rb=new THREE.Box3().setFromObject(m), rs=rb.getSize(new THREE.Vector3());
+    let rig=false; m.traverse(o=>{ if(o.name==="Wheel_FL"||o.name==="Body_Shell") rig=true; });
+    if(!rig && rs.z > rs.x*1.2) m.rotation.y = Math.PI/2;
+  }
+  m.userData.yawFix = m.rotation.y;
   const paintCol=new THREE.Color(c.paint||"#e23b3b");
   const wheelCol=new THREE.Color(c.wheel||"#c9ccd6");
   const tintCol=new THREE.Color(c.tint?0x06090e:0x1b2b3a);
@@ -4797,6 +4809,29 @@ function makeRealisticTexture(kind, repX, repY){
     ctx.strokeStyle = "rgba(250,204,21,0.55)";
     ctx.lineWidth = 4;
     ctx.strokeRect(6, 6, 500, 500);
+  } else if(kind === "town_siding"){
+    // v20: light clapboard siding (tinted per storefront with vertex colours): 1 storey x 2 windows per tile
+    ctx.fillStyle = "#f2ece0"; ctx.fillRect(0,0,512,512);
+    for(let y=0;y<512;y+=16){ ctx.fillStyle = "rgba(120,100,80,0.28)"; ctx.fillRect(0, y, 512, 2); ctx.fillStyle = "rgba(255,255,255,0.25)"; ctx.fillRect(0, y+2, 512, 2); }
+    ctx.fillStyle = "#e6dccb"; ctx.fillRect(0,0,14,512); ctx.fillRect(498,0,14,512);
+    [[90,150],[330,150]].forEach(([wx,wy])=>{
+      ctx.fillStyle = "#5b4636"; ctx.fillRect(wx-8, wy-8, 108, 156);
+      ctx.fillStyle = "#2a3446"; ctx.fillRect(wx, wy, 92, 140);
+      ctx.fillStyle = "#fde68a"; ctx.fillRect(wx+6, wy+6, 36, 58); ctx.fillRect(wx+50, wy+6, 36, 58);
+      ctx.fillStyle = "#9cc6f2"; ctx.fillRect(wx+6, wy+74, 36, 60); ctx.fillRect(wx+50, wy+74, 36, 60);
+    });
+  } else if(kind === "city_facade_light"){
+    // v20: neutral light facade (tinted per building with vertex colours): 8 floors x 6 window bays per tile
+    ctx.fillStyle = "#e8e4dc"; ctx.fillRect(0,0,512,512);
+    for(let r=0;r<8;r++){
+      ctx.fillStyle = "#bdb6aa"; ctx.fillRect(0, r*64, 512, 7);
+      for(let c=0;c<6;c++){
+        ctx.fillStyle = "#3a4250"; ctx.fillRect(c*84 + 14, r*64 + 14, 56, 40);
+        ctx.fillStyle = ((r*3+c)%5===0) ? "#fde68a" : (((r+c)%3===0) ? "#9cc6f2" : "#5d6e86");
+        ctx.fillRect(c*84 + 17, r*64 + 17, 24, 34);
+        ctx.fillRect(c*84 + 43, r*64 + 17, 24, 34);
+      }
+    }
   } else if(kind === "city_facade"){
     // Multi-story Urban Brick & Sandstone Building Facade with Gridded Glass Windows
     ctx.fillStyle = "#6b3428"; ctx.fillRect(0,0,512,512);
@@ -4914,6 +4949,11 @@ function isPointOnRoadOrLot(x, z, extraMargin, skipTrack){
   // 3) Old-School Frontier Town Main Street Corridor
   const _T = ACTIVE_LAYOUT ? ACTIVE_LAYOUT.town : TOWN_BASE_POS;
   if(_T && x >= _T.x - 62 - m && x <= _T.x + 52 + m && z >= _T.z - 7 - m && z <= _T.z + 9 + m) return true;
+  if(ACTIVE_LAYOUT && ACTIVE_LAYOUT._tgrid){
+    for(const rr of ACTIVE_LAYOUT._tgrid.streets){
+      if(x >= rr[0] - m && x <= rr[1] + m && z >= rr[2] - m && z <= rr[3] + m) return true;
+    }
+  }
   if(ACTIVE_LAYOUT && ACTIVE_LAYOUT.roadRects){
     for(const rr of ACTIVE_LAYOUT.roadRects){
       if(x >= rr[0] - m && x <= rr[1] + m && z >= rr[2] - m && z <= rr[3] + m) return true;
@@ -4950,6 +4990,50 @@ function getMudZonesForMode(mode){
 // so every system (road ribbon, terrain flatten, grass/prop clearance, AI rivals, boss race) follows the CURRENT world.
 var ACTIVE_LAYOUT = null;
 const TOWN_BASE_POS = {x:0, z:-92};
+// v20: TOWN STREET GRID (Ch1 + Ch2). Coordinates are relative to TOWN_BASE_POS (Ch1 town), shifted per layout.
+// Streets/cells sit on the OUTSIDE of the dirt loop, behind the south row of the old-school town.
+const TOWN_GRID_V20 = {
+  streets: [
+    [-7.5, 0.5, -184, -98, "Mill St"], [17, 25, -184, -98, "Depot St"], [46, 54, -184, -98, "Ranch Rd"],
+    [-48, -40, -184, -127, "Creek Ln"], [-66, 72, -136, -127, "2nd St"], [-66, 72, -166, -157, "3rd St"]
+  ],
+  cells: [
+    [-36, -7.5, -127, -114], [0.5, 17, -127, -114], [25, 46, -127, -114], [54, 72, -127, -112],
+    [-66, -48, -157, -136], [-40, -7.5, -157, -136], [0.5, 17, -157, -136], [25, 46, -157, -136], [54, 72, -157, -136],
+    [-66, -48, -182, -166], [-40, -7.5, -182, -166], [0.5, 17, -182, -166], [25, 46, -182, -166], [54, 72, -182, -166]
+  ],
+  flat: [-80, 84, -194, -96]
+};
+function _townGridAbs(L){
+  if(!L || !L.town) return null;
+  const dx = L.town.x - TOWN_BASE_POS.x, dz = L.town.z - TOWN_BASE_POS.z;
+  return {
+    streets: TOWN_GRID_V20.streets.map(s=>[s[0]+dx, s[1]+dx, s[2]+dz, s[3]+dz, s[4]]),
+    cells: TOWN_GRID_V20.cells.map(c=>[c[0]+dx, c[1]+dx, c[2]+dz, c[3]+dz]),
+    flat: [TOWN_GRID_V20.flat[0]+dx, TOWN_GRID_V20.flat[1]+dx, TOWN_GRID_V20.flat[2]+dz, TOWN_GRID_V20.flat[3]+dz]
+  };
+}
+// v20: NIGHT CITY STREET GRID. Vertical streets [x0,x1,z0,z1], horizontal streets [x0,x1,z0,z1]
+const CITY_GRID_V20 = (()=>{
+  const V = [], H = [];
+  const vs = (cx, w, z0, z1)=>V.push([cx - w/2, cx + w/2, z0, z1]);
+  const hs = (cz, w, x0, x1)=>H.push([x0, x1, cz - w/2, cz + w/2]);
+  hs(0, 22, -220, 220);                       // main avenue under the viaduct
+  [-44, 44].forEach(z=>hs(z, 12, -166, 166)); // back streets (race loop runs on these)
+  [-100, 100].forEach(z=>hs(z, 12, -166, 166));
+  [-156, 156].forEach(z=>hs(z, 12, -166, 166));
+  [-60, 0, 60].forEach(x=>vs(x, 18, -162, 162));   // cross avenues (race loop uses x = +-60)
+  [-120, 120].forEach(x=>vs(x, 14, -162, 162));
+  [-160, 160].forEach(x=>vs(x, 12, -162, 162));
+  [-90, 90].forEach(x=>{ vs(x, 10, 11, 162); vs(x, 10, -162, -11); });   // minor streets T into the avenue
+  [-30, 30].forEach(x=>{ vs(x, 10, 11, 162); vs(x, 10, -38, -11); vs(x, 10, -162, -94); }); // skip the wash lot & mud pit block
+  // grid lines for block cells (full-length versions of every street)
+  const xs = [[-166,-154],[-127,-113],[-95,-85],[-69,-51],[-35,-25],[-9,9],[25,35],[51,69],[85,95],[113,127],[154,166]];
+  const zs = [[-162,-150],[-106,-94],[-50,-38],[-11,11],[38,50],[94,106],[150,162]];
+  const cells = [];
+  for(let i=0;i<xs.length-1;i++) for(let j=0;j<zs.length-1;j++) cells.push([xs[i][1], xs[i+1][0], zs[j][1], zs[j+1][0]]);
+  return {V, H, rects: H.concat(V), cells, crossX: [[-166,-154],[-127,-113],[-69,-51],[-9,9],[51,69],[113,127],[154,166]]};
+})();
 const _CH1_TRACK = TRACK_CONTROL_PTS.map(p=>p.slice());
 const _CH1_LOTS  = CAR_WASH_LOTS.map(l=>Object.assign({}, l));
 
@@ -4990,7 +5074,7 @@ const CHAPTER_LAYOUTS = {
     city:true, track:_cityLoopPts(), lutSub:2, town:null,
     lots:[{wx:30.0, wz:-66.5, lotW:40.0, lotD:26.0, apronX0:12.0, apronX1:48.0, apronZ0:-79.5, apronZ1:-49.0, flatY:0.0, rotY:0.0, name:"Back Street Super Wash"}],
     mud:[{x:-30.0, z:-72.0, r:5.2, name:"City Construction Mud Pit", flatY:0.0}],
-    roadRects:[[-220,220,-11,11],[-69,-51,-160,160],[-9,9,-160,160],[51,69,-160,160],[-72,72,-50,-38],[-72,72,38,50]],
+    roadRects:CITY_GRID_V20.rects,
     propRot:0, propMirror:false, lanes:[0,-1.4,1.4]
   },
   arena: { // Ch6 Arena: stadium oval with a north infield kink
@@ -5045,7 +5129,7 @@ function layoutPropXform(x, z){
 }
 
 function _townPadHit(T, x, z, m){
-  return T && x > T.x - 62 - m && x < T.x + 58 + m && z > T.z - 34 - m && z < T.z + 30 + m;
+  return T && x > T.x - 82 - m && x < T.x + 72 + m && z > T.z - 90 - m && z < T.z + 30 + m; // v20: incl. town street grid
 }
 
 function _terrainSpread(mode, cx, cz, rad){
@@ -5140,6 +5224,7 @@ function setActiveChapterLayout(mode){
   L.track.forEach(p=>TRACK_CONTROL_PTS.push(p.slice()));
   _rebuildTrackLUT(L.lutSub || 10);
   ACTIVE_LAYOUT = L;
+  if(L._tgrid === undefined) L._tgrid = _townGridAbs(L);
   if(!L._ready){
     CAR_WASH_LOTS.length = 0;
     L._mud = [];
@@ -5153,6 +5238,17 @@ function setActiveChapterLayout(mode){
   L._lots.forEach(l=>CAR_WASH_LOTS.push(Object.assign({}, l)));
   return L;
 }
+// v20: chapter-specific HUD mission hint (no "Old-School Town" in chapters without a town)
+const CHAPTER_MISSION_HINTS = {
+  ranch:     "🏁 Follow Dirt Track → Old-School Town & 💦 Car Wash!",
+  mudbog:    "🌲 Follow Creek Trail → Mud Bog Main Street & 💦 Car Wash!",
+  redrock:   "🏜️ Crawl the Canyon Loop → Mesa Pull-Off 💦 Car Wash!",
+  dunes:     "🏖️ Rip the Dune Sweeper → Desert 💦 Car Wash Pull-Off!",
+  nightcity: "🏙️ Cruise the City Grid → Back Street 💦 Super Wash!",
+  arena:     "🏟️ Hammer the Arena Oval → Pit Row 💦 Car Wash!"
+};
+function chapterMissionHint(mode){ return CHAPTER_MISSION_HINTS[mode] || "🏁 Follow the Track → 💦 Car Wash!"; }
+function chapterDropZoneName(){ return (ACTIVE_LAYOUT && ACTIVE_LAYOUT.town) ? "Town Drop Zone" : "Drop Zone"; }
 /* CHAPTER_LAYOUTS_V19_END */
 
 _rebuildTrackLUT(10);
@@ -5210,6 +5306,14 @@ function evalChapterTerrainY(mode, x, z){
     const tz = Math.max(0, 1 - Math.abs(z - _TP.z)/32);
     const flatBlend = Math.min(1, tx * tz * 2.4);
     baseH = baseH * (1 - flatBlend);
+  }
+
+  // v20: dead-flat ground under the town street grid (14m smooth feather)
+  if(_TP && ACTIVE_LAYOUT && ACTIVE_LAYOUT._tgrid){
+    const F = ACTIVE_LAYOUT._tgrid.flat;
+    const fdx = Math.max(0, F[0] - x, x - F[1]), fdz = Math.max(0, F[2] - z, z - F[3]);
+    const fd = Math.hypot(fdx, fdz);
+    if(fd < 14){ const u = fd / 14, sm = u*u*(3 - 2*u); baseH *= sm; }
   }
 
   // Flatten terrain under both Pull-Off Car Wash Parking Lot Pads & Road Aprons!
@@ -5297,7 +5401,7 @@ function chapter3DScreen(){
 
       <!-- COMPACT ACTIVE TRACK, TOWN & HEALTH TICKER STRIP -->
       <div style="display:flex;justify-content:space-between;align-items:center;width:100%;gap:4px">
-        <span class="dchip" id="ch3dmission" style="font-size:10.5px;padding:3px 7px;background:rgba(12,20,48,.86);border-color:#5bff9b">🏁 Follow Dirt Track → Old-School Town &amp; 💦 Car Wash!</span>
+        <span class="dchip" id="ch3dmission" style="font-size:10.5px;padding:3px 7px;background:rgba(12,20,48,.86);border-color:#5bff9b">🏁 Follow the Track → 💦 Car Wash!</span>
         <div style="display:flex;gap:3px">
           <span class="dchip" style="font-size:10.5px;padding:3px 6px;border-color:#ffd14d">🏁 Gate <b id="ch3dlap">0/16</b></span>
           <span class="dchip" style="font-size:10.5px;padding:3px 6px;border-color:#d9822b">💦 Mud <b id="ch3dmud">0%</b></span>
@@ -6417,6 +6521,7 @@ window.updateTruckVisualMud = function(carHolder, mudLevel){
     cone.position.set(0, 10.1, 0); wtGrp.add(cone);
     parkGroup.add(wtGrp);
     CH3D.boxColliders.push({cx:wtx, cz:wtz, hx:2.1, hz:2.1, cos:1, sin:0, label:"🗼 Water Tower"});
+    buildTownGridV20(mode);   // v20: back streets, boardwalks & more storefronts behind Main Street
   };
 
   // Build Complete 850m Closed-Loop Dirt Track Ribbon (13m Wide, Polygon-Offset, Zero Grass Bleeding & Wide 19.6m Gate Arches!)
@@ -6592,25 +6697,335 @@ window.updateTruckVisualMud = function(carHolder, mudLevel){
   };
 
   // Build Daylight Urban City Under the Elevated Teal-Green Riveted Steel Viaduct Overpass (Matches Jax's Photos 1-4!)
-  const buildMetroCityViaductLevel = ()=>{
-    const roadTex = makeRealisticTexture("city_road", 1, 24);
-    const roadMat = new THREE.MeshStandardMaterial({map:roadTex, color:0xffffff, roughness:0.65, metalness:0.1});
-    // Main Multi-Lane Avenue under the Viaduct (X = -220 to +220, width = 22m)
-    const mainAve = new THREE.Mesh(new THREE.PlaneGeometry(22, 440), roadMat);
-    mainAve.rotation.x = -Math.PI/2;
-    mainAve.rotation.z = -Math.PI/2;
-    mainAve.position.set(0, 0.03, 0);
-    mainAve.receiveShadow = true;
-    parkGroup.add(mainAve);
-
-    // Cross Avenues at x = -60, 0, +60
-    [-60, 0, 60].forEach(cx=>{
-      const cross = new THREE.Mesh(new THREE.PlaneGeometry(18, 320), roadMat);
-      cross.rotation.x = -Math.PI/2;
-      cross.position.set(cx, 0.025, 0);
-      cross.receiveShadow = true;
-      parkGroup.add(cross);
+  /* CITY_GRID_V20_START */
+  // v20: merged-mesh street grid + building blocks (one draw call per material, every building has a solid box collider)
+  const _v20Rng = (seed)=>{ let s = seed >>> 0 || 1; return ()=>{ s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; };
+  const _v20Merged = (boxes, uvW, uvH)=>{
+    // boxes: {x0,x1,y0,y1,z0,z1,col:[r,g,b], top:[r,g,b], plainTop}
+    const P = [], N = [], U = [], C = [], I = [];
+    const face = (ax, sgn, b)=>{
+      // ax: 0=x, 1=y, 2=z ; builds the quad on the + or - side of the box
+      const base = P.length / 3;
+      let v;
+      if(ax === 1){
+        const y = sgn > 0 ? b.y1 : b.y0;
+        v = sgn > 0 ? [[b.x0,y,b.z1],[b.x1,y,b.z1],[b.x1,y,b.z0],[b.x0,y,b.z0]] : [[b.x0,y,b.z0],[b.x1,y,b.z0],[b.x1,y,b.z1],[b.x0,y,b.z1]];
+      } else if(ax === 0){
+        const x = sgn > 0 ? b.x1 : b.x0;
+        v = sgn > 0 ? [[x,b.y0,b.z1],[x,b.y0,b.z0],[x,b.y1,b.z0],[x,b.y1,b.z1]] : [[x,b.y0,b.z0],[x,b.y0,b.z1],[x,b.y1,b.z1],[x,b.y1,b.z0]];
+      } else {
+        const z = sgn > 0 ? b.z1 : b.z0;
+        v = sgn > 0 ? [[b.x0,b.y0,z],[b.x1,b.y0,z],[b.x1,b.y1,z],[b.x0,b.y1,z]] : [[b.x1,b.y0,z],[b.x0,b.y0,z],[b.x0,b.y1,z],[b.x1,b.y1,z]];
+      }
+      const n = ax === 0 ? [sgn,0,0] : (ax === 1 ? [0,sgn,0] : [0,0,sgn]);
+      const col = (ax === 1) ? (b.top || b.col) : b.col;
+      const horiz = ax === 0 ? (b.z1 - b.z0) : (b.x1 - b.x0);
+      const hgt = b.y1 - b.y0;
+      const uvs = (ax === 1 || b.plain) ? [[0.01,0.005],[0.012,0.005],[0.012,0.007],[0.01,0.007]]
+        : [[0,0],[horiz/uvW,0],[horiz/uvW,hgt/uvH],[0,hgt/uvH]];
+      for(let k=0;k<4;k++){ P.push(v[k][0],v[k][1],v[k][2]); N.push(n[0],n[1],n[2]); U.push(uvs[k][0],uvs[k][1]); C.push(col[0],col[1],col[2]); }
+      I.push(base, base+1, base+2, base, base+2, base+3);
+    };
+    for(const b of boxes){ face(0,1,b); face(0,-1,b); face(2,1,b); face(2,-1,b); face(1,1,b); if(b.bottom) face(1,-1,b); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3));
+    g.setAttribute("normal", new THREE.Float32BufferAttribute(N, 3));
+    g.setAttribute("uv", new THREE.Float32BufferAttribute(U, 2));
+    g.setAttribute("color", new THREE.Float32BufferAttribute(C, 3));
+    g.setIndex(I);
+    g.computeBoundingSphere();
+    return g;
+  };
+  // reuse an already-generated canvas texture of this kind (no new 512px canvas), just with repeat 1x1
+  const _v20Tex = (kind)=>{
+    const k = Object.keys(_REAL_TEX_CACHE).find(q=>q.startsWith(kind + "_"));
+    if(!k) return makeRealisticTexture(kind, 1, 1);
+    const t = _REAL_TEX_CACHE[k].clone(); t.repeat.set(1, 1); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.needsUpdate = true; return t;
+  };
+  const _v20Hex = (h)=>{ const c = new THREE.Color(h); return [c.r, c.g, c.b]; };
+  const _v20RectHits = (x0,x1,z0,z1, rects, m)=>rects.some(r=>x1 > r[0]-m && x0 < r[1]+m && z1 > r[2]-m && z0 < r[3]+m);
+  // A building footprint is OK only if it is off every road/street, car wash lot, mud bog, the spawn pad and every collider
+  const _v20FootOK = (mode, x0,x1,z0,z1, roads, trackClear)=>{
+    if(_v20RectHits(x0,x1,z0,z1, roads, 2.4)) return false;
+    for(const cw of CAR_WASH_LOTS){
+      const lx0 = Math.min(cw.apronX0, cw.wx - cw.lotW/2), lx1 = Math.max(cw.apronX1, cw.wx + cw.lotW/2);
+      const lz0 = Math.min(cw.apronZ0, cw.wz - cw.lotD/2), lz1 = Math.max(cw.apronZ1, cw.wz + cw.lotD/2);
+      if(x1 > lx0 - 4 && x0 < lx1 + 4 && z1 > lz0 - 4 && z0 < lz1 + 4) return false;
+    }
+    const rectDist = (px,pz)=>Math.hypot(Math.max(0, x0 - px, px - x1), Math.max(0, z0 - pz, pz - z1));
+    for(const mz of getMudZonesForMode(mode)) if(rectDist(mz.x, mz.z) < mz.r + 5) return false;
+    if(rectDist(0, 0) < 16) return false;
+    if(trackClear){
+      for(let i=0;i<=4;i++) for(let j=0;j<=4;j++){
+        if(distToRoadCenter(x0 + (x1-x0)*i/4, z0 + (z1-z0)*j/4) < trackClear) return false;
+      }
+    }
+    for(const bc of CH3D.boxColliders){
+      if(bc.v20) continue;   // grid neighbours are non-overlapping by construction (1.2m alleys)
+      const r = Math.abs(bc.hx*bc.cos) + Math.abs(bc.hz*bc.sin), q = Math.abs(bc.hx*bc.sin) + Math.abs(bc.hz*bc.cos);
+      if(x1 > bc.cx - r - 1.2 && x0 < bc.cx + r + 1.2 && z1 > bc.cz - q - 1.2 && z0 < bc.cz + q + 1.2) return false;
+    }
+    for(const ob of CH3D.obstacleColliders) if(rectDist(ob.x, ob.z) < ob.r + 1.5) return false;
+    return true;
+  };
+  // Split one block's inner rect into building footprints (rows of varied widths); returns [{x0,x1,z0,z1,face}]
+  const _v20Footprints = (ix0, ix1, iz0, iz1, rnd, minW, maxW, rowSplit)=>{
+    const out = [], w = ix1 - ix0, d = iz1 - iz0;
+    const alongX = w >= d;
+    const L0 = alongX ? ix0 : iz0, L1 = alongX ? ix1 : iz1;
+    const S0 = alongX ? iz0 : ix0, S1 = alongX ? iz1 : ix1;
+    const depth = S1 - S0;
+    const rows = depth > rowSplit ? [[S0, S0 + depth/2 - 0.6, -1], [S0 + depth/2 + 0.6, S1, 1]] : [[S0, S1, 0]];
+    rows.forEach(([r0, r1, side])=>{
+      let t = L0;
+      while(L1 - t > minW*0.8){
+        let bw = minW + rnd()*(maxW - minW);
+        if(L1 - t - bw < minW*0.8) bw = L1 - t;
+        const a0 = t, a1 = t + bw - 1.2;
+        if(a1 - a0 > 4){
+          // small random setback so the street wall isn't a flat slab
+          const sb = rnd() < 0.35 ? rnd()*1.6 : 0;
+          const s0 = r0 + (side >= 0 ? 0 : 0), s1 = r1;
+          const f = alongX ? {x0:a0, x1:a1, z0:s0 + (side>0?0:sb), z1:s1 - (side<0?0:sb)} : {x0:s0 + (side>0?0:sb), x1:s1 - (side<0?0:sb), z0:a0, z1:a1};
+          f.side = side; f.alongX = alongX;
+          out.push(f);
+        }
+        t += bw;
+      }
     });
+    return out;
+  };
+  const _v20StreetPlanes = (rects, tex, y0, tint)=>{
+    // Long-axis aligned road planes with per-street texture repeat (textures shared, cloned only for repeat)
+    rects.forEach((r, k)=>{
+      const w = r[1] - r[0], d = r[3] - r[2], alongX = w > d;
+      const len = alongX ? w : d, wid = alongX ? d : w;
+      const t = tex.clone(); t.needsUpdate = true; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, Math.max(1, Math.round(len / (wid*0.85))));
+      const mat = new THREE.MeshStandardMaterial({map:t, color:tint || 0xffffff, roughness:0.66, metalness:0.08, polygonOffset:true, polygonOffsetFactor:-1 - (k%3), polygonOffsetUnits:-1 - (k%3)});
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(wid, len), mat);
+      pl.rotation.x = -Math.PI/2;
+      if(alongX) pl.rotation.z = -Math.PI/2;
+      pl.position.set((r[0]+r[1])/2, y0 + (alongX ? 0.006 : 0), (r[2]+r[3])/2);
+      pl.receiveShadow = true;
+      parkGroup.add(pl);
+    });
+  };
+  const _v20Sidewalks = (cells, sw, y1, colHex, mat)=>{
+    const col = _v20Hex(colHex), boxes = [];
+    cells.forEach(c=>{
+      const [x0,x1,z0,z1] = c;
+      boxes.push({x0, x1, z0, z1:z0+sw, y0:-0.05, y1, col, plain:true});
+      boxes.push({x0, x1, z0:z1-sw, z1, y0:-0.05, y1, col, plain:true});
+      boxes.push({x0, x1:x0+sw, z0:z0+sw, z1:z1-sw, y0:-0.05, y1, col, plain:true});
+      boxes.push({x0:x1-sw, x1, z0:z0+sw, z1:z1-sw, y0:-0.05, y1, col, plain:true});
+    });
+    if(!boxes.length) return;
+    const m = new THREE.Mesh(_v20Merged(boxes, 4, 4), mat);
+    m.receiveShadow = true; parkGroup.add(m);
+  };
+  window.CH3D_GRID_STATS = {buildings:0, lamps:0, streets:0, cells:0};
+
+  // ---- Ch5 Night City: full street grid, sidewalks, 200+ varied buildings, street lamps ----
+  const buildCityGridV20 = ()=>{
+    const G = CITY_GRID_V20, rnd = _v20Rng(5150);
+    const stats = {buildings:0, lamps:0, streets:G.rects.length, cells:0};
+    const roadTex = _v20Tex("city_road");
+    _v20StreetPlanes(G.rects, roadTex, 0.024);
+    const isLotOrMud = (c)=>{
+      for(const cw of CAR_WASH_LOTS){
+        if(c[1] > cw.apronX0 - 2 && c[0] < cw.apronX1 + 2 && c[3] > Math.min(cw.apronZ0, cw.wz - cw.lotD/2) - 2 && c[2] < cw.apronZ1 + 2) return true;
+      }
+      return getMudZonesForMode("nightcity").some(mz=>mz.x > c[0] - mz.r && mz.x < c[1] + mz.r && mz.z > c[2] - mz.r && mz.z < c[3] + mz.r);
+    };
+    const swCells = G.cells.filter(c=>!isLotOrMud(c) && !_v20RectHits(c[0]+0.5, c[1]-0.5, c[2]+0.5, c[3]-0.5, G.rects, 0));
+    const walkMat = new THREE.MeshStandardMaterial({map:_v20Tex("asphalt_plate"), vertexColors:true, color:0xffffff, roughness:0.85, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2});
+    // block pads (plaza paving) + 2.6m sidewalks
+    { const pad = _v20Hex(0x6b7280), boxes = [];
+      swCells.forEach(c=>boxes.push({x0:c[0], x1:c[1], z0:c[2], z1:c[3], y0:-0.05, y1:0.035, col:pad, plain:true}));
+      const m = new THREE.Mesh(_v20Merged(boxes, 4, 4), walkMat); m.receiveShadow = true; parkGroup.add(m); }
+    _v20Sidewalks(swCells, 2.6, 0.065, 0xc7cbd1, walkMat);
+    stats.cells = swCells.length;
+
+    const pal = [0x9b4a3a,0xb08968,0x8d99ae,0x6c757d,0xd4c4a8,0x7a9cc6,0x5e81ac,0xc9b79c,0xa3b18a,0xe9d8a6,0x9c6644,0x84a59d,0xbfc0c0,0x6d597a,0xe5989b,0x52796f];
+    const boxes = [], roof = [], plazaCells = [];
+    swCells.forEach((c, ci)=>{
+      const cx = (c[0]+c[1])/2, cz = (c[2]+c[3])/2;
+      // keep a few open plazas (stunt ramps / crush cars land here)
+      if(Math.hypot(cx - 22, cz - 28) < 16 || Math.hypot(cx - 43, cz - 24.5) < 4 || Math.hypot(cx - 77, cz + 24.5) < 4 || Math.hypot(cx + 40, cz + 60) < 18 || rnd() < 0.05){ plazaCells.push(c); return; }
+      const ix0 = c[0] + 3.4, ix1 = c[1] - 3.4, iz0 = c[2] + 3.4, iz1 = c[3] - 3.4;
+      if(ix1 - ix0 < 6 || iz1 - iz0 < 6) return;
+      const fps = _v20Footprints(ix0, ix1, iz0, iz1, rnd, 8, 16, 22);
+      const dist = Math.max(Math.abs(cx)/1.3, Math.abs(cz));
+      fps.forEach(f=>{
+        if(!_v20FootOK("nightcity", f.x0, f.x1, f.z0, f.z1, G.rects, 0)) return;
+        const tall = dist < 60 ? 18 + rnd()*30 : (dist < 110 ? 10 + rnd()*18 : 6 + rnd()*10);
+        const h = Math.round(tall/3)*3 + 0.2;
+        const base = pal[Math.floor(rnd()*pal.length)];
+        const col = _v20Hex(base), top = _v20Hex(0x4b5563);
+        boxes.push({x0:f.x0, x1:f.x1, y0:-0.6, y1:h, z0:f.z0, z1:f.z1, col, top});
+        // setback crown on tall towers
+        if(h > 26 && rnd() < 0.6){
+          const ins = 1.6 + rnd()*1.4, h2 = h + 4 + Math.round(rnd()*3)*3;
+          if(f.x1 - f.x0 > ins*2 + 3 && f.z1 - f.z0 > ins*2 + 3) boxes.push({x0:f.x0+ins, x1:f.x1-ins, y0:h - 0.2, y1:h2, z0:f.z0+ins, z1:f.z1-ins, col, top});
+        }
+        // roof parapet + AC units
+        const pc = _v20Hex(0x374151);
+        roof.push({x0:f.x0, x1:f.x1, y0:h, y1:h+0.6, z0:f.z0, z1:f.z0+0.35, col:pc, plain:true});
+        roof.push({x0:f.x0, x1:f.x1, y0:h, y1:h+0.6, z0:f.z1-0.35, z1:f.z1, col:pc, plain:true});
+        const ac = 1 + Math.floor(rnd()*2);
+        for(let k=0;k<ac;k++){
+          const ax = f.x0 + 1.5 + rnd()*Math.max(0.5, f.x1 - f.x0 - 4.5), az = f.z0 + 1.5 + rnd()*Math.max(0.5, f.z1 - f.z0 - 4.5);
+          roof.push({x0:ax, x1:ax+1.8, y0:h, y1:h+1.2, z0:az, z1:az+1.4, col:_v20Hex(0x9ca3af), plain:true});
+        }
+        CH3D.boxColliders.push({cx:(f.x0+f.x1)/2, cz:(f.z0+f.z1)/2, hx:(f.x1-f.x0)/2 + 0.25, hz:(f.z1-f.z0)/2 + 0.25, cos:1, sin:0, label:"🏢 City Building", v20:true});
+        stats.buildings++;
+      });
+    });
+    const facMat = new THREE.MeshStandardMaterial({map:makeRealisticTexture("city_facade_light", 1, 1), vertexColors:true, color:0xffffff, roughness:0.62, metalness:0.08});
+    const bMesh = new THREE.Mesh(_v20Merged(boxes, 21, 24), facMat);
+    bMesh.castShadow = true; bMesh.receiveShadow = true; bMesh.name = "v20_city_buildings";
+    parkGroup.add(bMesh);
+    const roofMesh = new THREE.Mesh(_v20Merged(roof, 4, 4), new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.8}));
+    roofMesh.castShadow = true; parkGroup.add(roofMesh);
+    // plaza green
+    if(plazaCells.length){
+      const gb = plazaCells.map(c=>({x0:c[0]+2.6, x1:c[1]-2.6, z0:c[2]+2.6, z1:c[3]-2.6, y0:-0.05, y1:0.05, col:_v20Hex(0x4d7c3f), plain:true}));
+      const gm = new THREE.Mesh(_v20Merged(gb, 4, 4), new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.9, polygonOffset:true, polygonOffsetFactor:-3, polygonOffsetUnits:-3}));
+      gm.receiveShadow = true; parkGroup.add(gm);
+    }
+    // street lamps along the sidewalks (instanced; every pole is solid)
+    const lampPos = [];
+    swCells.forEach(c=>{
+      const edges = [[c[0],c[2]+1.1,c[1],c[2]+1.1],[c[0],c[3]-1.1,c[1],c[3]-1.1],[c[0]+1.1,c[2],c[0]+1.1,c[3]],[c[1]-1.1,c[2],c[1]-1.1,c[3]]];
+      edges.forEach(e=>{
+        const len = Math.hypot(e[2]-e[0], e[3]-e[1]), n = Math.max(1, Math.floor((len - 6) / 26));
+        for(let k=0;k<=n;k++){
+          const t = n === 0 ? 0.5 : (3 + k*(len - 6)/n) / len;
+          const x = e[0] + (e[2]-e[0])*t, z = e[1] + (e[3]-e[1])*t;
+          if(lampPos.some(p=>Math.hypot(p[0]-x, p[1]-z) < 9)) continue;
+          if(Math.abs(x) > 150 || Math.abs(z) > 150) continue;
+          if(isPointOnRoadOrLot(x, z, 0.35, true) || Math.hypot(x, z) < 16 || distToRoadCenter(x, z) < 8.0) continue;
+          if(CH3D.boxColliders.some(bc=>Math.abs(x-bc.cx) < bc.hx + 0.6 && Math.abs(z-bc.cz) < bc.hz + 0.6)) continue;
+          lampPos.push([x, z]);
+        }
+      });
+    });
+    if(lampPos.length){
+      const poleG = new THREE.CylinderGeometry(0.11, 0.16, 5.6, 8); poleG.translate(0, 2.8, 0);
+      const headG = new THREE.BoxGeometry(0.9, 0.22, 0.42); headG.translate(0.35, 5.62, 0);
+      const poles = new THREE.InstancedMesh(poleG, new THREE.MeshStandardMaterial({color:0x2f3640, metalness:0.6, roughness:0.4}), lampPos.length);
+      const heads = new THREE.InstancedMesh(headG, new THREE.MeshStandardMaterial({color:0xfff3c4, emissive:0xffd27a, emissiveIntensity:0.8}), lampPos.length);
+      const dm = new THREE.Object3D();
+      lampPos.forEach((p, i)=>{
+        dm.position.set(p[0], 0, p[1]); dm.rotation.set(0, (i%2)*Math.PI, 0); dm.updateMatrix();
+        poles.setMatrixAt(i, dm.matrix); heads.setMatrixAt(i, dm.matrix);
+        CH3D.obstacleColliders.push({x:p[0], z:p[1], r:0.28, label:"💡 Street Lamp"});
+      });
+      poles.castShadow = true; parkGroup.add(poles); parkGroup.add(heads);
+      stats.lamps = lampPos.length;
+    }
+    // crosswalk stripes on the main avenue / back street intersections
+    { const cw = [], wc = _v20Hex(0xf1f5f9);
+      G.crossX.forEach(xr=>{
+        [[-11, 11], [38, 50], [-50, -38]].forEach(zr=>{
+          {
+            [xr[0]-2.6, xr[1]+0.4].forEach(sx=>{
+              for(let z=zr[0]+0.8; z<zr[1]-0.8; z+=1.6) cw.push({x0:sx, x1:sx+2.2, z0:z, z1:z+0.8, y0:0.0, y1:0.045, col:wc, plain:true});
+            });
+          }
+        });
+      });
+      const cm = new THREE.Mesh(_v20Merged(cw, 4, 4), new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.6, polygonOffset:true, polygonOffsetFactor:-4, polygonOffsetUnits:-4}));
+      parkGroup.add(cm); }
+    window.CH3D_GRID_STATS = stats;
+  };
+
+  // ---- Ch1 / Ch2 town: back-street grid with boardwalks and more old-school storefronts ----
+  const buildTownGridV20 = (mode)=>{
+    const L = ACTIVE_LAYOUT; if(!L || !L._tgrid) return;
+    const TG = L._tgrid, rnd = _v20Rng(mode === "ranch" ? 7101 : 7202);
+    const stats = {buildings:0, lamps:0, streets:TG.streets.length, cells:TG.cells.length};
+    const dirt = _v20Tex("dirt_trail");
+    _v20StreetPlanes(TG.streets.map(s=>s.slice(0,4)), dirt, 0.045, 0xd8b98c);
+    const woodMat = new THREE.MeshStandardMaterial({map:_v20Tex("wood_grain"), vertexColors:true, color:0xffffff, roughness:0.85, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2});
+    _v20Sidewalks(TG.cells, 2.4, 0.09, 0xb7865a, woodMat);
+    const pal = [0xc0392b,0x2e86ab,0xf6c85f,0x6fb07f,0xffffff,0xe8a87c,0x8e7dbe,0x5fa8d3,0xd35400,0xf4e1c1,0x7fb069,0xc97b84];
+    const names = [["DUSTY'S DINER","PIE • COFFEE • EGGS"],["IRON HORSE TIRES","MUD TIRES & LIFTS"],["TRAILHEAD BANK","EST. 1889"],["POST OFFICE","U.S. MAIL"],["BAIT & TACKLE","WORMS • LURES • ICE"],["MESA HARDWARE","NUTS • BOLTS • ROPE"],["COWPOKE CINEMA","DOUBLE FEATURE"],["SADDLE SHOP","LEATHER & SPURS"],["FIRE HOUSE No.1","VOLUNTEER CREW"],["SODA FOUNTAIN","FLOATS & SHAKES"]];
+    const bodies = [], sidings = [], trims = [], signs = [];
+    const roads = TG.streets.map(s=>s.slice(0,4));
+    TG.cells.forEach(c=>{
+      const ix0 = c[0] + 3.0, ix1 = c[1] - 3.0, iz0 = c[2] + 3.0, iz1 = c[3] - 3.0;
+      if(ix1 - ix0 < 6 || iz1 - iz0 < 6) return;
+      _v20Footprints(ix0, ix1, iz0, iz1, rnd, 6.5, 11, 12).forEach(f=>{
+        if(!_v20FootOK(mode, f.x0, f.x1, f.z0, f.z1, roads, 12.0)) return;
+        let gy = 1e9; [[f.x0,f.z0],[f.x1,f.z0],[f.x0,f.z1],[f.x1,f.z1],[(f.x0+f.x1)/2,(f.z0+f.z1)/2]].forEach(p=>{ gy = Math.min(gy, getExactTerrainHeight(mode, p[0], p[1])); });
+        const h = 4.2 + Math.floor(rnd()*3)*1.9 + rnd()*0.6;
+        const isBrick = rnd() < 0.35;
+        const col = isBrick ? _v20Hex([0xffffff,0xf3d9c4,0xe9c6a8,0xd6d3d1][Math.floor(rnd()*4)]) : _v20Hex(pal[Math.floor(rnd()*pal.length)]);
+        (isBrick ? bodies : sidings).push({x0:f.x0, x1:f.x1, y0:gy - 0.7, y1:gy + h, z0:f.z0, z1:f.z1, col, top:_v20Hex(0x3d2414)});
+        // western false-front parapet on the street side of the row
+        const front = f.alongX ? (f.side > 0 ? "z1" : (f.side < 0 ? "z0" : ((Math.abs(f.z0 - c[2]) < Math.abs(c[3] - f.z1)) ? "z0" : "z1")))
+                               : (f.side > 0 ? "x1" : (f.side < 0 ? "x0" : ((Math.abs(f.x0 - c[0]) < Math.abs(c[1] - f.x1)) ? "x0" : "x1")));
+        const pt = 0.35, ph = 1.5 + rnd()*0.9, tc = col.map(v=>v*0.78);
+        let pb;
+        if(front === "z0") pb = {x0:f.x0-0.15, x1:f.x1+0.15, z0:f.z0-0.05, z1:f.z0+pt};
+        else if(front === "z1") pb = {x0:f.x0-0.15, x1:f.x1+0.15, z0:f.z1-pt, z1:f.z1+0.05};
+        else if(front === "x0") pb = {x0:f.x0-0.05, x1:f.x0+pt, z0:f.z0-0.15, z1:f.z1+0.15};
+        else pb = {x0:f.x1-pt, x1:f.x1+0.05, z0:f.z0-0.15, z1:f.z1+0.15};
+        trims.push(Object.assign({y0:gy + h - 0.2, y1:gy + h + ph, col:tc}, pb));
+        // porch awning
+        const aw = 1.6;
+        if(front === "z0") trims.push({x0:f.x0, x1:f.x1, z0:f.z0-aw, z1:f.z0, y0:gy+2.7, y1:gy+2.9, col:_v20Hex(0x3d2414), plain:true});
+        else if(front === "z1") trims.push({x0:f.x0, x1:f.x1, z0:f.z1, z1:f.z1+aw, y0:gy+2.7, y1:gy+2.9, col:_v20Hex(0x3d2414), plain:true});
+        else if(front === "x0") trims.push({x0:f.x0-aw, x1:f.x0, z0:f.z0, z1:f.z1, y0:gy+2.7, y1:gy+2.9, col:_v20Hex(0x3d2414), plain:true});
+        else trims.push({x0:f.x1, x1:f.x1+aw, z0:f.z0, z1:f.z1, y0:gy+2.7, y1:gy+2.9, col:_v20Hex(0x3d2414), plain:true});
+        if(signs.length < names.length && (f.x1-f.x0 > 7 || f.z1-f.z0 > 7)) signs.push({f, front, y:gy + h + ph*0.45});
+        CH3D.boxColliders.push({cx:(f.x0+f.x1)/2, cz:(f.z0+f.z1)/2, hx:(f.x1-f.x0)/2 + 0.3, hz:(f.z1-f.z0)/2 + 0.3, cos:1, sin:0, label:"🏚️ Town Building", v20:true});
+        stats.buildings++;
+      });
+    });
+    const brick = new THREE.MeshStandardMaterial({map:_v20Tex("brick_wall"), vertexColors:true, color:0xffffff, roughness:0.82});
+    const bm = new THREE.Mesh(_v20Merged(bodies, 6, 4), brick); bm.castShadow = true; bm.receiveShadow = true; bm.name = "v20_town_buildings"; parkGroup.add(bm);
+    const sid = new THREE.MeshStandardMaterial({map:makeRealisticTexture("town_siding", 1, 1), vertexColors:true, color:0xffffff, roughness:0.8});
+    const sm2 = new THREE.Mesh(_v20Merged(sidings, 6, 3.2), sid); sm2.castShadow = true; sm2.receiveShadow = true; sm2.name = "v20_town_storefronts"; parkGroup.add(sm2);
+    const wood = new THREE.MeshStandardMaterial({map:_v20Tex("wood_grain"), vertexColors:true, color:0xffffff, roughness:0.84});
+    const tm = new THREE.Mesh(_v20Merged(trims, 4, 2), wood); tm.castShadow = true; parkGroup.add(tm);
+    signs.forEach((sg, i)=>{
+      const f = sg.f, nm = names[(i + (mode === "ranch" ? 0 : 5)) % names.length];
+      const tex = makeSignTexture(nm[0], nm[1], ["#3b1d0e","#7f1d1d","#14532d","#1e1b4b","#27272a"][i%5], "#fef3c7", "#f59e0b");
+      const wide = (sg.front === "z0" || sg.front === "z1") ? (f.x1 - f.x0) : (f.z1 - f.z0);
+      const sm = new THREE.Mesh(new THREE.PlaneGeometry(wide*0.8, 1.1), new THREE.MeshBasicMaterial({map:tex}));
+      const cx = (f.x0+f.x1)/2, cz = (f.z0+f.z1)/2;
+      if(sg.front === "z0"){ sm.position.set(cx, sg.y, f.z0 - 0.12); sm.rotation.y = Math.PI; }
+      else if(sg.front === "z1"){ sm.position.set(cx, sg.y, f.z1 + 0.12); }
+      else if(sg.front === "x0"){ sm.position.set(f.x0 - 0.12, sg.y, cz); sm.rotation.y = -Math.PI/2; }
+      else { sm.position.set(f.x1 + 0.12, sg.y, cz); sm.rotation.y = Math.PI/2; }
+      parkGroup.add(sm);
+    });
+    // hitching-post lamps on the boardwalk corners (solid)
+    const lampPos = [];
+    TG.cells.forEach(c=>{ [[c[0]+1.0,c[2]+1.0],[c[1]-1.0,c[2]+1.0],[c[0]+1.0,c[3]-1.0],[c[1]-1.0,c[3]-1.0]].forEach(p=>{
+      if(isPointOnRoadOrLot(p[0], p[1], 0.35, true) || distToRoadCenter(p[0], p[1]) < 8.5) return;
+      if(CH3D.boxColliders.some(bc=>{ const r = Math.abs(bc.hx*bc.cos)+Math.abs(bc.hz*bc.sin), q = Math.abs(bc.hx*bc.sin)+Math.abs(bc.hz*bc.cos); return Math.abs(p[0]-bc.cx) < r + 0.5 && Math.abs(p[1]-bc.cz) < q + 0.5; })) return;
+      lampPos.push(p); }); });
+    if(lampPos.length){
+      const poleG = new THREE.CylinderGeometry(0.09, 0.12, 3.6, 6); poleG.translate(0, 1.8, 0);
+      const headG = new THREE.BoxGeometry(0.42, 0.5, 0.42); headG.translate(0, 3.75, 0);
+      const poles = new THREE.InstancedMesh(poleG, new THREE.MeshStandardMaterial({color:0x1f1f1f, metalness:0.5, roughness:0.5}), lampPos.length);
+      const heads = new THREE.InstancedMesh(headG, new THREE.MeshStandardMaterial({color:0xfef08a, emissive:0xd97706, emissiveIntensity:0.7}), lampPos.length);
+      const dm = new THREE.Object3D();
+      lampPos.forEach((p, i)=>{ dm.position.set(p[0], getExactTerrainHeight(mode, p[0], p[1]), p[1]); dm.updateMatrix(); poles.setMatrixAt(i, dm.matrix); heads.setMatrixAt(i, dm.matrix);
+        CH3D.obstacleColliders.push({x:p[0], z:p[1], r:0.25, label:"🏮 Lamp Post"}); });
+      parkGroup.add(poles); parkGroup.add(heads);
+      stats.lamps = lampPos.length;
+    }
+    window.CH3D_GRID_STATS = stats;
+  };
+  /* CITY_GRID_V20_END */
+
+  const buildMetroCityViaductLevel = ()=>{
+    // v20: the whole street grid (main avenue, cross avenues, back streets, minor streets) + sidewalks + buildings
+    buildCityGridV20();
 
     // Elevated Teal-Green Riveted Steel Viaduct ("El" Train Overpass) running along X = -180m .. +180m at y = 6.2m!
     const tealSteel = new THREE.MeshStandardMaterial({color:0x2b8a7e, roughness:0.38, metalness:0.68});
@@ -6635,7 +7050,7 @@ window.updateTruckVisualMud = function(carHolder, mudLevel){
 
     // Solid Teal-Green H-Beam Steel Viaduct Columns every 14m + Overhead Cross-Girders & Diagonal Braces!
     for(let vx = -154; vx <= 154; vx += 14){
-      if(Math.abs(vx) < 9.5 || Math.abs(Math.abs(vx) - 60) < 9.5) continue; // v19: keep cross-avenue intersections clear
+      if(CITY_GRID_V20.crossX.some(r=>vx > r[0] - 1.5 && vx < r[1] + 1.5)) continue; // v20: keep every cross-street intersection clear
       const crossBeam = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.85, 11.4), darkTeal);
       crossBeam.position.set(vx, 5.45, 0);
       crossBeam.castShadow = true;
@@ -6663,33 +7078,6 @@ window.updateTruckVisualMud = function(carHolder, mudLevel){
 
     // Drive-Up Viaduct Access Ramp at x = 68m, z = 0m so Jax can drive right up onto the Elevated Overpass!
     addRideableRamp(100, 0, 0, 24.0, 8.5, 6.25, 0x475569, false); // v19: moved east, clear of the x=60 cross avenue
-
-    // v19: Back Streets at z = ±44 that carry the Night City street circuit
-    const backTex = makeRealisticTexture("city_road", 1, 8);
-    const backMat = new THREE.MeshStandardMaterial({map:backTex, color:0xffffff, roughness:0.65, metalness:0.1});
-    [-44, 44].forEach(sz=>{
-      const st = new THREE.Mesh(new THREE.PlaneGeometry(12, 140), backMat);
-      st.rotation.x = -Math.PI/2; st.rotation.z = -Math.PI/2;
-      st.position.set(0, 0.028, sz);
-      st.receiveShadow = true;
-      parkGroup.add(st);
-    });
-
-    // Multi-Story Urban Brick & Sandstone City Buildings lining both sides of the Avenue!
-    const facTex = makeRealisticTexture("city_facade", 2, 2);
-    const bCols = [0x8c3b2b, 0x94765c, 0x475569, 0x7c2d12, 0x64748b];
-    for(let bx = -140; bx <= 140; bx += 28){
-      if(Math.abs(bx) < 12 || Math.abs(bx - 60) < 12 || Math.abs(bx + 60) < 12) continue;
-      [-24, 24].forEach((bz, si)=>{
-        const bw = 18 + (Math.abs(bx)%7), bd = 14, bh = 14 + ((Math.abs(bx)+si*5)%12);
-        const bMat = new THREE.MeshStandardMaterial({map:facTex, color:bCols[Math.abs(bx+si)%bCols.length], roughness:0.7});
-        const bld = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), bMat);
-        bld.position.set(bx, bh*0.5 - 0.2, bz);
-        bld.castShadow = true; bld.receiveShadow = true;
-        parkGroup.add(bld);
-        CH3D.boxColliders.push({cx:bx, cz:bz, hx:bw*0.5+0.3, hz:bd*0.5+0.3, cos:1, sin:0, label:"🏢 City Building"});
-      });
-    }
 
     // City Track Waypoints for Minimap & Guide Arrow
     CH3D.trackPoints = _TRACK_LUT.filter((p,i)=>i%2===0).map(p=>({x:p.x, z:p.z, tx:p.tx, tz:p.tz}));
@@ -6893,6 +7281,7 @@ window.updateTruckVisualMud = function(carHolder, mudLevel){
     const mode = ch.mode;
     setActiveChapterLayout(mode);
     const LAY = ACTIVE_LAYOUT;
+    window.CH3D_GRID_STATS = null;
     while(parkGroup.children.length) parkGroup.remove(parkGroup.children[0]);
     CH3D.rideableMeshes = [];
     CH3D.analyticRamps = [];
@@ -6996,6 +7385,7 @@ window.updateTruckVisualMud = function(carHolder, mudLevel){
       for(const t of CH3D.trees) if(Math.hypot(x - t.x, z - t.z) < t.trunkR + r + 2.0) return false;
       for(const ar of CH3D.analyticRamps) if(Math.hypot(x - ar.x, z - ar.z) < ar.halfL + r + 2.0) return false;
       for(const sm of CH3D.smashables) if(Math.hypot(x - sm.x, z - sm.z) < r + 2.0) return false;
+      for(const cc of CH3D.crushCars) if(Math.hypot(x - cc.x, z - cc.z) < r + 3.0) return false;   // v20
       for(const tr of CH3D.trailers) if(Math.hypot(x - tr.x, z - tr.z) < r + 5.0) return false;
       return true;
     };
@@ -7025,11 +7415,12 @@ window.updateTruckVisualMud = function(carHolder, mudLevel){
 
     // 2. Off-Road Stunt Park Ramps & Crush Car Rows (Placed in the Infield Stunt Park & North Meadow — 100% clear of the main road!)
     [[18.0, 22.0, 0.10, 9.0, 4.6, 1.75, 0xb87338], [62.0, -5.0, 0.0, 10.0, 4.8, 1.95, 0xb87338], [-36.0, -54.0, 0.45, 9.5, 4.6, 2.05, 0xa85828]].forEach(rp=>{
-      const q = propAt(rp[0], rp[1], rp[3]*0.5 + 1.0, 8.0, 0.9);
+      const q = (mode === "nightcity" && rp[0] === 62.0) ? clearSpot(77.0, -24.5, rp[3]*0.5 + 1.0, 8.0, 0.9) : propAt(rp[0], rp[1], rp[3]*0.5 + 1.0, 8.0, 0.9); // v20: city ramp in its own plaza
       if(q) addRideableRamp(q[0], q[1], rp[2] + propRot, rp[3], rp[4], rp[5], rp[6], true);
       CH3D.layoutPropLog.push(["ramp", rp[0], rp[1], q]);
     });
-    { const q = propAt(28.0, 23.0, 4.0, 8.0, 0.8); if(q) addCrushCarRow(q[0], q[1], 0.10 + propRot); CH3D.layoutPropLog.push(["crush", 28, 23, q]); }
+    { const q = (mode === "nightcity") ? clearSpot(43.0, 24.5, 4.0, 8.0, 0.8) : propAt(28.0, 23.0, 4.0, 8.0, 0.8); // v20: city crush row lives in its plaza
+      if(q) addCrushCarRow(q[0], q[1], 0.10 + propRot); CH3D.layoutPropLog.push(["crush", 28, 23, q]); }
 
     // 3. Solid Rock Outcrops & Boulder Crawl Garden (Placed in off-trail Rock Crawl Parks — ZERO rocks in the road!)
     const rockTex = makeRealisticTexture("rock_cliff", 2, 2);
@@ -7073,7 +7464,7 @@ window.updateTruckVisualMud = function(carHolder, mudLevel){
     const pineMat2 = new THREE.MeshStandardMaterial({map:grassFoliageTex, bumpMap:grassFoliageTex, bumpScale:0.06, color:0x96db9a, roughness:0.82});
     const pineMat3 = new THREE.MeshStandardMaterial({map:grassFoliageTex, bumpMap:grassFoliageTex, bumpScale:0.06, color:0xa8ebac, roughness:0.80});
     const treeCoords = (mode === "nightcity") ? [
-      [-18,16],[18,16],[-18,-16],[42,16],[-42,16],[42,-16],[-42,-16]
+      [-43,-58],[-43,-86],[-38,-72],[80,-16],[74,-33],[13,16],[21,33]   // v20: street trees in the city plazas
     ] : [
       [8,18],[18,28],[38,34],[-14,34],[-34,36],[48,42],[-24,-14],[14,-42],
       [-28,-42],[64,-42],[68,46],[-48,-18],[10,46],[-14,48],[54,52],[-54,-52],
@@ -7272,8 +7663,8 @@ window.updateTruckVisualMud = function(carHolder, mudLevel){
     SFX.buy();
     if(hb){ hb.textContent = "🪝 Towing Load!"; hb.style.background = "rgba(55,196,106,.95)"; }
     const mEl = $("#ch3dmission");
-    if(mEl) mEl.textContent = `🪝 Haul ${cand.title} → Town Drop Zone (+🪙${cand.reward})!`;
-    showMsg(`🪝 HITCHED: ${cand.title}! Haul to Town Drop Zone!`, 1400);
+    if(mEl) mEl.textContent = `🪝 Haul ${cand.title} → ${chapterDropZoneName()} (+🪙${cand.reward})!`;
+    showMsg(`🪝 HITCHED: ${cand.title}! Haul to ${chapterDropZoneName()}!`, 1400);
   };
 
   const dropCustomObstacle = (kind)=>{
@@ -7333,7 +7724,9 @@ window.updateTruckVisualMud = function(carHolder, mudLevel){
     });
     while(envGroup.children.length) envGroup.remove(envGroup.children[0]);
     buildOpenWorldParkAndMissions(ch);
-    showMsg(ch.emoji+" "+ch.name+" — Open Greenland & Track Live!", 1100);
+    const mHint = $("#ch3dmission");
+    if(mHint) mHint.textContent = chapterMissionHint(ch.mode);
+    showMsg(ch.emoji+" "+ch.name+" — Open World & Track Live!", 1100);
   };
 
   document.querySelectorAll("[data-ch3d]").forEach(b=>{
@@ -7854,13 +8247,11 @@ function drawLiveMinimap(mode){
 
   // Draw Track Loop or City Roads
   if(mode === "nightcity"){
-    ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 10;
     const [x0,y0] = toMap(-200, 0), [x1,y1] = toMap(200, 0);
-    ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
-    [-60, 0, 60].forEach(cx=>{
-      const [ax,ay] = toMap(cx, -160), [bx,by] = toMap(cx, 160);
-      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
-    });
+    ctx.fillStyle = "#475569";   // v20: city blocks
+    CITY_GRID_V20.cells.forEach(c=>{ const [ax,ay] = toMap(c[0], c[2]); ctx.fillRect(ax, ay, (c[1]-c[0])*scale, (c[3]-c[2])*scale); });
+    ctx.fillStyle = "#94a3b8";   // v20: full street grid
+    CITY_GRID_V20.rects.forEach(r=>{ const [ax,ay] = toMap(r[0], r[2]); ctx.fillRect(ax, ay, Math.max(2,(r[1]-r[0])*scale), Math.max(2,(r[3]-r[2])*scale)); });
     // Teal Viaduct Line
     ctx.strokeStyle = "#2dd4bf"; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
@@ -7873,6 +8264,10 @@ function drawLiveMinimap(mode){
     });
     ctx.closePath(); ctx.stroke();
     ctx.strokeStyle = "#fef08a"; ctx.lineWidth = 1.2; ctx.stroke();
+    if(ACTIVE_LAYOUT && ACTIVE_LAYOUT._tgrid){   // v20: town back streets
+      ctx.fillStyle = "#c9a27a";
+      ACTIVE_LAYOUT._tgrid.streets.forEach(r=>{ const [ax,ay] = toMap(r[0], r[2]); ctx.fillRect(ax, ay, Math.max(2,(r[1]-r[0])*scale), Math.max(2,(r[3]-r[2])*scale)); });
+    }
   }
 
   // Draw Mud Puddles (brown circles) & Car Washes (cyan squares)
@@ -8878,7 +9273,7 @@ if("serviceWorker" in navigator){
     window.location.reload();
   });
   window.addEventListener("load", function(){
-    navigator.serviceWorker.register("sw.js?v=19").then(function(reg){
+    navigator.serviceWorker.register("sw.js?v=20").then(function(reg){
       try{ reg.update(); }catch(e){}
       document.addEventListener("visibilitychange", function(){
         if(document.visibilityState === "visible"){ try{ reg.update(); }catch(e){} }
