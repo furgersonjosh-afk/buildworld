@@ -98,18 +98,23 @@ module.exports = async function handler(req, res){
   });
 
   try{
+    const messages = [{ role: "system", content: SYSTEM_PROMPT }].concat(history);
+    const extractReply = (data)=>{
+      const msg = (((data.choices || [])[0] || {}).message) || {};
+      let t = msg.content;
+      if(Array.isArray(t)) t = t.map(p => (p && (p.text || p.content)) || "").join(" ").trim();
+      return String(t || "").trim();
+    };
     const payload = {
       model: creds.textModel,
       max_completion_tokens: hasPhoto ? 600 : 400,
-      messages: [{ role: "system", content: SYSTEM_PROMPT }].concat(history)
+      messages
     };
-    // gpt-5-nano is a reasoning model: max_tokens is consumed by hidden reasoning and can yield empty replies.
-    if(!/gpt-5/i.test(creds.textModel)) payload.temperature = 0.6;
+    // gpt-5-nano: use minimal reasoning so the token budget is not spent before any visible text.
+    if(/gpt-5/i.test(creds.textModel)) payload.reasoning = { effort: "minimal" };
+    else payload.temperature = 0.6;
     const data = await postJson(creds.base + "/chat/completions", creds.key, payload);
-    const msg = (((data.choices || [])[0] || {}).message) || {};
-    let text = msg.content;
-    if(Array.isArray(text)) text = text.map(p => (p && (p.text || p.content)) || "").join(" ").trim();
-    text = String(text || "").trim() || "Sorry, I got a little stuck. Try asking me again!";
+    const text = extractReply(data) || "Sorry, I got a little stuck. Try asking me again!";
     const extra = setPhotoCookie ? { "Set-Cookie": setPhotoCookie } : undefined;
     return send(res, 200, {
       text: String(text).trim(),
