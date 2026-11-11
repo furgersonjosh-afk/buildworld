@@ -1,7 +1,8 @@
 const {
   textProviders, imageCredentials, applyTextModelOptions, moderateInput,
   corsHeaders, send, readJson, SYSTEM_PROMPT, isUnsafeText,
-  looksLikeDraw, postJson, imageDailyCap, photoDailyCap, parsePhotoCookie, photoCookieHeader
+  looksLikeDraw, postJson, imageDailyCap, photoDailyCap, messageDailyCap, speakDailyCap, transcribeDailyCap,
+  parsePhotoCookie, photoCookieHeader, parseMsgCookie, msgCookieHeader
 } = require("./_lib");
 
 function extractText(content){
@@ -56,16 +57,22 @@ module.exports = async function handler(req, res){
   const providers = textProviders();
   const imageReady = !!imageCredentials();
   if(req.method === "GET"){
-    const used = parsePhotoCookie(req).count;
-    const cap = photoDailyCap();
+    const usedPhotos = parsePhotoCookie(req).count;
+    const usedMsgs = parseMsgCookie(req).count;
+    const photoCap = photoDailyCap();
+    const msgCap = messageDailyCap();
     return send(res, 200, {
       ok: true,
       setup: providers.length > 0,
       pictures: imageReady,
       preferredTextProvider: (providers[0] && providers[0].kind) || null,
       imageDailyCap: imageDailyCap(),
-      photoDailyCap: cap,
-      photosRemaining: Math.max(0, cap - used)
+      photoDailyCap: photoCap,
+      photosRemaining: Math.max(0, photoCap - usedPhotos),
+      messageDailyCap: msgCap,
+      messagesRemaining: Math.max(0, msgCap - usedMsgs),
+      speakDailyCap: speakDailyCap(),
+      transcribeDailyCap: transcribeDailyCap()
     }, req);
   }
   if(req.method !== "POST") return send(res, 405, { error: "method not allowed" }, req);
@@ -94,6 +101,15 @@ module.exports = async function handler(req, res){
   const hasPhoto = !!lastUser.hasPhoto;
   const photoCap = photoDailyCap();
   const usedPhotos = parsePhotoCookie(req);
+  const msgCap = messageDailyCap();
+  const usedMsgs = parseMsgCookie(req);
+  if(usedMsgs.count >= msgCap){
+    return send(res, 429, {
+      error: "That's all the chat messages for today. You can try again tomorrow!",
+      messageDailyCap: msgCap,
+      remaining: 0
+    }, req);
+  }
   let setPhotoCookie = null;
   if(hasPhoto){
     if(usedPhotos.count >= photoCap){
@@ -135,14 +151,17 @@ module.exports = async function handler(req, res){
       }
       // Provider name only — never log keys, prompts, or photos.
       console.log("bw-chat provider=" + creds.kind);
-      const extra = { "X-BW-Text-Provider": creds.kind };
-      if(setPhotoCookie) extra["Set-Cookie"] = setPhotoCookie;
+      const cookies = [msgCookieHeader(req, usedMsgs.count + 1)];
+      if(setPhotoCookie) cookies.push(setPhotoCookie);
+      const extra = { "X-BW-Text-Provider": creds.kind, "Set-Cookie": cookies };
       return send(res, 200, {
         text: String(text).trim(),
         provider: creds.kind,
         draw: !hasPhoto && looksLikeDraw(lastText),
         photoDailyCap: photoCap,
-        photosRemaining: hasPhoto ? Math.max(0, photoCap - (usedPhotos.count + 1)) : Math.max(0, photoCap - usedPhotos.count)
+        photosRemaining: hasPhoto ? Math.max(0, photoCap - (usedPhotos.count + 1)) : Math.max(0, photoCap - usedPhotos.count),
+        messageDailyCap: msgCap,
+        messagesRemaining: Math.max(0, msgCap - (usedMsgs.count + 1))
       }, req, extra);
     }catch(e){
       lastErr = e;

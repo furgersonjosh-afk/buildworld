@@ -3,12 +3,25 @@
     {
       "source": "/api/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
       ]
     }
   ],
   "functions": {
-    "api/chat.js": { "maxDuration": 60 },
-    "api/image.js": { "maxDuration": 90 }
+    "api/chat.js": {
+      "maxDuration": 60
+    },
+    "api/image.js": {
+      "maxDuration": 90
+    },
+    "api/speak.js": {
+      "maxDuration": 30
+    },
+    "api/transcribe.js": {
+      "maxDuration": 30
+    }
   }
 }

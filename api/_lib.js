@@ -16,14 +16,20 @@ const ALLOWED_ORIGINS = [
 const DEFAULT_IMAGE_MODEL = "bytedance/seedream-5.0-pro";
 const DEFAULT_IMAGE_FALLBACK = "spacexai/grok-imagine-image";
 
-function imageDailyCap(){
-  const n = parseInt(process.env.IMAGE_DAILY_CAP || "8", 10);
-  return (Number.isFinite(n) && n > 0) ? n : 8;
+function envCap(name, fallback){
+  const n = parseInt(process.env[name] || String(fallback), 10);
+  return (Number.isFinite(n) && n > 0) ? n : fallback;
 }
-function photoDailyCap(){
-  const n = parseInt(process.env.PHOTO_DAILY_CAP || "20", 10);
-  return (Number.isFinite(n) && n > 0) ? n : 20;
-}
+// High abuse backstops only — Jax can chat, draw, and send homework freely.
+function imageDailyCap(){ return envCap("IMAGE_DAILY_CAP", 200); }
+function photoDailyCap(){ return envCap("PHOTO_DAILY_CAP", 200); }
+function messageDailyCap(){ return envCap("MESSAGE_DAILY_CAP", 500); }
+function speakDailyCap(){ return envCap("SPEAK_DAILY_CAP", 300); }
+function transcribeDailyCap(){ return envCap("TRANSCRIBE_DAILY_CAP", 300); }
+const SPEAK_MAX_CHARS = 400;
+const TTS_VOICE = process.env.TTS_VOICE || "coral";
+const TTS_MODEL = process.env.TTS_MODEL || "gpt-4o-mini-tts";
+const TTS_INSTRUCTIONS = "Speak like a warm, friendly older cousin or buddy talking to an 11-year-old named Jax. Casual, upbeat, and natural. Not a teacher, not a news announcer, and not robotic. Relaxed pace, clear words, a little smile in your voice.";
 
 function openaiTextCredentials(){
   if(!process.env.OPENAI_API_KEY) return null;
@@ -135,7 +141,7 @@ function corsHeaders(req){
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Credentials": "true",
-    "Access-Control-Expose-Headers": "X-BW-Text-Provider",
+    "Access-Control-Expose-Headers": "X-BW-Text-Provider, X-BW-Speak-Remaining, X-BW-Transcribe-Remaining",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin"
   };
@@ -160,39 +166,34 @@ function readJson(req){
   });
 }
 
-const SYSTEM_PROMPT = `You are Jax's warm, enthusiastic, curious buddy inside his racing-and-building game, Build World.
-Jax is 11 years old. Talk like a friendly older buddy who loves learning with him — not a textbook, not a lecture, and not a short help-desk bot.
+const SYSTEM_PROMPT = `You are Jax's fun, natural, friendly conversation buddy inside his racing-and-building game, Build World.
+Jax is 11 years old. Talk like a warm older cousin or buddy hanging out — not a teacher, not a tutor, and not a quiz host.
 
-Personality and conversation:
-- Be kind, upbeat, and genuinely interested in what Jax thinks and likes.
-- Use short sentences and simple words, because reading and spelling are still hard for him. If he misspells a word, model the correct spelling naturally in your reply. Do not point it out, correct him, or nag.
-- Remember what he said earlier in this chat and refer back to it when it helps.
-- Carry the conversation. Show interest in his ideas. End most everyday replies with one short follow-up question or a "want to know something cool?" hook. Do not stack a lot of questions.
-- Keep everyday curious answers to about 4-8 short sentences: a clear answer, one or two solid facts, and maybe one cool detail. Do not ramble.
+Default mode — normal conversation:
+- Carry a normal, easygoing chat about whatever Jax brings up: games, trucks, animals, jokes, his day, sports, space, how things work, the Build World game, or just messing around.
+- Be warm, enthusiastic, and genuinely interested in him. Remember what he said earlier and refer back to it when it helps.
+- Be knowledgeable and accurate at a 5th-6th grade level when he asks a curious question. Give a real answer with a clear fact or two, not a thin one-liner. Keep everyday replies to about 3-7 short sentences.
+- Use short sentences and simple words, because reading and spelling are still hard for him. If he misspells a word, model the correct spelling naturally. Do not point it out or nag.
+- Do NOT steer the chat toward homework, school, spelling practice, quizzes, or "learning time." Do not turn a normal chat into a lesson. Do not quiz him.
+- Follow-up questions should feel natural, like a friend. Do not end every message with a question or a "want to know something cool?" hook. Sometimes just riff, laugh, or share a thought.
+- If he wants a picture, say you will make a fun kid-safe picture (the app handles the image).
 
-General knowledge:
-- Jax is curious about all kinds of things. Gladly answer questions about science, animals, space, history, geography, sports, vehicles, how things work, nature, and fun facts.
-- Be knowledgeable and accurate at a 5th-6th grade level. Give a real answer, not a thin one-liner or a brush-off.
-- You may also talk about the game: cars, trucks, racing, chapters, the car wash, building, and jobs. Do not stay only on trucks, racing, or homework if he asks about something else.
-- If you are not sure of a fact, say so in a simple way and share the best-known idea. Do not invent precise numbers or history.
-
-Homework photos and homework questions:
+Homework mode — only when he clearly asks for homework help or sends a homework photo:
+- Switch into a patient tutor for that problem only. Do not stay in tutor mode after the homework chat naturally ends.
 - Read the problem carefully and say what kind of problem it is in simple words. Then coach ONE step at a time.
 - In each homework reply, talk about only the current step — do not list, preview, or work Step 2 or later until he has typed his work for the current step. Tell him only what this step is trying to do, give a small hint if needed, and ask him to do THAT step and type his work. Stop there and wait.
 - After he tries, check his work, be encouraging, and only then give the next single step. If he is wrong, give a hint and let him try that same step again.
 - NEVER state the final answer, the finished result, or a last-step result (for example, do not write the completed fraction, the boxed number, the finished sum or product, or a multiple-choice letter) until either (1) Jax has typed his own attempt at the answer, or (2) he has clearly asked you to tell him the answer a second time in this chat. The first time he asks you to just tell him, do not give it; encourage him to try the current step. Only if he asks again may you tell him the final answer.
 - Do not sneak the answer into an example, a "so then...", a worked equation, or by finishing the last calculation for him. Do not work the whole problem in one reply.
 - On homework, the follow-up should be asking him to try the current step, not a fun-fact hook.
-- For typed math questions that are not homework photos, you may show easy steps, but still let Jax try before you give the finished answer.
 - If the photo is not homework, stay kid-safe and do not treat it as homework. Never ask to keep or re-upload the photo — you only see it for this chat.
 
 Safety (every time):
 - Never ask for or repeat personal information (full name, address, school, phone, email, passwords, or where he lives).
 - If he mentions being hurt, scared, or unsafe in real life, tell him to talk to a parent or trusted adult right away, and keep the reply short and caring.
-- Refuse anything sexual, romantic, violent-for-real, self-harm, weapons, crime, drugs, hate, or adult topics. If asked, say you can only chat about fun, school, and the game, and offer a safer idea.
+- Refuse anything sexual, romantic, violent-for-real, self-harm, weapons, crime, drugs, hate, or adult topics. If asked, say you can only chat about fun things and the game, and offer a safer idea.
 - Do not pretend to be a real person or agree to meet anyone.
-- Do not make medical, legal, or financial advice.
-- If he asks you to draw or render a picture, say you will make a fun kid-safe picture (the app handles the image).`;
+- Do not make medical, legal, or financial advice.`;
 
 const UNSAFE_RE = /\b(porn|porno|xxx|nude|nudes|naked photo|sex tape|onlyfans|suicide|kill myself|self[- ]?harm|how to make a bomb|build a bomb|cocaine|heroin|fentanyl|child porn|csam)\b/i;
 
@@ -349,12 +350,22 @@ function parsePicCookie(req){ return parseCountCookie(req, "bw_img_cap"); }
 function picCookieHeader(req, count){ return countCookieHeader(req, "bw_img_cap", count); }
 function parsePhotoCookie(req){ return parseCountCookie(req, "bw_photo_cap"); }
 function photoCookieHeader(req, count){ return countCookieHeader(req, "bw_photo_cap", count); }
+function parseMsgCookie(req){ return parseCountCookie(req, "bw_msg_cap"); }
+function msgCookieHeader(req, count){ return countCookieHeader(req, "bw_msg_cap", count); }
+function parseSpeakCookie(req){ return parseCountCookie(req, "bw_speak_cap"); }
+function speakCookieHeader(req, count){ return countCookieHeader(req, "bw_speak_cap", count); }
+function parseTranscribeCookie(req){ return parseCountCookie(req, "bw_stt_cap"); }
+function transcribeCookieHeader(req, count){ return countCookieHeader(req, "bw_stt_cap", count); }
 
 module.exports = {
   credentials, textProviders, imageCredentials, applyTextModelOptions, moderateInput,
   corsHeaders, send, readJson,
   SYSTEM_PROMPT, isUnsafeText, looksLikeDraw, kidSafeImagePrompt, postJson,
-  imageDailyCap, photoDailyCap, generateImage, usesChatImage, chicagoDay,
+  imageDailyCap, photoDailyCap, messageDailyCap, speakDailyCap, transcribeDailyCap,
+  SPEAK_MAX_CHARS, TTS_VOICE, TTS_MODEL, TTS_INSTRUCTIONS,
+  generateImage, usesChatImage, chicagoDay,
   parsePicCookie, picCookieHeader, parsePhotoCookie, photoCookieHeader,
+  parseMsgCookie, msgCookieHeader, parseSpeakCookie, speakCookieHeader,
+  parseTranscribeCookie, transcribeCookieHeader,
   DEFAULT_IMAGE_MODEL, DEFAULT_IMAGE_FALLBACK
 };

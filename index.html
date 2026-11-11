@@ -170,6 +170,12 @@
   }
   #aichatcam, #aichatmic{flex-shrink:0}
   #aichatphoto{position:absolute; width:0; height:0; opacity:0; pointer-events:none}
+  .aichips{display:flex; flex-wrap:wrap; gap:8px; padding:6px 2px 10px}
+  .aichip{border:1px solid var(--line); background:var(--card); color:var(--ink);
+    border-radius:999px; padding:8px 12px; font-weight:800; font-size:13px; cursor:pointer}
+  .aichip:active{transform:scale(.98)}
+  #aichattalk.on{background:var(--good); color:#06210f}
+  #aichatmic.rec,#aichatmic.on{background:#c23b3b; color:#fff}
 
   /* ---------- Gallery overlay (v21) ---------- */
   #gallery{position:fixed; inset:0; z-index:85; display:none; flex-direction:column;
@@ -336,6 +342,7 @@
     <button type="button" id="aichatclose" aria-label="Close chat">✕</button>
     <h2>Jax's AI Chat</h2>
     <button type="button" id="aichatgallery" aria-label="Open gallery" title="Gallery">🖼️</button>
+    <button type="button" id="aichattalk" aria-label="Talk mode" title="Talk mode — listen and reply by voice">🎙️</button>
     <button type="button" id="aichatspeak" aria-label="Read replies aloud" title="Read replies aloud">🔊</button>
   </div>
   <div id="aichatlog" role="log" aria-live="polite"></div>
@@ -9357,6 +9364,8 @@ window.claimDaily=function(coins,xp){
 function boot(){
   // one-time: force music OFF for existing players (it was annoying); still opt-in via 🎵
   if(state.musicReset!==1){ state.music=false; state.musicReset=1; MUSIC.stop(); save(); }
+  // v23: force music off once more so returning players aren't stuck with the old chiptune on.
+  if(state.musicOffV23!==1){ state.music=false; state.musicOffV23=1; MUSIC.stop(); save(); }
   refreshTop();
   if(state.music) MUSIC.start();          // only if the player opted in
   setScreen("garage");
@@ -9401,9 +9410,11 @@ if(window.visualViewport){
 
 /* ------------------------- AI CHAT + GALLERY (v22) ------------------------ */
 const AI_API_BASE = "https://jax-buildworld-ai.vercel.app"; // v22 production proxy; keys stay on the server
-const AI_MSG_CAP = 60;
-let AI_PIC_CAP = 8;
-let AI_PHOTO_CAP = 20;
+let AI_MSG_CAP = 500;
+let AI_PIC_CAP = 200;
+let AI_PHOTO_CAP = 200;
+let AI_SPEAK_CAP = 300;
+let AI_STT_CAP = 300;
 const AI_SETUP_MSG = "AI is not set up yet. Ask a grown-up to add the AI key on the server. You can still look around the game!";
 
 function aiEndpoint(path){
@@ -9417,17 +9428,26 @@ function aiUsage(){
   let u = {};
   try{ u = JSON.parse(localStorage.getItem("bw_ai_usage") || "{}") || {}; }catch(e){ u = {}; }
   const day = chicagoDay();
-  if(u.day !== day) u = { day, msgs: 0, pics: 0, photos: 0 };
+  if(u.day !== day) u = { day, msgs: 0, pics: 0, photos: 0, speaks: 0, stt: 0 };
   if(u.photos == null) u.photos = 0;
+  if(u.speaks == null) u.speaks = 0;
+  if(u.stt == null) u.stt = 0;
   return u;
 }
 function saveAIUsage(u){ try{ localStorage.setItem("bw_ai_usage", JSON.stringify(u)); }catch(e){} }
 function aiMsgsLeft(){ return Math.max(0, AI_MSG_CAP - (aiUsage().msgs || 0)); }
 function aiPicsLeft(){ return Math.max(0, AI_PIC_CAP - (aiUsage().pics || 0)); }
 function aiPhotosLeft(){ return Math.max(0, AI_PHOTO_CAP - (aiUsage().photos || 0)); }
+function aiSpeakLeft(){ return Math.max(0, AI_SPEAK_CAP - (aiUsage().speaks || 0)); }
+function aiSttLeft(){ return Math.max(0, AI_STT_CAP - (aiUsage().stt || 0)); }
 function refreshAIMeta(){
   const el = $("#aichatmeta"); if(!el) return;
-  el.textContent = aiMsgsLeft() + " messages left today · " + aiPicsLeft() + " pictures left today · " + aiPhotosLeft() + " homework photos left today";
+  const parts = [];
+  if(aiMsgsLeft() <= 40) parts.push(aiMsgsLeft() + " messages left today");
+  if(aiPicsLeft() <= 20) parts.push(aiPicsLeft() + " pictures left today");
+  if(aiPhotosLeft() <= 20) parts.push(aiPhotosLeft() + " homework photos left today");
+  if(aiSpeakEnabled() && aiSpeakLeft() <= 40) parts.push(aiSpeakLeft() + " voice clips left today");
+  el.textContent = parts.join(" · ");
 }
 function looksLikeDrawRequest(text){
   const t = String(text || "").toLowerCase().trim();
@@ -9445,6 +9465,14 @@ let _aiBusy = false;
 let _aiRec = null;
 let _aiHistory = [];
 let _lastHomeworkDataUrl = null;
+let _aiTalkMode = false;
+let _aiAudioCtx = null;
+let _aiSrc = null;
+let _aiAudioEl = null;
+let _aiMedia = null;
+let _aiRecorder = null;
+let _aiChunks = [];
+let _aiSilenceTimer = null;
 
 function aiSpeakEnabled(){
   try{ return localStorage.getItem("bw_ai_speak") === "1"; }catch(e){ return false; }
@@ -9453,14 +9481,99 @@ function setAISpeak(on){
   try{ localStorage.setItem("bw_ai_speak", on ? "1" : "0"); }catch(e){}
   const b = $("#aichatspeak");
   if(b){ b.classList.toggle("on", !!on); b.textContent = on ? "🔊" : "🔇"; b.setAttribute("aria-pressed", on ? "true" : "false"); }
-  if(!on && window.speechSynthesis) try{ speechSynthesis.cancel(); }catch(e){}
+  if(on) unlockAIAudio();
+  if(!on){
+    stopAIPlayback();
+    if(_aiTalkMode) setAITalkMode(false);
+    if(window.speechSynthesis) try{ speechSynthesis.cancel(); }catch(e){}
+  }
+  refreshAIMeta();
 }
-function speakAIReply(text){
-  if(!aiSpeakEnabled() || !text || !window.speechSynthesis) return;
+async function unlockAIAudio(){
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if(!AC) return null;
+  try{
+    if(!_aiAudioCtx) _aiAudioCtx = new AC();
+    if(_aiAudioCtx.state === "suspended") await _aiAudioCtx.resume();
+  }catch(e){}
+  return _aiAudioCtx;
+}
+function stopAIPlayback(){
+  if(_aiSrc){ try{ _aiSrc.stop(); }catch(e){} _aiSrc = null; }
+  if(_aiAudioEl){
+    try{ _aiAudioEl.pause(); _aiAudioEl.removeAttribute("src"); }catch(e){}
+    if(_aiAudioEl.dataset && _aiAudioEl.dataset.url){ try{ URL.revokeObjectURL(_aiAudioEl.dataset.url); }catch(e){} }
+    _aiAudioEl = null;
+  }
+  if(window.speechSynthesis) try{ speechSynthesis.cancel(); }catch(e){}
+}
+function fallbackSpeak(text, after){
+  if(!window.speechSynthesis){ if(after) after(); return; }
   try{ speechSynthesis.cancel(); }catch(e){}
   const u = new SpeechSynthesisUtterance(String(text).slice(0, 400));
   u.rate = 1.02; u.pitch = 1.05;
-  try{ speechSynthesis.speak(u); }catch(e){}
+  u.onend = ()=>{ if(after) after(); };
+  u.onerror = ()=>{ if(after) after(); };
+  try{ speechSynthesis.speak(u); }catch(e){ if(after) after(); }
+}
+async function playAIMp3(buf){
+  const ctx = await unlockAIAudio();
+  if(ctx){
+    const audioBuf = await ctx.decodeAudioData(buf.slice(0));
+    await new Promise((resolve, reject)=>{
+      stopAIPlayback();
+      const src = ctx.createBufferSource();
+      src.buffer = audioBuf;
+      src.connect(ctx.destination);
+      src.onended = ()=>{ _aiSrc = null; resolve(); };
+      _aiSrc = src;
+      try{ src.start(0); }catch(e){ reject(e); }
+    });
+    return;
+  }
+  const blob = new Blob([buf], { type: "audio/mpeg" });
+  const url = URL.createObjectURL(blob);
+  stopAIPlayback();
+  _aiAudioEl = new Audio(url);
+  _aiAudioEl.dataset.url = url;
+  await _aiAudioEl.play();
+  await new Promise(res=>{ _aiAudioEl.onended = res; _aiAudioEl.onerror = res; });
+}
+async function speakAIReply(text){
+  if(!aiSpeakEnabled() || !text) return;
+  const clipped = String(text).replace(/\s+/g, " ").trim().slice(0, 400);
+  if(!clipped) return;
+  const after = ()=>{ if(_aiTalkMode && !_aiBusy) startAIListen(true); };
+  if(aiSpeakLeft() <= 0){ fallbackSpeak(clipped, after); return; }
+  try{
+    await unlockAIAudio();
+    const r = await fetch(aiEndpoint("/api/speak"), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: clipped })
+    });
+    if(r.status === 429){ fallbackSpeak(clipped, after); return; }
+    if(!r.ok) throw new Error("tts");
+    const buf = await r.arrayBuffer();
+    const u = aiUsage(); u.speaks = (u.speaks || 0) + 1; saveAIUsage(u); refreshAIMeta();
+    await playAIMp3(buf);
+    after();
+  }catch(e){
+    fallbackSpeak(clipped, after);
+  }
+}
+function setAITalkMode(on){
+  _aiTalkMode = !!on;
+  const b = $("#aichattalk");
+  if(b){ b.classList.toggle("on", _aiTalkMode); b.setAttribute("aria-pressed", _aiTalkMode ? "true" : "false"); }
+  if(_aiTalkMode){
+    setAISpeak(true);
+    unlockAIAudio();
+    if(!_aiBusy) startAIListen(true);
+  }else{
+    stopAIMic();
+  }
 }
 
 function addAIBubble(role, text, imgSrc){
@@ -9492,14 +9605,11 @@ async function checkAISetup(){
     const r = await fetch(aiEndpoint("/api/chat"), { method: "GET", credentials: "include" });
     const data = await r.json().catch(()=>({}));
     _aiSetup = !!(r.ok && data && data.setup !== false);
-    if(data && data.imageDailyCap){
-      const n = parseInt(data.imageDailyCap, 10);
-      if(n > 0) AI_PIC_CAP = n;
-    }
-    if(data && data.photoDailyCap){
-      const n = parseInt(data.photoDailyCap, 10);
-      if(n > 0) AI_PHOTO_CAP = n;
-    }
+    if(data && data.imageDailyCap){ const n = parseInt(data.imageDailyCap, 10); if(n > 0) AI_PIC_CAP = n; }
+    if(data && data.photoDailyCap){ const n = parseInt(data.photoDailyCap, 10); if(n > 0) AI_PHOTO_CAP = n; }
+    if(data && data.messageDailyCap){ const n = parseInt(data.messageDailyCap, 10); if(n > 0) AI_MSG_CAP = n; }
+    if(data && data.speakDailyCap){ const n = parseInt(data.speakDailyCap, 10); if(n > 0) AI_SPEAK_CAP = n; }
+    if(data && data.transcribeDailyCap){ const n = parseInt(data.transcribeDailyCap, 10); if(n > 0) AI_STT_CAP = n; }
   }catch(e){
     _aiSetup = false;
   }
@@ -9527,7 +9637,24 @@ async function openAIChat(){
   requestGalleryPersist();
   const log = $("#aichatlog");
   if(log && !log.childElementCount){
-    addAIBubble("bot", "Hi Jax! I can help with the game, spelling, reading, and math. Say \"draw me...\" if you want a picture, or tap the camera to send a homework photo and I'll help step by step!");
+    addAIBubble("bot", "Hey Jax! What's up? We can talk about anything — trucks, games, animals, jokes, or whatever's on your mind. If you want a picture, just say draw me...");
+    const chips = document.createElement("div");
+    chips.className = "aichips";
+    const items = [
+      ["Tell me a joke", "Tell me a joke"],
+      ["Draw me a monster truck", "Draw me a monster truck"],
+      ["What's a cool animal fact?", "What's a cool animal fact?"],
+      ["Help with homework", "Can you help me with my homework?"]
+    ];
+    items.forEach(([label, msg])=>{
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "aichip";
+      b.textContent = label;
+      b.addEventListener("click", ()=>{ SFX.tap(); sendAIChat(msg); });
+      chips.appendChild(b);
+    });
+    log.appendChild(chips);
   }
   if(_aiSetup === null){
     await checkAISetup();
@@ -9540,8 +9667,9 @@ async function openAIChat(){
 function closeAIChat(){
   document.body.classList.remove("aichat-open");
   const el = $("#aichat"); if(el) el.hidden = true;
+  setAITalkMode(false);
   stopAIMic();
-  if(window.speechSynthesis) try{ speechSynthesis.cancel(); }catch(e){}
+  stopAIPlayback();
 }
 
 function dataURLToBlob(dataUrl){
@@ -9594,7 +9722,7 @@ async function sendAIChat(text, opts){
   if(_aiSetup === false){ showAISetupState(); return; }
   if(raw && clientUnsafe(raw)){
     addAIBubble("user", raw);
-    addAIBubble("bot", "I can't help with that. Let's talk about the game, a drawing, spelling, or a math problem instead!");
+    addAIBubble("bot", "I can't help with that. Let's talk about something fun instead — games, trucks, animals, or a joke!");
     return;
   }
   const wantPic = !photoData && looksLikeDrawRequest(raw);
@@ -9631,12 +9759,6 @@ async function sendAIChat(text, opts){
       { type: "image_url", image_url: { url: photoData } }
     ];
     _lastHomeworkDataUrl = photoData;
-  }else if(_lastHomeworkDataUrl && !wantPic){
-    userContent = [
-      { type: "text", text: textForModel },
-      { type: "image_url", image_url: { url: _lastHomeworkDataUrl } }
-    ];
-    newPhoto = false;
   }else{
     userContent = raw;
   }
@@ -9686,7 +9808,7 @@ async function sendAIChat(text, opts){
   addAIBubble("bot", reply, img || null);
   _aiHistory.push({ role: "user", content: raw || "Homework photo" });
   _aiHistory.push({ role: "assistant", content: reply });
-  if(_aiHistory.length > 16) _aiHistory = _aiHistory.slice(-16);
+  if(_aiHistory.length > 20) _aiHistory = _aiHistory.slice(-20);
   if(img){
     const blob = dataURLToBlob(img);
     if(blob){
@@ -9700,8 +9822,8 @@ async function sendAIChat(text, opts){
   if(opts.newPhoto) u.photos += 1;
   saveAIUsage(u);
   refreshAIMeta();
-  speakAIReply(reply);
   setAIBusy(false);
+  try{ await speakAIReply(reply); }catch(e){}
 }
 
 async function handleHomeworkPhoto(file){
@@ -9727,19 +9849,116 @@ async function handleHomeworkPhoto(file){
   }
 }
 
+function recorderMime(){
+  if(!window.MediaRecorder) return "";
+  const types = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/mpeg"];
+  for(let i=0;i<types.length;i++){ if(MediaRecorder.isTypeSupported(types[i])) return types[i]; }
+  return "";
+}
 function stopAIMic(){
   const b = $("#aichatmic");
-  if(b) b.classList.remove("on");
-  if(_aiRec){ try{ _aiRec.stop(); }catch(e){} }
+  if(b){ b.classList.remove("on"); b.classList.remove("rec"); }
+  if(_aiSilenceTimer){ clearInterval(_aiSilenceTimer); _aiSilenceTimer = null; }
+  if(_aiRecorder && _aiRecorder.state === "recording"){ try{ _aiRecorder.stop(); }catch(e){} }
+  if(_aiRec){ try{ _aiRec.stop(); }catch(e){} _aiRec = null; }
+  if(_aiMedia){ try{ _aiMedia.getTracks().forEach(t=>t.stop()); }catch(e){} _aiMedia = null; }
 }
 function toggleAIMic(){
+  const btn = $("#aichatmic");
+  if((btn && btn.classList.contains("on")) || (_aiRecorder && _aiRecorder.state === "recording")){ stopAIMic(); return; }
+  startAIListen(false);
+}
+async function startAIListen(fromTalk){
+  if(_aiBusy) return;
+  const btn = $("#aichatmic");
+  const mime = recorderMime();
+  if(mime && navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+    try{
+      await unlockAIAudio();
+      _aiMedia = await navigator.mediaDevices.getUserMedia({ audio: true });
+      _aiChunks = [];
+      _aiRecorder = new MediaRecorder(_aiMedia, { mimeType: mime });
+      _aiRecorder.ondataavailable = ev=>{ if(ev.data && ev.data.size) _aiChunks.push(ev.data); };
+      _aiRecorder.onstop = ()=>{ finishAIRecording(fromTalk); };
+      _aiRecorder.start();
+      if(btn){ btn.classList.add("on"); btn.classList.add("rec"); }
+      watchAISilence();
+      setTimeout(()=>{ if(_aiRecorder && _aiRecorder.state === "recording") stopAIMic(); }, 12000);
+      return;
+    }catch(e){
+      stopAIMic();
+    }
+  }
+  startWebSpeechFallback(fromTalk);
+}
+function watchAISilence(){
+  if(!_aiAudioCtx || !_aiMedia) return;
+  try{
+    const src = _aiAudioCtx.createMediaStreamSource(_aiMedia);
+    const anal = _aiAudioCtx.createAnalyser();
+    anal.fftSize = 512;
+    src.connect(anal);
+    const data = new Uint8Array(anal.fftSize);
+    let quietMs = 0, heard = false, last = Date.now();
+    _aiSilenceTimer = setInterval(()=>{
+      anal.getByteTimeDomainData(data);
+      let sum = 0;
+      for(let i=0;i<data.length;i++){ const v = (data[i]-128)/128; sum += v*v; }
+      const rms = Math.sqrt(sum / data.length);
+      const now = Date.now();
+      const dt = now - last; last = now;
+      if(rms > 0.04){ heard = true; quietMs = 0; }
+      else quietMs += dt;
+      if(heard && quietMs > 1200 && _aiRecorder && _aiRecorder.state === "recording") stopAIMic();
+    }, 100);
+  }catch(e){}
+}
+async function finishAIRecording(fromTalk){
+  const btn = $("#aichatmic");
+  if(btn){ btn.classList.remove("on"); btn.classList.remove("rec"); }
+  if(_aiSilenceTimer){ clearInterval(_aiSilenceTimer); _aiSilenceTimer = null; }
+  const chunks = _aiChunks.slice();
+  _aiChunks = [];
+  const rec = _aiRecorder; _aiRecorder = null;
+  if(_aiMedia){ try{ _aiMedia.getTracks().forEach(t=>t.stop()); }catch(e){} _aiMedia = null; }
+  if(!chunks.length){ if(fromTalk && _aiTalkMode && !_aiBusy) setTimeout(()=>startAIListen(true), 400); return; }
+  const mime = (rec && rec.mimeType) || chunks[0].type || "audio/webm";
+  const blob = new Blob(chunks, { type: mime });
+  if(blob.size < 800){ if(fromTalk && _aiTalkMode && !_aiBusy) setTimeout(()=>startAIListen(true), 400); return; }
+  if(aiSttLeft() <= 0){
+    addAIBubble("sys", "That's all the voice typing for today. You can still type!");
+    startWebSpeechFallback(fromTalk);
+    return;
+  }
+  try{
+    const dataUrl = await blobToDataURL(blob);
+    const r = await fetch(aiEndpoint("/api/transcribe"), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ audio: dataUrl })
+    });
+    const data = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(data.error || "stt");
+    const u = aiUsage(); u.stt = (u.stt || 0) + 1; saveAIUsage(u); refreshAIMeta();
+    const said = String(data.text || "").trim();
+    if(said){
+      const input = $("#aichatinput"); if(input) input.value = said;
+      await sendAIChat(said);
+    }else if(fromTalk && _aiTalkMode && !_aiBusy){
+      setTimeout(()=>startAIListen(true), 500);
+    }
+  }catch(e){
+    startWebSpeechFallback(fromTalk);
+  }
+}
+function startWebSpeechFallback(fromTalk){
   const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
   const btn = $("#aichatmic");
   if(!Rec){
-    addAIBubble("sys", "Voice typing isn't available in this browser. You can still type your message!");
+    if(!fromTalk) addAIBubble("sys", "Voice typing isn't available in this browser. You can still type your message!");
     return;
   }
-  if(btn && btn.classList.contains("on")){ stopAIMic(); return; }
   try{
     _aiRec = new Rec();
     _aiRec.lang = "en-US";
@@ -9747,7 +9966,7 @@ function toggleAIMic(){
     _aiRec.maxAlternatives = 1;
     _aiRec.onresult = ev=>{
       const said = ev.results && ev.results[0] && ev.results[0][0] ? ev.results[0][0].transcript : "";
-      if(said){ $("#aichatinput").value = said; sendAIChat(said); }
+      if(said){ const input = $("#aichatinput"); if(input) input.value = said; sendAIChat(said); }
     };
     _aiRec.onend = ()=> stopAIMic();
     _aiRec.onerror = ()=> stopAIMic();
@@ -9755,7 +9974,7 @@ function toggleAIMic(){
     _aiRec.start();
   }catch(e){
     stopAIMic();
-    addAIBubble("sys", "I couldn't start the microphone. You can type instead!");
+    if(!fromTalk) addAIBubble("sys", "I couldn't start the microphone. You can type instead!");
   }
 }
 
@@ -9992,6 +10211,7 @@ function wireAIChat(){
   form.dataset.wired = "1";
   $("#aichatclose").addEventListener("click", ()=>{ SFX.tap(); closeAIChat(); });
   $("#aichatspeak").addEventListener("click", ()=>{ SFX.tap(); setAISpeak(!aiSpeakEnabled()); });
+  $("#aichattalk").addEventListener("click", ()=>{ SFX.tap(); setAITalkMode(!_aiTalkMode); });
   $("#aichatgallery").addEventListener("click", ()=>{ SFX.tap(); openGallery("ai"); });
   $("#aichatmic").addEventListener("click", ()=>{ SFX.tap(); toggleAIMic(); });
   $("#aichatcam").addEventListener("click", ()=>{
@@ -10042,7 +10262,7 @@ if("serviceWorker" in navigator){
     window.location.reload();
   });
   window.addEventListener("load", function(){
-    navigator.serviceWorker.register("sw.js?v=22").then(function(reg){
+    navigator.serviceWorker.register("sw.js?v=23").then(function(reg){
       try{ reg.update(); }catch(e){}
       document.addEventListener("visibilitychange", function(){
         if(document.visibilityState === "visible"){ try{ reg.update(); }catch(e){} }
