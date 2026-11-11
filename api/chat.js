@@ -1,4 +1,44 @@
-const { credentials, corsHeaders, send, readJson, SYSTEM_PROMPT, isUnsafeText, looksLikeDraw, postJson } = require("./_lib");
+const {
+  credentials, corsHeaders, send, readJson, SYSTEM_PROMPT, isUnsafeText,
+  looksLikeDraw, postJson, imageDailyCap, photoDailyCap, parsePhotoCookie, photoCookieHeader
+} = require("./_lib");
+
+function extractText(content){
+  if(typeof content === "string") return content;
+  if(Array.isArray(content)){
+    return content.map(p => {
+      if(typeof p === "string") return p;
+      if(p && p.type === "text") return String(p.text || "");
+      return "";
+    }).join(" ").trim();
+  }
+  return "";
+}
+
+function extractImageUrl(content){
+  if(!Array.isArray(content)) return null;
+  for(const p of content){
+    if(!p) continue;
+    const url = (p.image_url && p.image_url.url) || (p.type === "image_url" && p.url) || p.image_url;
+    if(typeof url === "string" && /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(url)) return url;
+  }
+  return null;
+}
+
+function sanitizeVisionMessage(msg){
+  if(!msg || (msg.role !== "user" && msg.role !== "assistant")) return null;
+  const text = extractText(msg.content).slice(0, 800);
+  const img = (msg.role === "user") ? extractImageUrl(msg.content) : null;
+  if(img){
+    if(img.length > 1800000) return { role: "user", content: text || "Please help me with this homework.", tooBig: true };
+    const content = [];
+    content.push({ type: "text", text: text || "Please help me with this homework. Read the problem in the photo, then help me step by step. Do not give the final answer yet." });
+    content.push({ type: "image_url", image_url: { url: img } });
+    return { role: "user", content, hasPhoto: true };
+  }
+  if(!text) return null;
+  return { role: msg.role, content: text };
+}
 
 module.exports = async function handler(req, res){
   if(req.method === "OPTIONS"){
@@ -7,7 +47,16 @@ module.exports = async function handler(req, res){
   }
   const creds = credentials();
   if(req.method === "GET"){
-    return send(res, 200, { ok: true, setup: !!creds, pictures: true }, req);
+    const used = parsePhotoCookie(req).count;
+    const cap = photoDailyCap();
+    return send(res, 200, {
+      ok: true,
+      setup: !!creds,
+      pictures: true,
+      imageDailyCap: imageDailyCap(),
+      photoDailyCap: cap,
+      photosRemaining: Math.max(0, cap - used)
+    }, req);
   }
   if(req.method !== "POST") return send(res, 405, { error: "method not allowed" }, req);
   if(!creds) return send(res, 503, { setup: false, error: "AI is not set up yet." }, req);
@@ -17,29 +66,53 @@ module.exports = async function handler(req, res){
   catch(e){ return send(res, 400, { error: "bad request" }, req); }
 
   const incoming = Array.isArray(body.messages) ? body.messages : [];
-  const lastUser = [...incoming].reverse().find(m => m && m.role === "user");
-  const lastText = String((lastUser && lastUser.content) || "").slice(0, 800);
-  if(!lastText.trim()) return send(res, 400, { error: "Please type a message." }, req);
+  const normalized = incoming.map(sanitizeVisionMessage).filter(Boolean);
+  const lastUser = [...normalized].reverse().find(m => m && m.role === "user");
+  if(!lastUser) return send(res, 400, { error: "Please type a message or send a homework photo." }, req);
+  if(lastUser.tooBig) return send(res, 400, { error: "That photo is a little too big. Try taking it again?" }, req);
+
+  const lastText = extractText(lastUser.content);
   if(isUnsafeText(lastText)){
     return send(res, 200, { text: "I can't help with that. Let's talk about the game, a drawing, spelling, or a math problem instead!" }, req);
   }
 
-  const history = incoming
-    .filter(m => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
-    .slice(-12)
-    .map(m => ({ role: m.role, content: String(m.content).slice(0, 800) }));
+  const hasPhoto = !!lastUser.hasPhoto;
+  const photoCap = photoDailyCap();
+  const usedPhotos = parsePhotoCookie(req);
+  let setPhotoCookie = null;
+  if(hasPhoto){
+    if(usedPhotos.count >= photoCap){
+      return send(res, 429, {
+        error: "You've used all " + photoCap + " homework photos for today. You can type your question, or try a new photo tomorrow!",
+        photoDailyCap: photoCap,
+        remaining: 0
+      }, req);
+    }
+    setPhotoCookie = photoCookieHeader(req, usedPhotos.count + 1);
+  }
+
+  // Keep text history; only the latest user turn may include a photo (never stored).
+  const history = normalized.slice(-12).map(m => {
+    if(m === lastUser) return { role: m.role, content: m.content };
+    return { role: m.role, content: extractText(m.content).slice(0, 800) };
+  });
 
   try{
     const data = await postJson(creds.base + "/chat/completions", creds.key, {
       model: creds.textModel,
       temperature: 0.6,
-      max_tokens: 280,
+      max_tokens: hasPhoto ? 450 : 280,
       messages: [{ role: "system", content: SYSTEM_PROMPT }].concat(history)
     });
     const text = (((data.choices || [])[0] || {}).message || {}).content || "Sorry, I got a little stuck. Try asking me again!";
-    return send(res, 200, { text: String(text).trim(), draw: looksLikeDraw(lastText) }, req);
+    const extra = setPhotoCookie ? { "Set-Cookie": setPhotoCookie } : undefined;
+    return send(res, 200, {
+      text: String(text).trim(),
+      draw: !hasPhoto && looksLikeDraw(lastText),
+      photoDailyCap: photoCap,
+      photosRemaining: hasPhoto ? Math.max(0, photoCap - (usedPhotos.count + 1)) : Math.max(0, photoCap - usedPhotos.count)
+    }, req, extra);
   }catch(e){
-    const status = e.status === 401 || e.status === 403 ? 502 : 502;
-    return send(res, status, { error: "I couldn't reach the AI right now. Please try again in a little bit." }, req);
+    return send(res, 502, { error: "I couldn't reach the AI right now. Please try again in a little bit." }, req);
   }
 };

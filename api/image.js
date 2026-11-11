@@ -1,12 +1,20 @@
-const { credentials, corsHeaders, send, readJson, isUnsafeText, kidSafeImagePrompt, postJson } = require("./_lib");
+const {
+  credentials, corsHeaders, send, readJson, isUnsafeText, kidSafeImagePrompt,
+  generateImage, imageDailyCap, parsePicCookie, picCookieHeader
+} = require("./_lib");
 
 module.exports = async function handler(req, res){
   if(req.method === "OPTIONS"){
     res.writeHead(204, corsHeaders(req));
     return res.end();
   }
-  if(req.method !== "POST") return send(res, 405, { error: "method not allowed" }, req);
   const creds = credentials();
+  const cap = imageDailyCap();
+  if(req.method === "GET"){
+    const used = parsePicCookie(req).count;
+    return send(res, 200, { ok: true, setup: !!creds, pictures: true, imageDailyCap: cap, remaining: Math.max(0, cap - used) }, req);
+  }
+  if(req.method !== "POST") return send(res, 405, { error: "method not allowed" }, req);
   if(!creds) return send(res, 503, { setup: false, error: "AI is not set up yet." }, req);
 
   let body;
@@ -19,27 +27,38 @@ module.exports = async function handler(req, res){
     return send(res, 200, { error: "I can only draw fun, kid-safe pictures. Try a truck, a dinosaur, or a racetrack!" }, req);
   }
 
-  const safePrompt = kidSafeImagePrompt(prompt);
-  const payload = {
-    model: creds.imageModel,
-    prompt: safePrompt,
-    n: 1,
-    size: "1024x1024",
-    response_format: "b64_json"
-  };
-  if(creds.kind === "gateway"){
-    payload.providerOptions = { blackForestLabs: { safetyTolerance: 1, outputFormat: "jpeg" } };
+  const used = parsePicCookie(req);
+  if(used.count >= cap){
+    return send(res, 429, {
+      error: "You've used all " + cap + " pictures for today. You can try a new picture tomorrow!",
+      imageDailyCap: cap,
+      remaining: 0
+    }, req);
   }
 
-  try{
-    const data = await postJson(creds.base + "/images/generations", creds.key, payload);
-    const img = (data.data && data.data[0]) || {};
-    const b64 = img.b64_json || img.b64 || "";
-    const url = img.url || "";
-    if(b64) return send(res, 200, { image: "data:image/jpeg;base64," + b64 }, req);
-    if(url) return send(res, 200, { image: url }, req);
-    return send(res, 502, { error: "I couldn't make that picture. Try another idea!" }, req);
-  }catch(e){
-    return send(res, 502, { error: "I couldn't make that picture right now. Try again in a little bit!" }, req);
+  const safePrompt = kidSafeImagePrompt(prompt);
+  const models = [creds.imageModel];
+  if(creds.imageFallback && creds.imageFallback !== creds.imageModel) models.push(creds.imageFallback);
+
+  let lastErr = null;
+  for(const model of models){
+    try{
+      const hit = await generateImage({
+        key: creds.key,
+        base: creds.base,
+        kind: creds.kind,
+        model,
+        prompt: safePrompt
+      });
+      const next = used.count + 1;
+      return send(res, 200, {
+        image: hit.image,
+        imageDailyCap: cap,
+        remaining: Math.max(0, cap - next)
+      }, req, { "Set-Cookie": picCookieHeader(req, next) });
+    }catch(e){
+      lastErr = e;
+    }
   }
+  return send(res, 502, { error: "I couldn't make that picture right now. Try again in a little bit!" }, req);
 };

@@ -168,7 +168,49 @@
     #aichatform button{width:40px; height:40px}
     #aichatmeta{font-size:11px}
   }
+  #aichatcam, #aichatmic{flex-shrink:0}
+  #aichatphoto{position:absolute; width:0; height:0; opacity:0; pointer-events:none}
 
+  /* ---------- Gallery overlay (v21) ---------- */
+  #gallery{position:fixed; inset:0; z-index:85; display:none; flex-direction:column;
+    background:linear-gradient(180deg,#0a1028 0%,#121a3a 100%); color:var(--ink);
+    padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom)}
+  body.gallery-open #gallery{display:flex}
+  body.gallery-open #top, body.gallery-open #nav{display:none !important}
+  .gal-head{display:flex; align-items:center; gap:8px; padding:10px 12px;
+    border-bottom:2px solid var(--line); background:#10193c; flex-shrink:0}
+  .gal-head h2{flex:1; margin:0; font-size:18px}
+  .gal-head button{width:42px; height:42px; border-radius:12px; background:var(--card);
+    color:var(--ink); font-size:20px; display:grid; place-items:center}
+  .gal-tabs{display:flex; gap:8px; padding:8px 12px 0; flex-shrink:0}
+  .gal-tab{flex:1; border-radius:12px; padding:8px 10px; font-weight:800; font-size:14px;
+    background:var(--card); color:var(--muted); border:1px solid var(--line)}
+  .gal-tab.on{color:var(--ink); background:#2a6df5; border-color:#2a6df5}
+  #gallerystatus{padding:6px 14px 0; font-size:12px; font-weight:800; color:var(--muted); flex-shrink:0}
+  #gallerygrid{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:12px;
+    display:grid; grid-template-columns:repeat(3,1fr); gap:8px; align-content:start}
+  .gal-item{position:relative; aspect-ratio:1; border-radius:12px; overflow:hidden;
+    background:#0c1330; border:1px solid var(--line); padding:0}
+  .gal-item img{width:100%; height:100%; object-fit:cover; display:block}
+  .gal-empty{grid-column:1/-1; text-align:center; color:var(--muted); font-weight:800;
+    padding:40px 16px; font-size:15px}
+  #galleryview{display:none; position:absolute; inset:0; z-index:2; flex-direction:column;
+    background:rgba(6,10,28,.94)}
+  #galleryview.show{display:flex}
+  #galleryview img{flex:1; width:100%; object-fit:contain; background:#000}
+  .gal-view-meta{padding:8px 14px; font-weight:800; font-size:13px; color:var(--ink); flex-shrink:0}
+  .gal-view-actions{display:flex; gap:8px; padding:8px 12px calc(10px + env(safe-area-inset-bottom));
+    flex-shrink:0}
+  .gal-view-actions button{flex:1; border-radius:12px; padding:12px 8px; font-weight:800;
+    background:var(--card); color:var(--ink); border:1px solid var(--line); font-size:14px}
+  .gal-view-actions button.danger{background:#5a1d2a}
+  @media (orientation: landscape) and (max-height: 560px){
+    .gal-head{padding:4px 10px}
+    .gal-head h2{font-size:15px}
+    .gal-head button{width:36px; height:36px}
+    .gal-tab{padding:5px 8px; font-size:13px}
+    #gallerygrid{padding:8px; gap:6px}
+  }
 
   /* ---------- Toast / popups ---------- */
   #toast{position:fixed; left:50%; bottom:96px; transform:translateX(-50%) translateY(20px);
@@ -279,6 +321,7 @@
 <div id="nav">
   <button class="navb active" data-screen="garage"><span class="ne">🔧</span>Garage</button>
   <button class="navb" data-action="ai" id="nav_ai" type="button"><span class="ne">🤖</span>AI</button>
+  <button class="navb" data-action="gallery" id="nav_gallery" type="button"><span class="ne">🖼️</span>Gallery</button>
   <button class="navb" data-screen="drive"><span class="ne">🏁</span>Drive</button>
   <button class="navb" data-screen="build"><span class="ne">🏗️</span>Build</button>
   <button class="navb" data-screen="jobs"><span class="ne">💼</span>Jobs</button>
@@ -292,15 +335,41 @@
   <div class="aichat-head">
     <button type="button" id="aichatclose" aria-label="Close chat">✕</button>
     <h2>Jax's AI Chat</h2>
+    <button type="button" id="aichatgallery" aria-label="Open gallery" title="Gallery">🖼️</button>
     <button type="button" id="aichatspeak" aria-label="Read replies aloud" title="Read replies aloud">🔊</button>
   </div>
   <div id="aichatlog" role="log" aria-live="polite"></div>
   <div id="aichatmeta"></div>
   <form id="aichatform" autocomplete="off">
     <button type="button" id="aichatmic" aria-label="Voice input">🎤</button>
-    <textarea id="aichatinput" rows="1" placeholder="Ask or say draw me..." maxlength="500" enterkeyhint="send"></textarea>
+    <button type="button" id="aichatcam" aria-label="Homework photo" title="Take or upload homework">📷</button>
+    <textarea id="aichatinput" rows="1" placeholder="Ask or draw me..." maxlength="500" enterkeyhint="send"></textarea>
     <button type="submit" id="aichatsend" aria-label="Send">➤</button>
+    <input type="file" id="aichatphoto" accept="image/*" capture="environment">
   </form>
+</div>
+
+<div id="gallery" hidden>
+  <div class="gal-head">
+    <button type="button" id="galleryclose" aria-label="Close gallery">✕</button>
+    <h2>Jax's Gallery</h2>
+  </div>
+  <div class="gal-tabs">
+    <button type="button" class="gal-tab on" data-tab="ai" id="galtab_ai">AI Pictures</button>
+    <button type="button" class="gal-tab" data-tab="homework" id="galtab_hw">Homework</button>
+  </div>
+  <div id="gallerystatus"></div>
+  <div id="gallerygrid"></div>
+  <div id="galleryview">
+    <img id="galleryviewimg" alt="Saved picture">
+    <div class="gal-view-meta" id="galleryviewmeta"></div>
+    <div class="gal-view-actions">
+      <button type="button" id="galleryviewclose">Close</button>
+      <button type="button" id="gallerydownload">Download</button>
+      <button type="button" id="galleryshare">Share</button>
+      <button type="button" class="danger" id="gallerydelete">Delete</button>
+    </div>
+  </div>
 </div>
 
 
@@ -3577,6 +3646,7 @@ $("#nav").addEventListener("click", e=>{
   const b=e.target.closest(".navb"); if(!b) return;
   SFX.tap();
   if(b.dataset.action==="ai"){ openAIChat(); return; }
+  if(b.dataset.action==="gallery"){ openGallery(); return; }
   setScreen(b.dataset.screen);
 });
 $("#mute").addEventListener("click", ()=>{
@@ -9329,10 +9399,11 @@ if(window.visualViewport){
 }
 
 
-/* ------------------------- AI CHAT (v21) ---------------------------------- */
+/* ------------------------- AI CHAT + GALLERY (v21) ------------------------ */
 const AI_API_BASE = ""; // set to the Vercel proxy origin (no trailing slash) if the game stays on GitHub Pages
 const AI_MSG_CAP = 60;
-const AI_PIC_CAP = 8;
+let AI_PIC_CAP = 8;
+let AI_PHOTO_CAP = 20;
 const AI_SETUP_MSG = "AI is not set up yet. Ask a grown-up to add the AI key on the server. You can still look around the game!";
 
 function aiEndpoint(path){
@@ -9346,15 +9417,17 @@ function aiUsage(){
   let u = {};
   try{ u = JSON.parse(localStorage.getItem("bw_ai_usage") || "{}") || {}; }catch(e){ u = {}; }
   const day = chicagoDay();
-  if(u.day !== day) u = { day, msgs: 0, pics: 0 };
+  if(u.day !== day) u = { day, msgs: 0, pics: 0, photos: 0 };
+  if(u.photos == null) u.photos = 0;
   return u;
 }
 function saveAIUsage(u){ try{ localStorage.setItem("bw_ai_usage", JSON.stringify(u)); }catch(e){} }
 function aiMsgsLeft(){ return Math.max(0, AI_MSG_CAP - (aiUsage().msgs || 0)); }
 function aiPicsLeft(){ return Math.max(0, AI_PIC_CAP - (aiUsage().pics || 0)); }
+function aiPhotosLeft(){ return Math.max(0, AI_PHOTO_CAP - (aiUsage().photos || 0)); }
 function refreshAIMeta(){
   const el = $("#aichatmeta"); if(!el) return;
-  el.textContent = aiMsgsLeft() + " messages left today · " + aiPicsLeft() + " pictures left today";
+  el.textContent = aiMsgsLeft() + " messages left today · " + aiPicsLeft() + " pictures left today · " + aiPhotosLeft() + " homework photos left today";
 }
 function looksLikeDrawRequest(text){
   const t = String(text || "").toLowerCase().trim();
@@ -9367,10 +9440,11 @@ function clientUnsafe(text){
   return /\b(porn|porno|xxx|nude|nudes|suicide|kill myself|self[- ]?harm|how to make a bomb|cocaine|heroin|fentanyl)\b/i.test(String(text||""));
 }
 
-let _aiSetup = null; // null unknown, true, false
+let _aiSetup = null;
 let _aiBusy = false;
 let _aiRec = null;
 let _aiHistory = [];
+let _lastHomeworkDataUrl = null;
 
 function aiSpeakEnabled(){
   try{ return localStorage.getItem("bw_ai_speak") === "1"; }catch(e){ return false; }
@@ -9396,7 +9470,7 @@ function addAIBubble(role, text, imgSrc){
   if(text) d.appendChild(document.createTextNode(text));
   if(imgSrc){
     const img = document.createElement("img");
-    img.alt = "A picture made for Jax";
+    img.alt = role.indexOf("user") >= 0 ? "Homework photo" : "A picture made for Jax";
     img.src = imgSrc;
     d.appendChild(img);
   }
@@ -9406,17 +9480,26 @@ function addAIBubble(role, text, imgSrc){
 }
 function setAIBusy(on){
   _aiBusy = !!on;
-  const send = $("#aichatsend"), input = $("#aichatinput"), mic = $("#aichatmic");
+  const send = $("#aichatsend"), input = $("#aichatinput"), mic = $("#aichatmic"), cam = $("#aichatcam");
   if(send) send.disabled = !!on || _aiSetup === false;
   if(input) input.disabled = _aiSetup === false;
   if(mic) mic.disabled = _aiSetup === false;
+  if(cam) cam.disabled = _aiSetup === false;
 }
 
 async function checkAISetup(){
   try{
-    const r = await fetch(aiEndpoint("/api/chat"), { method: "GET" });
+    const r = await fetch(aiEndpoint("/api/chat"), { method: "GET", credentials: "include" });
     const data = await r.json().catch(()=>({}));
     _aiSetup = !!(r.ok && data && data.setup !== false);
+    if(data && data.imageDailyCap){
+      const n = parseInt(data.imageDailyCap, 10);
+      if(n > 0) AI_PIC_CAP = n;
+    }
+    if(data && data.photoDailyCap){
+      const n = parseInt(data.photoDailyCap, 10);
+      if(n > 0) AI_PHOTO_CAP = n;
+    }
   }catch(e){
     _aiSetup = false;
   }
@@ -9427,10 +9510,11 @@ function showAISetupState(){
   if(_aiSetup === false){
     addAIBubble("sys", AI_SETUP_MSG);
     setAIBusy(false);
-    const send = $("#aichatsend"), input = $("#aichatinput"), mic = $("#aichatmic");
+    const send = $("#aichatsend"), input = $("#aichatinput"), mic = $("#aichatmic"), cam = $("#aichatcam");
     if(send) send.disabled = true;
     if(input){ input.disabled = true; input.placeholder = "AI is not set up yet"; }
     if(mic) mic.disabled = true;
+    if(cam) cam.disabled = true;
   }
 }
 
@@ -9440,9 +9524,10 @@ async function openAIChat(){
   document.body.classList.add("aichat-open");
   refreshAIMeta();
   setAISpeak(aiSpeakEnabled());
+  requestGalleryPersist();
   const log = $("#aichatlog");
   if(log && !log.childElementCount){
-    addAIBubble("bot", "Hi Jax! I can help with the game, spelling, reading, and math. Say \"draw me...\" if you want a picture!");
+    addAIBubble("bot", "Hi Jax! I can help with the game, spelling, reading, and math. Say \"draw me...\" if you want a picture, or tap the camera to send a homework photo and I'll help step by step!");
   }
   if(_aiSetup === null){
     await checkAISetup();
@@ -9459,37 +9544,111 @@ function closeAIChat(){
   if(window.speechSynthesis) try{ speechSynthesis.cancel(); }catch(e){}
 }
 
-async function sendAIChat(text){
+function dataURLToBlob(dataUrl){
+  const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl || "");
+  if(!m) return null;
+  const bin = atob(m[2]);
+  const arr = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: m[1] || "image/png" });
+}
+function blobToDataURL(blob){
+  return new Promise((resolve, reject)=>{
+    const fr = new FileReader();
+    fr.onload = ()=> resolve(fr.result);
+    fr.onerror = reject;
+    fr.readAsDataURL(blob);
+  });
+}
+function loadImageFromURL(url){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    img.onload = ()=> resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+async function resizeImageBlob(blob, maxDim, mime, quality){
+  const url = URL.createObjectURL(blob);
+  try{
+    const img = await loadImageFromURL(url);
+    const scale = Math.min(1, maxDim / Math.max(img.width || 1, img.height || 1));
+    const w = Math.max(1, Math.round((img.width || 1) * scale));
+    const h = Math.max(1, Math.round((img.height || 1) * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+    const outMime = mime || "image/jpeg";
+    const out = await new Promise(res => canvas.toBlob(res, outMime, quality == null ? 0.85 : quality));
+    return out || blob;
+  }finally{
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function sendAIChat(text, opts){
+  opts = opts || {};
   const raw = String(text || "").trim();
-  if(!raw || _aiBusy) return;
+  const photoData = opts.imageDataUrl || null;
+  if((!raw && !photoData) || _aiBusy) return;
   if(_aiSetup === false){ showAISetupState(); return; }
-  if(clientUnsafe(raw)){
+  if(raw && clientUnsafe(raw)){
     addAIBubble("user", raw);
     addAIBubble("bot", "I can't help with that. Let's talk about the game, a drawing, spelling, or a math problem instead!");
     return;
   }
-  const wantPic = looksLikeDrawRequest(raw);
+  const wantPic = !photoData && looksLikeDrawRequest(raw);
   if(aiMsgsLeft() <= 0){
     addAIBubble("sys", "That's all the chat messages for today. You can try again tomorrow!");
     return;
   }
   if(wantPic && aiPicsLeft() <= 0){
     addAIBubble("user", raw);
-    addAIBubble("bot", "You've used all 8 pictures for today. We can still chat, or try a new picture tomorrow!");
+    addAIBubble("bot", "You've used all " + AI_PIC_CAP + " pictures for today. We can still chat, or try a new picture tomorrow!");
     const u = aiUsage(); u.msgs += 1; saveAIUsage(u); refreshAIMeta();
     return;
   }
-  addAIBubble("user", raw);
+  if(opts.newPhoto && aiPhotosLeft() <= 0){
+    addAIBubble("sys", "You've used all " + AI_PHOTO_CAP + " homework photos for today. You can type your question, or try a new photo tomorrow!");
+    return;
+  }
+  addAIBubble("user", raw || "Homework photo", opts.previewUrl || photoData || null);
   $("#aichatinput").value = "";
+  if(opts.originalBlob){
+    const warn = await saveGalleryItem({ kind: "homework", prompt: raw || "Homework photo", original: opts.originalBlob });
+    if(warn) addAIBubble("sys", warn);
+  }
   setAIBusy(true);
-  const typing = addAIBubble("bot typing", wantPic ? "Drawing a picture for you..." : "Thinking...");
+  const typing = addAIBubble("bot typing", wantPic ? "Drawing a picture for you..." : (photoData ? "Looking at your homework..." : "Thinking..."));
   let reply = "";
   let img = "";
+  const textForModel = raw || "Please help me with this homework. Read the problem in the photo, then help me step by step. Do not give the final answer yet.";
+  let userContent;
+  let newPhoto = !!opts.newPhoto;
+  if(photoData){
+    userContent = [
+      { type: "text", text: textForModel },
+      { type: "image_url", image_url: { url: photoData } }
+    ];
+    _lastHomeworkDataUrl = photoData;
+  }else if(_lastHomeworkDataUrl && !wantPic){
+    userContent = [
+      { type: "text", text: textForModel },
+      { type: "image_url", image_url: { url: _lastHomeworkDataUrl } }
+    ];
+    newPhoto = false;
+  }else{
+    userContent = raw;
+  }
   try{
     const r = await fetch(aiEndpoint("/api/chat"), {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: _aiHistory.concat([{ role: "user", content: raw }]) })
+      body: JSON.stringify({
+        newPhoto: newPhoto,
+        messages: _aiHistory.concat([{ role: "user", content: userContent }])
+      })
     });
     const data = await r.json().catch(()=>({}));
     if(r.status === 503 || data.setup === false){
@@ -9499,12 +9658,20 @@ async function sendAIChat(text){
       setAIBusy(false);
       return;
     }
+    if(r.status === 429){
+      if(typing) typing.remove();
+      addAIBubble("bot", data.error || "That's all the homework photos for today.");
+      setAIBusy(false);
+      return;
+    }
     if(!r.ok) throw new Error(data.error || "chat failed");
     reply = String(data.text || "Hmm, I got a little stuck. Try asking me again!");
+    if(data.photoDailyCap){ const n = parseInt(data.photoDailyCap, 10); if(n > 0) AI_PHOTO_CAP = n; }
     if(wantPic || data.draw){
       if(typing) typing.textContent = "Drawing a picture for you...";
       const ir = await fetch(aiEndpoint("/api/image"), {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: raw })
       });
@@ -9517,16 +9684,47 @@ async function sendAIChat(text){
   }
   if(typing) typing.remove();
   addAIBubble("bot", reply, img || null);
-  _aiHistory.push({ role: "user", content: raw });
+  _aiHistory.push({ role: "user", content: raw || "Homework photo" });
   _aiHistory.push({ role: "assistant", content: reply });
   if(_aiHistory.length > 16) _aiHistory = _aiHistory.slice(-16);
+  if(img){
+    const blob = dataURLToBlob(img);
+    if(blob){
+      const warn = await saveGalleryItem({ kind: "ai", prompt: raw, original: blob });
+      if(warn) addAIBubble("sys", warn);
+    }
+  }
   const u = aiUsage();
   u.msgs += 1;
   if(img) u.pics += 1;
+  if(opts.newPhoto) u.photos += 1;
   saveAIUsage(u);
   refreshAIMeta();
   speakAIReply(reply);
   setAIBusy(false);
+}
+
+async function handleHomeworkPhoto(file){
+  if(!file || _aiBusy) return;
+  if(_aiSetup === false){ showAISetupState(); return; }
+  if(aiPhotosLeft() <= 0){
+    addAIBubble("sys", "You've used all " + AI_PHOTO_CAP + " homework photos for today. You can type your question, or try a new photo tomorrow!");
+    return;
+  }
+  try{
+    const down = await resizeImageBlob(file, 1024, "image/jpeg", 0.85);
+    const dataUrl = await blobToDataURL(down);
+    const preview = URL.createObjectURL(down);
+    const caption = ($("#aichatinput").value || "").trim();
+    await sendAIChat(caption, {
+      imageDataUrl: dataUrl,
+      previewUrl: preview,
+      originalBlob: file,
+      newPhoto: true
+    });
+  }catch(e){
+    addAIBubble("sys", "I couldn't read that photo. Try taking it again!");
+  }
 }
 
 function stopAIMic(){
@@ -9561,19 +9759,271 @@ function toggleAIMic(){
   }
 }
 
+/* ---- On-device gallery (IndexedDB only; originals + thumbs) ---- */
+const GALLERY_DB_NAME = "bw_gallery";
+const GALLERY_STORE = "items";
+let _galleryTab = "ai";
+let _galleryViewItem = null;
+let _persistAsked = false;
+
+function requestGalleryPersist(){
+  if(_persistAsked) return;
+  _persistAsked = true;
+  try{
+    if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function(){});
+  }catch(e){}
+}
+function openGalleryDB(){
+  return new Promise((resolve, reject)=>{
+    if(!window.indexedDB) return reject(new Error("no idb"));
+    const req = indexedDB.open(GALLERY_DB_NAME, 1);
+    req.onupgradeneeded = function(){
+      const db = req.result;
+      if(!db.objectStoreNames.contains(GALLERY_STORE)){
+        const st = db.createObjectStore(GALLERY_STORE, { keyPath: "id", autoIncrement: true });
+        st.createIndex("kind", "kind", { unique: false });
+        st.createIndex("created", "created", { unique: false });
+      }
+    };
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error); };
+  });
+}
+function idbReq(req){
+  return new Promise((resolve, reject)=>{
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error); };
+  });
+}
+async function galleryAll(){
+  const db = await openGalleryDB();
+  try{
+    return await idbReq(db.transaction(GALLERY_STORE, "readonly").objectStore(GALLERY_STORE).getAll());
+  }finally{ db.close(); }
+}
+async function galleryDeleteId(id){
+  const db = await openGalleryDB();
+  try{
+    await idbReq(db.transaction(GALLERY_STORE, "readwrite").objectStore(GALLERY_STORE).delete(id));
+  }finally{ db.close(); }
+}
+function fmtBytes(n){
+  n = Number(n) || 0;
+  if(n < 1024) return Math.round(n) + " B";
+  if(n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+  if(n < 1024 * 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + " MB";
+  return (n / (1024 * 1024 * 1024)).toFixed(1) + " GB";
+}
+async function galleryStorageInfo(){
+  try{
+    if(navigator.storage && navigator.storage.estimate){
+      const e = await navigator.storage.estimate();
+      return { usage: e.usage || 0, quota: e.quota || 0 };
+    }
+  }catch(e){}
+  return { usage: 0, quota: 0 };
+}
+async function pruneOldestForSpace(neededBytes){
+  const items = (await galleryAll()).slice().sort((a,b)=> (a.created||0) - (b.created||0));
+  let removed = 0;
+  for(const it of items){
+    const info = await galleryStorageInfo();
+    const remain = (info.quota || 0) - (info.usage || 0);
+    if(info.quota && remain > Math.max(neededBytes * 2, 2 * 1024 * 1024) && (info.usage / info.quota) < 0.9) break;
+    await galleryDeleteId(it.id);
+    removed++;
+    if(removed >= 5) break;
+  }
+  return removed;
+}
+async function saveGalleryItem({ kind, prompt, original }){
+  if(!original) return "";
+  requestGalleryPersist();
+  let thumb = original;
+  try{ thumb = await resizeImageBlob(original, 256, "image/jpeg", 0.7); }catch(e){ thumb = original; }
+  const item = {
+    kind: kind === "homework" ? "homework" : "ai",
+    prompt: String(prompt || "").slice(0, 300),
+    created: Date.now(),
+    mime: original.type || "image/jpeg",
+    original,
+    thumb
+  };
+  const needed = (original.size || 0) + (thumb && thumb.size ? thumb.size : 0);
+  let warning = "";
+  try{
+    const info = await galleryStorageInfo();
+    const remain = (info.quota || 0) - (info.usage || 0);
+    const near = info.quota && (remain < Math.max(needed * 3, 3 * 1024 * 1024) || (info.usage / info.quota) > 0.88);
+    if(near){
+      const n = await pruneOldestForSpace(needed);
+      if(n) warning = "Storage was getting full, so I removed the " + n + " oldest saved " + (n === 1 ? "picture" : "pictures") + " to make room. Download pictures you want to keep.";
+    }
+    const db = await openGalleryDB();
+    try{
+      await idbReq(db.transaction(GALLERY_STORE, "readwrite").objectStore(GALLERY_STORE).add(item));
+    }finally{ db.close(); }
+  }catch(e){
+    try{
+      const n = await pruneOldestForSpace(needed);
+      const db = await openGalleryDB();
+      try{ await idbReq(db.transaction(GALLERY_STORE, "readwrite").objectStore(GALLERY_STORE).add(item)); }
+      finally{ db.close(); }
+      if(!warning && n) warning = "Storage was getting full, so I removed the " + n + " oldest saved pictures to make room. Download pictures you want to keep.";
+    }catch(e2){
+      warning = "I couldn't save that picture on this device. You can still see it in the chat.";
+    }
+  }
+  return warning;
+}
+
+async function refreshGalleryStatus(){
+  const el = $("#gallerystatus"); if(!el) return;
+  const info = await galleryStorageInfo();
+  const items = await galleryAll().catch(()=>[]);
+  const n = items.length;
+  let t = n + (n === 1 ? " saved picture" : " saved pictures") + " on this device (private)";
+  if(info.quota) t += " · " + fmtBytes(info.usage) + " used of " + fmtBytes(info.quota);
+  else if(info.usage) t += " · " + fmtBytes(info.usage) + " used";
+  el.textContent = t;
+}
+
+async function renderGallery(){
+  const grid = $("#gallerygrid"); if(!grid) return;
+  grid.innerHTML = "";
+  let items = [];
+  try{ items = await galleryAll(); }catch(e){ items = []; }
+  items = items.filter(it => it.kind === _galleryTab).sort((a,b)=> (b.created||0) - (a.created||0));
+  if(!items.length){
+    const empty = document.createElement("div");
+    empty.className = "gal-empty";
+    empty.textContent = _galleryTab === "homework"
+      ? "No homework photos saved yet. Use the camera in AI chat — originals stay on this device."
+      : "No AI pictures saved yet. Ask the AI to draw something, and it will show up here.";
+    grid.appendChild(empty);
+  }else{
+    for(const it of items){
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "gal-item";
+      btn.dataset.id = String(it.id);
+      const img = document.createElement("img");
+      img.alt = it.prompt || (it.kind === "homework" ? "Homework photo" : "AI picture");
+      img.src = URL.createObjectURL(it.thumb || it.original);
+      btn.appendChild(img);
+      btn.addEventListener("click", ()=>{ SFX.tap(); openGalleryView(it); });
+      grid.appendChild(btn);
+    }
+  }
+  document.querySelectorAll(".gal-tab").forEach(t => t.classList.toggle("on", t.dataset.tab === _galleryTab));
+  await refreshGalleryStatus();
+}
+
+async function openGallery(tab){
+  if(tab) _galleryTab = tab;
+  const el = $("#gallery"); if(!el) return;
+  el.hidden = false;
+  document.body.classList.add("gallery-open");
+  $("#galleryview").classList.remove("show");
+  requestGalleryPersist();
+  await renderGallery();
+}
+function closeGallery(){
+  document.body.classList.remove("gallery-open");
+  const el = $("#gallery"); if(el) el.hidden = true;
+  closeGalleryView();
+}
+function openGalleryView(item){
+  _galleryViewItem = item;
+  const view = $("#galleryview");
+  const img = $("#galleryviewimg");
+  const meta = $("#galleryviewmeta");
+  if(img){
+    if(img.dataset.url) URL.revokeObjectURL(img.dataset.url);
+    const url = URL.createObjectURL(item.original || item.thumb);
+    img.dataset.url = url;
+    img.src = url;
+  }
+  if(meta){
+    const when = item.created ? new Date(item.created).toLocaleString("en-US", { timeZone: "America/Chicago" }) : "";
+    const size = item.original && item.original.size ? " · original " + fmtBytes(item.original.size) : "";
+    meta.textContent = (item.prompt || (item.kind === "homework" ? "Homework photo" : "AI picture")) + (when ? " · " + when : "") + size;
+  }
+  if(view) view.classList.add("show");
+}
+function closeGalleryView(){
+  const img = $("#galleryviewimg");
+  if(img && img.dataset.url){ URL.revokeObjectURL(img.dataset.url); img.dataset.url = ""; img.src = ""; }
+  const view = $("#galleryview"); if(view) view.classList.remove("show");
+  _galleryViewItem = null;
+}
+function galleryFileName(item){
+  const day = item.created ? new Date(item.created).toISOString().slice(0,10) : chicagoDay();
+  const ext = ((item.mime || "").indexOf("png") >= 0) ? "png" : "jpg";
+  const kind = item.kind === "homework" ? "homework" : "ai";
+  return "jax-" + kind + "-" + day + "-" + (item.id || "pic") + "." + ext;
+}
+function downloadGalleryItem(item){
+  if(!item || !item.original) return;
+  const a = document.createElement("a");
+  const url = URL.createObjectURL(item.original);
+  a.href = url;
+  a.download = galleryFileName(item);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=> URL.revokeObjectURL(url), 2000);
+}
+async function shareGalleryItem(item){
+  if(!item || !item.original) return;
+  const file = new File([item.original], galleryFileName(item), { type: item.mime || "image/jpeg" });
+  try{
+    if(navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))){
+      await navigator.share({ files: [file], title: item.prompt || "Jax's picture" });
+      return;
+    }
+  }catch(e){ if(e && e.name === "AbortError") return; }
+  downloadGalleryItem(item);
+}
+
 function wireAIChat(){
   const form = $("#aichatform");
   if(!form || form.dataset.wired) return;
   form.dataset.wired = "1";
   $("#aichatclose").addEventListener("click", ()=>{ SFX.tap(); closeAIChat(); });
   $("#aichatspeak").addEventListener("click", ()=>{ SFX.tap(); setAISpeak(!aiSpeakEnabled()); });
+  $("#aichatgallery").addEventListener("click", ()=>{ SFX.tap(); openGallery("ai"); });
   $("#aichatmic").addEventListener("click", ()=>{ SFX.tap(); toggleAIMic(); });
+  $("#aichatcam").addEventListener("click", ()=>{
+    SFX.tap();
+    const inp = $("#aichatphoto");
+    if(inp){ inp.value = ""; inp.click(); }
+  });
+  $("#aichatphoto").addEventListener("change", ev=>{
+    const file = ev.target.files && ev.target.files[0];
+    ev.target.value = "";
+    if(file) handleHomeworkPhoto(file);
+  });
   form.addEventListener("submit", e=>{
     e.preventDefault();
     sendAIChat($("#aichatinput").value);
   });
   $("#aichatinput").addEventListener("keydown", e=>{
     if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); sendAIChat($("#aichatinput").value); }
+  });
+  $("#galleryclose").addEventListener("click", ()=>{ SFX.tap(); closeGallery(); });
+  document.querySelectorAll(".gal-tab").forEach(t=>{
+    t.addEventListener("click", ()=>{ SFX.tap(); _galleryTab = t.dataset.tab; renderGallery(); });
+  });
+  $("#galleryviewclose").addEventListener("click", ()=>{ SFX.tap(); closeGalleryView(); });
+  $("#gallerydownload").addEventListener("click", ()=>{ SFX.tap(); if(_galleryViewItem) downloadGalleryItem(_galleryViewItem); });
+  $("#galleryshare").addEventListener("click", ()=>{ SFX.tap(); if(_galleryViewItem) shareGalleryItem(_galleryViewItem); });
+  $("#gallerydelete").addEventListener("click", async ()=>{
+    SFX.tap();
+    if(!_galleryViewItem) return;
+    try{ await galleryDeleteId(_galleryViewItem.id); }catch(e){}
+    closeGalleryView();
+    await renderGallery();
   });
 }
 document.addEventListener("DOMContentLoaded", wireAIChat);
