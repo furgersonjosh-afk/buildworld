@@ -25,40 +25,101 @@ function photoDailyCap(){
   return (Number.isFinite(n) && n > 0) ? n : 20;
 }
 
-function credentials(){
+function openaiTextCredentials(){
+  if(!process.env.OPENAI_API_KEY) return null;
+  return {
+    kind: "openai",
+    key: process.env.OPENAI_API_KEY,
+    base: "https://api.openai.com/v1",
+    textModel: process.env.OPENAI_TEXT_MODEL || "gpt-5-nano"
+  };
+}
+
+function gatewayCredentials(){
+  if(!process.env.AI_GATEWAY_API_KEY) return null;
   const imageModel = process.env.IMAGE_MODEL || process.env.AI_IMAGE_MODEL;
   const imageFallback = process.env.IMAGE_MODEL_FALLBACK || DEFAULT_IMAGE_FALLBACK;
-  if(process.env.AI_GATEWAY_API_KEY){
-    return {
-      kind: "gateway",
-      key: process.env.AI_GATEWAY_API_KEY,
-      base: "https://ai-gateway.vercel.sh/v1",
-      textModel: process.env.AI_TEXT_MODEL || "openai/gpt-5-nano",
-      imageModel: imageModel || DEFAULT_IMAGE_MODEL,
-      imageFallback
-    };
+  return {
+    kind: "gateway",
+    key: process.env.AI_GATEWAY_API_KEY,
+    base: "https://ai-gateway.vercel.sh/v1",
+    textModel: process.env.AI_TEXT_MODEL || "openai/gpt-5-nano",
+    imageModel: imageModel || DEFAULT_IMAGE_MODEL,
+    imageFallback
+  };
+}
+
+function xaiCredentials(){
+  if(!process.env.XAI_API_KEY) return null;
+  const imageModel = process.env.IMAGE_MODEL || process.env.AI_IMAGE_MODEL;
+  return {
+    kind: "xai",
+    key: process.env.XAI_API_KEY,
+    base: "https://api.x.ai/v1",
+    textModel: process.env.AI_TEXT_MODEL || "grok-4-fast",
+    imageModel: imageModel || "grok-imagine-image",
+    imageFallback: process.env.IMAGE_MODEL_FALLBACK || "grok-imagine-image"
+  };
+}
+
+// Pictures stay on AI Gateway (Seedream / Grok Imagine). Text prefers OpenAI.
+function imageCredentials(){
+  return gatewayCredentials();
+}
+
+function textProviders(){
+  const list = [];
+  const openai = openaiTextCredentials();
+  const gateway = gatewayCredentials();
+  if(openai) list.push(openai);
+  if(gateway) list.push(gateway);
+  if(!list.length){
+    const xai = xaiCredentials();
+    if(xai) list.push(xai);
   }
-  if(process.env.OPENAI_API_KEY){
-    return {
-      kind: "openai",
-      key: process.env.OPENAI_API_KEY,
-      base: "https://api.openai.com/v1",
-      textModel: process.env.AI_TEXT_MODEL || "gpt-5-nano",
-      imageModel: imageModel || "gpt-image-1-mini",
-      imageFallback: process.env.IMAGE_MODEL_FALLBACK || "gpt-image-1-mini"
-    };
+  return list;
+}
+
+function credentials(){
+  // Backward-compatible setup check: true if any provider is configured.
+  return textProviders()[0] || imageCredentials() || xaiCredentials() || null;
+}
+
+function applyTextModelOptions(payload, creds){
+  if(/gpt-5/i.test(creds.textModel)){
+    // Official OpenAI Chat Completions uses reasoning_effort.
+    // The AI Gateway previously accepted the reasoning object.
+    if(creds.kind === "openai") payload.reasoning_effort = "minimal";
+    else payload.reasoning = { effort: "minimal" };
+  }else{
+    payload.temperature = 0.6;
   }
-  if(process.env.XAI_API_KEY){
-    return {
-      kind: "xai",
-      key: process.env.XAI_API_KEY,
-      base: "https://api.x.ai/v1",
-      textModel: process.env.AI_TEXT_MODEL || "grok-4-fast",
-      imageModel: imageModel || "grok-imagine-image",
-      imageFallback: process.env.IMAGE_MODEL_FALLBACK || "grok-imagine-image"
-    };
+  return payload;
+}
+
+async function moderateInput(text, imageUrl){
+  const openai = openaiTextCredentials();
+  if(!openai) return { flagged: isUnsafeText(text), source: "regex" };
+  try{
+    const trimmed = String(text || "").slice(0, 2000);
+    let input;
+    if(imageUrl){
+      input = [
+        { type: "text", text: trimmed || "homework photo" },
+        { type: "image_url", image_url: { url: imageUrl } }
+      ];
+    }else{
+      input = trimmed;
+    }
+    const data = await postJson(openai.base + "/moderations", openai.key, {
+      model: "omni-moderation-latest",
+      input
+    });
+    const result = ((data && data.results) || [])[0] || {};
+    return { flagged: !!result.flagged, source: "openai" };
+  }catch(e){
+    return { flagged: isUnsafeText(text), source: "regex" };
   }
-  return null;
 }
 
 function corsHeaders(req){
@@ -72,6 +133,7 @@ function corsHeaders(req){
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Expose-Headers": "X-BW-Text-Provider",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin"
   };
@@ -270,7 +332,8 @@ function parsePhotoCookie(req){ return parseCountCookie(req, "bw_photo_cap"); }
 function photoCookieHeader(req, count){ return countCookieHeader(req, "bw_photo_cap", count); }
 
 module.exports = {
-  credentials, corsHeaders, send, readJson,
+  credentials, textProviders, imageCredentials, applyTextModelOptions, moderateInput,
+  corsHeaders, send, readJson,
   SYSTEM_PROMPT, isUnsafeText, looksLikeDraw, kidSafeImagePrompt, postJson,
   imageDailyCap, photoDailyCap, generateImage, usesChatImage, chicagoDay,
   parsePicCookie, picCookieHeader, parsePhotoCookie, photoCookieHeader,

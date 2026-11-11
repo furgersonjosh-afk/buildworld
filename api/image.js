@@ -1,5 +1,5 @@
 const {
-  credentials, corsHeaders, send, readJson, isUnsafeText, kidSafeImagePrompt,
+  imageCredentials, corsHeaders, send, readJson, isUnsafeText, kidSafeImagePrompt,
   generateImage, imageDailyCap, parsePicCookie, picCookieHeader
 } = require("./_lib");
 
@@ -8,7 +8,7 @@ module.exports = async function handler(req, res){
     res.writeHead(204, corsHeaders(req));
     return res.end();
   }
-  const creds = credentials();
+  const creds = imageCredentials();
   const cap = imageDailyCap();
   if(req.method === "GET"){
     const used = parsePicCookie(req).count;

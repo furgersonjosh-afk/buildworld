@@ -1,5 +1,6 @@
 const {
-  credentials, corsHeaders, send, readJson, SYSTEM_PROMPT, isUnsafeText,
+  textProviders, imageCredentials, applyTextModelOptions, moderateInput,
+  corsHeaders, send, readJson, SYSTEM_PROMPT, isUnsafeText,
   looksLikeDraw, postJson, imageDailyCap, photoDailyCap, parsePhotoCookie, photoCookieHeader
 } = require("./_lib");
 
@@ -40,26 +41,35 @@ function sanitizeVisionMessage(msg){
   return { role: msg.role, content: text };
 }
 
+function extractReply(data){
+  const msg = (((data.choices || [])[0] || {}).message) || {};
+  let t = msg.content;
+  if(Array.isArray(t)) t = t.map(p => (p && (p.text || p.content)) || "").join(" ").trim();
+  return String(t || "").trim();
+}
+
 module.exports = async function handler(req, res){
   if(req.method === "OPTIONS"){
     res.writeHead(204, corsHeaders(req));
     return res.end();
   }
-  const creds = credentials();
+  const providers = textProviders();
+  const imageReady = !!imageCredentials();
   if(req.method === "GET"){
     const used = parsePhotoCookie(req).count;
     const cap = photoDailyCap();
     return send(res, 200, {
       ok: true,
-      setup: !!creds,
-      pictures: true,
+      setup: providers.length > 0,
+      pictures: imageReady,
+      preferredTextProvider: (providers[0] && providers[0].kind) || null,
       imageDailyCap: imageDailyCap(),
       photoDailyCap: cap,
       photosRemaining: Math.max(0, cap - used)
     }, req);
   }
   if(req.method !== "POST") return send(res, 405, { error: "method not allowed" }, req);
-  if(!creds) return send(res, 503, { setup: false, error: "AI is not set up yet." }, req);
+  if(!providers.length) return send(res, 503, { setup: false, error: "AI is not set up yet." }, req);
 
   let body;
   try{ body = await readJson(req); }
@@ -72,7 +82,12 @@ module.exports = async function handler(req, res){
   if(lastUser.tooBig) return send(res, 400, { error: "That photo is a little too big. Try taking it again?" }, req);
 
   const lastText = extractText(lastUser.content);
+  const lastImage = lastUser.hasPhoto ? extractImageUrl(lastUser.content) : null;
   if(isUnsafeText(lastText)){
+    return send(res, 200, { text: "I can't help with that. Let's talk about the game, a drawing, spelling, or a math problem instead!" }, req);
+  }
+  const mod = await moderateInput(lastText, lastImage);
+  if(mod.flagged){
     return send(res, 200, { text: "I can't help with that. Let's talk about the game, a drawing, spelling, or a math problem instead!" }, req);
   }
 
@@ -97,32 +112,41 @@ module.exports = async function handler(req, res){
     return { role: m.role, content: extractText(m.content).slice(0, 800) };
   });
 
-  try{
-    const messages = [{ role: "system", content: SYSTEM_PROMPT }].concat(history);
-    const extractReply = (data)=>{
-      const msg = (((data.choices || [])[0] || {}).message) || {};
-      let t = msg.content;
-      if(Array.isArray(t)) t = t.map(p => (p && (p.text || p.content)) || "").join(" ").trim();
-      return String(t || "").trim();
-    };
-    const payload = {
-      model: creds.textModel,
-      max_completion_tokens: hasPhoto ? 600 : 400,
-      messages
-    };
-    // gpt-5-nano: use minimal reasoning so the token budget is not spent before any visible text.
-    if(/gpt-5/i.test(creds.textModel)) payload.reasoning = { effort: "minimal" };
-    else payload.temperature = 0.6;
-    const data = await postJson(creds.base + "/chat/completions", creds.key, payload);
-    const text = extractReply(data) || "Sorry, I got a little stuck. Try asking me again!";
-    const extra = setPhotoCookie ? { "Set-Cookie": setPhotoCookie } : undefined;
-    return send(res, 200, {
-      text: String(text).trim(),
-      draw: !hasPhoto && looksLikeDraw(lastText),
-      photoDailyCap: photoCap,
-      photosRemaining: hasPhoto ? Math.max(0, photoCap - (usedPhotos.count + 1)) : Math.max(0, photoCap - usedPhotos.count)
-    }, req, extra);
-  }catch(e){
-    return send(res, 502, { error: "I couldn't reach the AI right now. Please try again in a little bit." }, req);
+  const messages = [{ role: "system", content: SYSTEM_PROMPT }].concat(history);
+  let lastErr = null;
+  for(const creds of providers){
+    try{
+      const payload = {
+        model: creds.textModel,
+        max_completion_tokens: hasPhoto ? 600 : 400,
+        messages
+      };
+      applyTextModelOptions(payload, creds);
+      let data = await postJson(creds.base + "/chat/completions", creds.key, payload);
+      let text = extractReply(data);
+      if(!text && /gpt-5/i.test(creds.textModel)){
+        payload.max_completion_tokens = hasPhoto ? 900 : 700;
+        data = await postJson(creds.base + "/chat/completions", creds.key, payload);
+        text = extractReply(data);
+      }
+      if(!text){
+        lastErr = new Error("empty reply");
+        continue;
+      }
+      // Provider name only — never log keys, prompts, or photos.
+      console.log("bw-chat provider=" + creds.kind);
+      const extra = { "X-BW-Text-Provider": creds.kind };
+      if(setPhotoCookie) extra["Set-Cookie"] = setPhotoCookie;
+      return send(res, 200, {
+        text: String(text).trim(),
+        provider: creds.kind,
+        draw: !hasPhoto && looksLikeDraw(lastText),
+        photoDailyCap: photoCap,
+        photosRemaining: hasPhoto ? Math.max(0, photoCap - (usedPhotos.count + 1)) : Math.max(0, photoCap - usedPhotos.count)
+      }, req, extra);
+    }catch(e){
+      lastErr = e;
+    }
   }
+  return send(res, 502, { error: "I couldn't reach the AI right now. Please try again in a little bit." }, req);
 };
