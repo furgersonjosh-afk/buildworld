@@ -9622,7 +9622,7 @@ async function sendAIChat(text, opts){
   const typing = addAIBubble("bot typing", wantPic ? "Drawing a picture for you..." : (photoData ? "Looking at your homework..." : "Thinking..."));
   let reply = "";
   let img = "";
-  const textForModel = raw || "Please help me with this homework. Read the problem in the photo, then help me step by step. Do not give the final answer yet.";
+  const textForModel = raw || "Please help me with this homework. Read the problem in the photo. Coach me one step at a time and ask me to try that step. Do not tell me the final answer or any last-step result until I have typed my own attempt, or I ask for the answer a second time.";
   let userContent;
   let newPhoto = !!opts.newPhoto;
   if(photoData){

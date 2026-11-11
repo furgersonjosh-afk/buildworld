@@ -32,7 +32,7 @@ function sanitizeVisionMessage(msg){
   if(img){
     if(img.length > 1800000) return { role: "user", content: text || "Please help me with this homework.", tooBig: true };
     const content = [];
-    content.push({ type: "text", text: text || "Please help me with this homework. Read the problem in the photo, then help me step by step. Do not give the final answer yet." });
+    content.push({ type: "text", text: text || "Please help me with this homework. Read the problem in the photo. Coach me one step at a time and ask me to try that step. Do not tell me the final answer or any last-step result until I have typed my own attempt, or I ask for the answer a second time." });
     content.push({ type: "image_url", image_url: { url: img } });
     return { role: "user", content, hasPhoto: true };
   }
