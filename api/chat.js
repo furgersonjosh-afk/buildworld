@@ -98,13 +98,18 @@ module.exports = async function handler(req, res){
   });
 
   try{
-    const data = await postJson(creds.base + "/chat/completions", creds.key, {
+    const payload = {
       model: creds.textModel,
-      temperature: 0.6,
-      max_tokens: hasPhoto ? 450 : 280,
+      max_completion_tokens: hasPhoto ? 600 : 400,
       messages: [{ role: "system", content: SYSTEM_PROMPT }].concat(history)
-    });
-    const text = (((data.choices || [])[0] || {}).message || {}).content || "Sorry, I got a little stuck. Try asking me again!";
+    };
+    // gpt-5-nano is a reasoning model: max_tokens is consumed by hidden reasoning and can yield empty replies.
+    if(!/gpt-5/i.test(creds.textModel)) payload.temperature = 0.6;
+    const data = await postJson(creds.base + "/chat/completions", creds.key, payload);
+    const msg = (((data.choices || [])[0] || {}).message) || {};
+    let text = msg.content;
+    if(Array.isArray(text)) text = text.map(p => (p && (p.text || p.content)) || "").join(" ").trim();
+    text = String(text || "").trim() || "Sorry, I got a little stuck. Try asking me again!";
     const extra = setPhotoCookie ? { "Set-Cookie": setPhotoCookie } : undefined;
     return send(res, 200, {
       text: String(text).trim(),

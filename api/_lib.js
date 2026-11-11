@@ -4,16 +4,17 @@
 const ALLOWED_ORIGINS = [
   "https://furgersonjosh-afk.github.io",
   "https://build-world.vercel.app",
+  "https://jax-buildworld-ai.vercel.app",
   "http://localhost:8000",
   "http://127.0.0.1:8000",
   "http://localhost:8780",
   "http://127.0.0.1:8780"
 ];
 
-// High-quality default: FLUX 3 Image at $0.048 / 1024px — strong on detailed vehicles.
-// Cheaper fallback: Recraft V4.1 Flash at $0.007. Override with IMAGE_MODEL / IMAGE_MODEL_FALLBACK.
-const DEFAULT_IMAGE_MODEL = "bfl/flux-3-image";
-const DEFAULT_IMAGE_FALLBACK = "recraft/recraft-v4.1-flash";
+// Default: Seedream 5.0 Pro ($0.035 / image) — works on AI Gateway free tier and is strong on detailed vehicles.
+// Fallback: Grok Imagine ($0.02). FLUX 3 / Nano Banana 2.1 need paid Gateway credits. Override with IMAGE_MODEL / IMAGE_MODEL_FALLBACK.
+const DEFAULT_IMAGE_MODEL = "bytedance/seedream-5.0-pro";
+const DEFAULT_IMAGE_FALLBACK = "spacexai/grok-imagine-image";
 
 function imageDailyCap(){
   const n = parseInt(process.env.IMAGE_DAILY_CAP || "8", 10);
@@ -62,9 +63,10 @@ function credentials(){
 
 function corsHeaders(req){
   const origin = String((req.headers && (req.headers.origin || req.headers.Origin)) || "");
-  const allow = ALLOWED_ORIGINS.some(o => origin === o || origin.startsWith(o))
-    ? origin
-    : (origin && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ? origin : ALLOWED_ORIGINS[0]);
+  const allowOwn = /^https:\/\/jax-buildworld-ai([.-][a-z0-9-]+)*\.vercel\.app$/.test(origin);
+  const allow = ALLOWED_ORIGINS.some(o => origin === o || origin.startsWith(o)) || allowOwn || (origin && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))
+    ? (origin || ALLOWED_ORIGINS[0])
+    : ALLOWED_ORIGINS[0];
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",

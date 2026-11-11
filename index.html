@@ -9399,8 +9399,8 @@ if(window.visualViewport){
 }
 
 
-/* ------------------------- AI CHAT + GALLERY (v21) ------------------------ */
-const AI_API_BASE = ""; // set to the Vercel proxy origin (no trailing slash) if the game stays on GitHub Pages
+/* ------------------------- AI CHAT + GALLERY (v22) ------------------------ */
+const AI_API_BASE = "https://jax-buildworld-ai.vercel.app"; // v22 production proxy; keys stay on the server
 const AI_MSG_CAP = 60;
 let AI_PIC_CAP = 8;
 let AI_PHOTO_CAP = 20;
@@ -10042,7 +10042,7 @@ if("serviceWorker" in navigator){
     window.location.reload();
   });
   window.addEventListener("load", function(){
-    navigator.serviceWorker.register("sw.js?v=21").then(function(reg){
+    navigator.serviceWorker.register("sw.js?v=22").then(function(reg){
       try{ reg.update(); }catch(e){}
       document.addEventListener("visibilitychange", function(){
         if(document.visibilityState === "visible"){ try{ reg.update(); }catch(e){} }

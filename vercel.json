@@ -6,5 +6,9 @@
         { "key": "Cache-Control", "value": "no-store" }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/chat.js": { "maxDuration": 30 },
+    "api/image.js": { "maxDuration": 60 }
+  }
 }
