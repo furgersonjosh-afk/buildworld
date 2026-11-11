@@ -122,6 +122,53 @@
     color:var(--muted); font-weight:800; font-size:11px; padding:6px 0; border-radius:12px}
   .navb .ne{font-size:22px}
   .navb.active{color:var(--ink); background:var(--card)}
+  .navb{font-size:10px}
+  .navb .ne{font-size:20px}
+
+  /* ---------- AI chat overlay (v21) ---------- */
+  #aichat{position:fixed; inset:0; z-index:80; display:none; flex-direction:column;
+    background:linear-gradient(180deg,#0a1028 0%,#121a3a 100%); color:var(--ink);
+    padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom)}
+  body.aichat-open #aichat{display:flex}
+  body.aichat-open #top, body.aichat-open #nav{display:none !important}
+  .aichat-head{display:flex; align-items:center; gap:8px; padding:10px 12px;
+    border-bottom:2px solid var(--line); background:#10193c; flex-shrink:0}
+  .aichat-head h2{flex:1; margin:0; font-size:18px; letter-spacing:.2px}
+  .aichat-head button{width:42px; height:42px; border-radius:12px; background:var(--card);
+    color:var(--ink); font-size:20px; display:grid; place-items:center}
+  .aichat-head button.on{background:var(--good); color:#06210f}
+  #aichatlog{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:14px 12px 8px;
+    display:flex; flex-direction:column; gap:10px}
+  .aibub{max-width:86%; padding:10px 12px; border-radius:16px; font-weight:700; line-height:1.35;
+    font-size:15px; white-space:pre-wrap; word-break:break-word}
+  .aibub.user{align-self:flex-end; background:#2a6df5; color:#fff; border-bottom-right-radius:6px}
+  .aibub.bot{align-self:flex-start; background:var(--card); border:1px solid var(--line); border-bottom-left-radius:6px}
+  .aibub.sys{align-self:center; max-width:94%; background:#1a2348; border:1px solid var(--line);
+    color:var(--muted); font-size:13px; text-align:center; font-weight:700}
+  .aibub img{display:block; width:100%; max-width:280px; max-height:200px; object-fit:contain; border-radius:12px; margin-top:8px; background:#0a1028}
+  .aibub.typing{opacity:.8}
+  #aichatmeta{padding:4px 14px 0; font-size:12px; font-weight:800; color:var(--muted); flex-shrink:0}
+  #aichatform{display:flex; gap:8px; align-items:flex-end; padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+    border-top:2px solid var(--line); background:#10193c; flex-shrink:0}
+  #aichatinput{flex:1; min-height:44px; max-height:96px; resize:none; border-radius:14px; padding:10px 12px;
+    font:inherit; font-weight:700; font-size:16px; background:#0c1330; color:var(--ink); border:1px solid var(--line)}
+  #aichatform button{width:46px; height:46px; border-radius:14px; background:var(--card); color:var(--ink);
+    font-size:20px; display:grid; place-items:center; flex-shrink:0}
+  #aichatmic.on{background:#c23b3b; color:#fff}
+  #aichatsend{background:var(--good) !important; color:#06210f !important}
+  #aichatform button:disabled{opacity:.45}
+  @media (orientation: landscape) and (max-height: 560px){
+    .aichat-head{padding:4px 10px}
+    .aichat-head h2{font-size:15px}
+    .aichat-head button{width:36px; height:36px; font-size:16px}
+    #aichatlog{padding:8px 10px}
+    .aibub{font-size:14px; padding:8px 10px}
+    #aichatform{padding:6px 10px calc(6px + env(safe-area-inset-bottom))}
+    #aichatinput{min-height:38px; font-size:15px}
+    #aichatform button{width:40px; height:40px}
+    #aichatmeta{font-size:11px}
+  }
+
 
   /* ---------- Toast / popups ---------- */
   #toast{position:fixed; left:50%; bottom:96px; transform:translateX(-50%) translateY(20px);
@@ -231,6 +278,7 @@
 
 <div id="nav">
   <button class="navb active" data-screen="garage"><span class="ne">🔧</span>Garage</button>
+  <button class="navb" data-action="ai" id="nav_ai" type="button"><span class="ne">🤖</span>AI</button>
   <button class="navb" data-screen="drive"><span class="ne">🏁</span>Drive</button>
   <button class="navb" data-screen="build"><span class="ne">🏗️</span>Build</button>
   <button class="navb" data-screen="jobs"><span class="ne">💼</span>Jobs</button>
@@ -239,6 +287,22 @@
 
 <div id="toast"></div>
 <div id="modalroot"></div>
+
+<div id="aichat" hidden>
+  <div class="aichat-head">
+    <button type="button" id="aichatclose" aria-label="Close chat">✕</button>
+    <h2>Jax's AI Chat</h2>
+    <button type="button" id="aichatspeak" aria-label="Read replies aloud" title="Read replies aloud">🔊</button>
+  </div>
+  <div id="aichatlog" role="log" aria-live="polite"></div>
+  <div id="aichatmeta"></div>
+  <form id="aichatform" autocomplete="off">
+    <button type="button" id="aichatmic" aria-label="Voice input">🎤</button>
+    <textarea id="aichatinput" rows="1" placeholder="Ask or say draw me..." maxlength="500" enterkeyhint="send"></textarea>
+    <button type="submit" id="aichatsend" aria-label="Send">➤</button>
+  </form>
+</div>
+
 
 <!-- 3D engine (local copies so it works offline on vacation) -->
 <script src="lib/three.min.js"></script>
@@ -3510,7 +3574,10 @@ function confettiBurst(){
 
 /* ------------------------- GLOBAL CLICK WIRING ---------------------------- */
 $("#nav").addEventListener("click", e=>{
-  const b=e.target.closest(".navb"); if(b){ SFX.tap(); setScreen(b.dataset.screen); }
+  const b=e.target.closest(".navb"); if(!b) return;
+  SFX.tap();
+  if(b.dataset.action==="ai"){ openAIChat(); return; }
+  setScreen(b.dataset.screen);
 });
 $("#mute").addEventListener("click", ()=>{
   state.sound=!state.sound; save();
@@ -9261,6 +9328,258 @@ if(window.visualViewport){
   window.visualViewport.addEventListener("resize", handleGlobalResizeAndOrientation);
 }
 
+
+/* ------------------------- AI CHAT (v21) ---------------------------------- */
+const AI_API_BASE = ""; // set to the Vercel proxy origin (no trailing slash) if the game stays on GitHub Pages
+const AI_MSG_CAP = 60;
+const AI_PIC_CAP = 8;
+const AI_SETUP_MSG = "AI is not set up yet. Ask a grown-up to add the AI key on the server. You can still look around the game!";
+
+function aiEndpoint(path){
+  const base = String(AI_API_BASE || "").replace(/\/$/, "");
+  return (base || "") + path;
+}
+function chicagoDay(){
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+}
+function aiUsage(){
+  let u = {};
+  try{ u = JSON.parse(localStorage.getItem("bw_ai_usage") || "{}") || {}; }catch(e){ u = {}; }
+  const day = chicagoDay();
+  if(u.day !== day) u = { day, msgs: 0, pics: 0 };
+  return u;
+}
+function saveAIUsage(u){ try{ localStorage.setItem("bw_ai_usage", JSON.stringify(u)); }catch(e){} }
+function aiMsgsLeft(){ return Math.max(0, AI_MSG_CAP - (aiUsage().msgs || 0)); }
+function aiPicsLeft(){ return Math.max(0, AI_PIC_CAP - (aiUsage().pics || 0)); }
+function refreshAIMeta(){
+  const el = $("#aichatmeta"); if(!el) return;
+  el.textContent = aiMsgsLeft() + " messages left today · " + aiPicsLeft() + " pictures left today";
+}
+function looksLikeDrawRequest(text){
+  const t = String(text || "").toLowerCase().trim();
+  return /^(please\s+)?(draw|render|paint|sketch|generate|make|create)\b/.test(t)
+    || /\b(draw|render|paint|sketch)\s+(me|us|a|an|the|my)\b/.test(t)
+    || /\b(picture|image|illustration)\s+of\b/.test(t)
+    || /\bmake\s+(me\s+)?(a|an)\s+(picture|image|drawing|painting)\b/.test(t);
+}
+function clientUnsafe(text){
+  return /\b(porn|porno|xxx|nude|nudes|suicide|kill myself|self[- ]?harm|how to make a bomb|cocaine|heroin|fentanyl)\b/i.test(String(text||""));
+}
+
+let _aiSetup = null; // null unknown, true, false
+let _aiBusy = false;
+let _aiRec = null;
+let _aiHistory = [];
+
+function aiSpeakEnabled(){
+  try{ return localStorage.getItem("bw_ai_speak") === "1"; }catch(e){ return false; }
+}
+function setAISpeak(on){
+  try{ localStorage.setItem("bw_ai_speak", on ? "1" : "0"); }catch(e){}
+  const b = $("#aichatspeak");
+  if(b){ b.classList.toggle("on", !!on); b.textContent = on ? "🔊" : "🔇"; b.setAttribute("aria-pressed", on ? "true" : "false"); }
+  if(!on && window.speechSynthesis) try{ speechSynthesis.cancel(); }catch(e){}
+}
+function speakAIReply(text){
+  if(!aiSpeakEnabled() || !text || !window.speechSynthesis) return;
+  try{ speechSynthesis.cancel(); }catch(e){}
+  const u = new SpeechSynthesisUtterance(String(text).slice(0, 400));
+  u.rate = 1.02; u.pitch = 1.05;
+  try{ speechSynthesis.speak(u); }catch(e){}
+}
+
+function addAIBubble(role, text, imgSrc){
+  const log = $("#aichatlog"); if(!log) return null;
+  const d = document.createElement("div");
+  d.className = "aibub " + role;
+  if(text) d.appendChild(document.createTextNode(text));
+  if(imgSrc){
+    const img = document.createElement("img");
+    img.alt = "A picture made for Jax";
+    img.src = imgSrc;
+    d.appendChild(img);
+  }
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+  return d;
+}
+function setAIBusy(on){
+  _aiBusy = !!on;
+  const send = $("#aichatsend"), input = $("#aichatinput"), mic = $("#aichatmic");
+  if(send) send.disabled = !!on || _aiSetup === false;
+  if(input) input.disabled = _aiSetup === false;
+  if(mic) mic.disabled = _aiSetup === false;
+}
+
+async function checkAISetup(){
+  try{
+    const r = await fetch(aiEndpoint("/api/chat"), { method: "GET" });
+    const data = await r.json().catch(()=>({}));
+    _aiSetup = !!(r.ok && data && data.setup !== false);
+  }catch(e){
+    _aiSetup = false;
+  }
+  return _aiSetup;
+}
+
+function showAISetupState(){
+  if(_aiSetup === false){
+    addAIBubble("sys", AI_SETUP_MSG);
+    setAIBusy(false);
+    const send = $("#aichatsend"), input = $("#aichatinput"), mic = $("#aichatmic");
+    if(send) send.disabled = true;
+    if(input){ input.disabled = true; input.placeholder = "AI is not set up yet"; }
+    if(mic) mic.disabled = true;
+  }
+}
+
+async function openAIChat(){
+  const el = $("#aichat"); if(!el) return;
+  el.hidden = false;
+  document.body.classList.add("aichat-open");
+  refreshAIMeta();
+  setAISpeak(aiSpeakEnabled());
+  const log = $("#aichatlog");
+  if(log && !log.childElementCount){
+    addAIBubble("bot", "Hi Jax! I can help with the game, spelling, reading, and math. Say \"draw me...\" if you want a picture!");
+  }
+  if(_aiSetup === null){
+    await checkAISetup();
+    showAISetupState();
+  }else if(_aiSetup === false){
+    showAISetupState();
+  }
+  setTimeout(()=>{ try{ $("#aichatinput").focus(); }catch(e){} }, 50);
+}
+function closeAIChat(){
+  document.body.classList.remove("aichat-open");
+  const el = $("#aichat"); if(el) el.hidden = true;
+  stopAIMic();
+  if(window.speechSynthesis) try{ speechSynthesis.cancel(); }catch(e){}
+}
+
+async function sendAIChat(text){
+  const raw = String(text || "").trim();
+  if(!raw || _aiBusy) return;
+  if(_aiSetup === false){ showAISetupState(); return; }
+  if(clientUnsafe(raw)){
+    addAIBubble("user", raw);
+    addAIBubble("bot", "I can't help with that. Let's talk about the game, a drawing, spelling, or a math problem instead!");
+    return;
+  }
+  const wantPic = looksLikeDrawRequest(raw);
+  if(aiMsgsLeft() <= 0){
+    addAIBubble("sys", "That's all the chat messages for today. You can try again tomorrow!");
+    return;
+  }
+  if(wantPic && aiPicsLeft() <= 0){
+    addAIBubble("user", raw);
+    addAIBubble("bot", "You've used all 8 pictures for today. We can still chat, or try a new picture tomorrow!");
+    const u = aiUsage(); u.msgs += 1; saveAIUsage(u); refreshAIMeta();
+    return;
+  }
+  addAIBubble("user", raw);
+  $("#aichatinput").value = "";
+  setAIBusy(true);
+  const typing = addAIBubble("bot typing", wantPic ? "Drawing a picture for you..." : "Thinking...");
+  let reply = "";
+  let img = "";
+  try{
+    const r = await fetch(aiEndpoint("/api/chat"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: _aiHistory.concat([{ role: "user", content: raw }]) })
+    });
+    const data = await r.json().catch(()=>({}));
+    if(r.status === 503 || data.setup === false){
+      _aiSetup = false;
+      if(typing) typing.remove();
+      showAISetupState();
+      setAIBusy(false);
+      return;
+    }
+    if(!r.ok) throw new Error(data.error || "chat failed");
+    reply = String(data.text || "Hmm, I got a little stuck. Try asking me again!");
+    if(wantPic || data.draw){
+      if(typing) typing.textContent = "Drawing a picture for you...";
+      const ir = await fetch(aiEndpoint("/api/image"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: raw })
+      });
+      const idata = await ir.json().catch(()=>({}));
+      if(idata.image) img = String(idata.image);
+      else if(idata.error) reply = reply + (reply ? " " : "") + String(idata.error);
+    }
+  }catch(e){
+    reply = "I couldn't reach the AI right now. If this keeps happening, a grown-up may still need to finish setup.";
+  }
+  if(typing) typing.remove();
+  addAIBubble("bot", reply, img || null);
+  _aiHistory.push({ role: "user", content: raw });
+  _aiHistory.push({ role: "assistant", content: reply });
+  if(_aiHistory.length > 16) _aiHistory = _aiHistory.slice(-16);
+  const u = aiUsage();
+  u.msgs += 1;
+  if(img) u.pics += 1;
+  saveAIUsage(u);
+  refreshAIMeta();
+  speakAIReply(reply);
+  setAIBusy(false);
+}
+
+function stopAIMic(){
+  const b = $("#aichatmic");
+  if(b) b.classList.remove("on");
+  if(_aiRec){ try{ _aiRec.stop(); }catch(e){} }
+}
+function toggleAIMic(){
+  const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const btn = $("#aichatmic");
+  if(!Rec){
+    addAIBubble("sys", "Voice typing isn't available in this browser. You can still type your message!");
+    return;
+  }
+  if(btn && btn.classList.contains("on")){ stopAIMic(); return; }
+  try{
+    _aiRec = new Rec();
+    _aiRec.lang = "en-US";
+    _aiRec.interimResults = false;
+    _aiRec.maxAlternatives = 1;
+    _aiRec.onresult = ev=>{
+      const said = ev.results && ev.results[0] && ev.results[0][0] ? ev.results[0][0].transcript : "";
+      if(said){ $("#aichatinput").value = said; sendAIChat(said); }
+    };
+    _aiRec.onend = ()=> stopAIMic();
+    _aiRec.onerror = ()=> stopAIMic();
+    if(btn) btn.classList.add("on");
+    _aiRec.start();
+  }catch(e){
+    stopAIMic();
+    addAIBubble("sys", "I couldn't start the microphone. You can type instead!");
+  }
+}
+
+function wireAIChat(){
+  const form = $("#aichatform");
+  if(!form || form.dataset.wired) return;
+  form.dataset.wired = "1";
+  $("#aichatclose").addEventListener("click", ()=>{ SFX.tap(); closeAIChat(); });
+  $("#aichatspeak").addEventListener("click", ()=>{ SFX.tap(); setAISpeak(!aiSpeakEnabled()); });
+  $("#aichatmic").addEventListener("click", ()=>{ SFX.tap(); toggleAIMic(); });
+  form.addEventListener("submit", e=>{
+    e.preventDefault();
+    sendAIChat($("#aichatinput").value);
+  });
+  $("#aichatinput").addEventListener("keydown", e=>{
+    if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); sendAIChat($("#aichatinput").value); }
+  });
+}
+document.addEventListener("DOMContentLoaded", wireAIChat);
+if(document.readyState !== "loading") wireAIChat();
+
+
 boot();
 
 // Register the service worker so the app installs & works offline
@@ -9273,7 +9592,7 @@ if("serviceWorker" in navigator){
     window.location.reload();
   });
   window.addEventListener("load", function(){
-    navigator.serviceWorker.register("sw.js?v=20").then(function(reg){
+    navigator.serviceWorker.register("sw.js?v=21").then(function(reg){
       try{ reg.update(); }catch(e){}
       document.addEventListener("visibilitychange", function(){
         if(document.visibilityState === "visible"){ try{ reg.update(); }catch(e){} }

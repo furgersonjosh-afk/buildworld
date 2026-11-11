@@ -1,6 +1,6 @@
 /* BUILD WORLD service worker — makes the app installable and work offline.
    Bump CACHE when you change the cached library assets. */
-const CACHE = "buildworld-v20";
+const CACHE = "buildworld-v21";
 const ASSETS = [
   "./", "./index.html", "./manifest.json",
   "./lib/three.min.js", "./lib/RoundedBoxGeometry.js", "./lib/OrbitControls.js",
@@ -27,6 +27,8 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   const url = new URL(e.request.url);
+  // Never cache the AI proxy — keys live on the server and replies must be fresh.
+  if (url.pathname.includes("/api/")) return;
   const isDoc = e.request.mode === "navigate" ||
                 url.pathname.endsWith("/") ||
                 url.pathname.endsWith("index.html") ||
