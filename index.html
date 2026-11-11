@@ -176,6 +176,27 @@
   .aichip:active{transform:scale(.98)}
   #aichattalk.on{background:var(--good); color:#06210f}
   #aichatmic.rec,#aichatmic.on{background:#c23b3b; color:#fff}
+  #aivoices{display:none; position:absolute; left:0; right:0; top:0; bottom:0; z-index:4; background:rgba(6,10,28,.96);
+    flex-direction:column; padding:10px 12px calc(12px + env(safe-area-inset-bottom));}
+  #aivoices.show{display:flex}
+  .aivoices-head{display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-shrink:0}
+  .aivoices-head h3{flex:1; margin:0; font-size:17px}
+  .aivoices-head button{width:42px; height:42px; border-radius:12px; background:var(--card); color:var(--ink); font-size:20px}
+  #aivoiceslist{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; display:flex; flex-direction:column; gap:8px}
+  .aivoice{display:flex; align-items:center; gap:8px; width:100%; text-align:left;
+    background:var(--card); border:1px solid var(--line); border-radius:14px; padding:8px 10px; color:var(--ink)}
+  .aivoice.on{border-color:var(--good); background:#163a28}
+  .aivoice-info{flex:1; min-width:0}
+  .aivoice-name{font-weight:900; font-size:14px}
+  .aivoice-blurb{font-weight:700; font-size:12px; color:var(--muted)}
+  .aivoice-preview{width:42px; height:42px; border-radius:12px; background:#0c1330; color:var(--ink);
+    border:1px solid var(--line); font-size:18px; flex-shrink:0}
+  .aivoice-group{font-size:11px; font-weight:900; color:var(--muted); letter-spacing:.4px; text-transform:uppercase; padding:6px 4px 0}
+  @media (orientation: landscape) and (max-height: 560px){
+    .aivoice{padding:6px 8px}
+    .aivoice-name{font-size:13px}
+    .aivoices-head button{width:36px; height:36px}
+  }
 
   /* ---------- Gallery overlay (v21) ---------- */
   #gallery{position:fixed; inset:0; z-index:85; display:none; flex-direction:column;
@@ -342,6 +363,7 @@
     <button type="button" id="aichatclose" aria-label="Close chat">✕</button>
     <h2>Jax's AI Chat</h2>
     <button type="button" id="aichatgallery" aria-label="Open gallery" title="Gallery">🖼️</button>
+    <button type="button" id="aichatvoice" aria-label="Choose voice" title="Choose a voice">🗣️</button>
     <button type="button" id="aichattalk" aria-label="Talk mode" title="Talk mode — listen and reply by voice">🎙️</button>
     <button type="button" id="aichatspeak" aria-label="Read replies aloud" title="Read replies aloud">🔊</button>
   </div>
@@ -354,6 +376,13 @@
     <button type="submit" id="aichatsend" aria-label="Send">➤</button>
     <input type="file" id="aichatphoto" accept="image/*" capture="environment">
   </form>
+  <div id="aivoices" hidden>
+    <div class="aivoices-head">
+      <h3>Pick a voice</h3>
+      <button type="button" id="aivoicesclose" aria-label="Close voices">✕</button>
+    </div>
+    <div id="aivoiceslist"></div>
+  </div>
 </div>
 
 <div id="gallery" hidden>
@@ -9451,10 +9480,19 @@ function refreshAIMeta(){
 }
 function looksLikeDrawRequest(text){
   const t = String(text || "").toLowerCase().trim();
-  return /^(please\s+)?(draw|render|paint|sketch|generate|make|create)\b/.test(t)
-    || /\b(draw|render|paint|sketch)\s+(me|us|a|an|the|my)\b/.test(t)
-    || /\b(picture|image|illustration)\s+of\b/.test(t)
-    || /\bmake\s+(me\s+)?(a|an)\s+(picture|image|drawing|painting)\b/.test(t);
+  if(!t) return false;
+  return /^(please\s+|can you\s+|could you\s+|will you\s+|would you\s+)?(draw|render|paint|sketch|generate|make|create)\b/.test(t)
+    || /\b(draw|render|paint|sketch|generate|create)\s+(me|us|a|an|the|my|one|this|that)\b/.test(t)
+    || /\b(make|get)\s+(me\s+)?(a|an)\s+(picture|image|drawing|painting|render|illustration)\b/.test(t)
+    || /\b(picture|image|illustration|drawing|painting|render)\s+of\b/.test(t)
+    || /\b(show|send)\s+(me|us)(\s+a|\s+an|\s+the)?\s*(picture|image|drawing|painting|render|illustration)\b/.test(t)
+    || /\bi want\s+(a|an|you to make\s+a|you to draw)\s+(picture|image|drawing|painting|render)\b/.test(t);
+}
+function looksLikeHomeworkRequest(text){
+  const t = String(text || "").toLowerCase();
+  return /\b(homework|schoolwork|worksheet|assignment)\b/.test(t)
+    || /\bhelp\s+(me\s+)?((with|on)\s+)?((this|my)\s+)?(homework|schoolwork|worksheet|math problem)\b/.test(t)
+    || /\bhow\s+do\s+i\s+solve\b/.test(t);
 }
 function clientUnsafe(text){
   return /\b(porn|porno|xxx|nude|nudes|suicide|kill myself|self[- ]?harm|how to make a bomb|cocaine|heroin|fentanyl)\b/i.test(String(text||""));
@@ -9551,7 +9589,7 @@ async function speakAIReply(text){
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: clipped })
+      body: JSON.stringify({ text: clipped, preset: getAIVoicePreset() })
     });
     if(r.status === 429){ fallbackSpeak(clipped, after); return; }
     if(!r.ok) throw new Error("tts");
@@ -9573,6 +9611,123 @@ function setAITalkMode(on){
     if(!_aiBusy) startAIListen(true);
   }else{
     stopAIMic();
+  }
+}
+
+const AI_VOICE_FALLBACKS = [
+  { id:"british-gentleman", voice:"fable", group:"british", label:"British Gentleman", blurb:"A polite British guy, like a friendly gentleman." },
+  { id:"british-adventurer", voice:"echo", group:"british", label:"British Adventurer", blurb:"A bold British explorer telling stories." },
+  { id:"british-mate", voice:"verse", group:"british", label:"Cheeky British Mate", blurb:"A fun British buddy hanging out." },
+  { id:"coral", voice:"coral", group:"friends", label:"Coral Buddy", blurb:"Warm, upbeat, and friendly." },
+  { id:"nova", voice:"nova", group:"friends", label:"Nova Spark", blurb:"Bright and energetic." },
+  { id:"sage", voice:"sage", group:"friends", label:"Sage Calm", blurb:"Calm, clear, and kind." },
+  { id:"shimmer", voice:"shimmer", group:"friends", label:"Shimmer", blurb:"Light and cheerful." },
+  { id:"alloy", voice:"alloy", group:"friends", label:"Alloy", blurb:"A balanced, friendly voice." },
+  { id:"ash", voice:"ash", group:"friends", label:"Ash", blurb:"A clear, steady guy." },
+  { id:"echo", voice:"echo", group:"friends", label:"Echo", blurb:"A strong, clear guy." },
+  { id:"onyx", voice:"onyx", group:"friends", label:"Onyx", blurb:"A deep, calm guy." },
+  { id:"fable", voice:"fable", group:"friends", label:"Fable", blurb:"A storyteller with a British hint." },
+  { id:"ballad", voice:"ballad", group:"friends", label:"Ballad", blurb:"Warm and a little dramatic." },
+  { id:"verse", voice:"verse", group:"friends", label:"Verse", blurb:"Expressive and lively." },
+  { id:"marin", voice:"marin", group:"friends", label:"Marin", blurb:"Smooth and clear." },
+  { id:"cedar", voice:"cedar", group:"friends", label:"Cedar", blurb:"Warm and natural." }
+];
+let _aiVoicePresets = AI_VOICE_FALLBACKS.slice();
+
+function getAIVoicePreset(){
+  try{
+    const id = localStorage.getItem("bw_ai_voice_preset") || "british-gentleman";
+    if(_aiVoicePresets.some(p => p.id === id)) return id;
+  }catch(e){}
+  return "british-gentleman";
+}
+function setAIVoicePreset(id){
+  const pset = _aiVoicePresets.find(x => x.id === id) || _aiVoicePresets[0];
+  try{ localStorage.setItem("bw_ai_voice_preset", pset.id); }catch(e){}
+  renderAIVoices();
+}
+function openAIVoices(){
+  const el = $("#aivoices"); if(!el) return;
+  el.hidden = false;
+  el.classList.add("show");
+  renderAIVoices();
+  loadAIVoicePresets();
+}
+function closeAIVoices(){
+  const el = $("#aivoices"); if(!el) return;
+  el.hidden = true;
+  el.classList.remove("show");
+  stopAIPlayback();
+}
+function renderAIVoices(){
+  const list = $("#aivoiceslist"); if(!list) return;
+  const cur = getAIVoicePreset();
+  list.innerHTML = "";
+  let lastGroup = "";
+  _aiVoicePresets.forEach(pset=>{
+    if(pset.group && pset.group !== lastGroup){
+      lastGroup = pset.group;
+      const g = document.createElement("div");
+      g.className = "aivoice-group";
+      g.textContent = pset.group === "british" ? "British guys" : "More voices";
+      list.appendChild(g);
+    }
+    const row = document.createElement("div");
+    row.className = "aivoice" + (pset.id === cur ? " on" : "");
+    const info = document.createElement("div");
+    info.className = "aivoice-info";
+    const name = document.createElement("div");
+    name.className = "aivoice-name";
+    name.textContent = pset.label;
+    const blurb = document.createElement("div");
+    blurb.className = "aivoice-blurb";
+    blurb.textContent = pset.blurb || "";
+    info.appendChild(name); info.appendChild(blurb);
+    row.appendChild(info);
+    row.addEventListener("click", ev=>{
+      if(ev.target.closest(".aivoice-preview")) return;
+      SFX.tap();
+      setAIVoicePreset(pset.id);
+    });
+    const prev = document.createElement("button");
+    prev.type = "button";
+    prev.className = "aivoice-preview";
+    prev.setAttribute("aria-label", "Preview " + pset.label);
+    prev.textContent = "▶";
+    prev.addEventListener("click", ev=>{ ev.stopPropagation(); SFX.tap(); previewAIVoice(pset.id, prev); });
+    row.appendChild(prev);
+    list.appendChild(row);
+  });
+}
+async function loadAIVoicePresets(){
+  try{
+    const r = await fetch(aiEndpoint("/api/speak"), { method:"GET", credentials:"include" });
+    const data = await r.json().catch(()=>({}));
+    if(data && Array.isArray(data.presets) && data.presets.length){
+      _aiVoicePresets = data.presets;
+      renderAIVoices();
+    }
+  }catch(e){}
+}
+async function previewAIVoice(id, btn){
+  try{
+    await unlockAIAudio();
+    if(btn) btn.textContent = "…";
+    const r = await fetch(aiEndpoint("/api/speak"), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ preset: id, text: "Hey Jax! Fancy building a monster truck today?" })
+    });
+    if(!r.ok) throw new Error("preview");
+    const buf = await r.arrayBuffer();
+    const u = aiUsage(); u.speaks = (u.speaks || 0) + 1; saveAIUsage(u); refreshAIMeta();
+    setAIVoicePreset(id);
+    if(btn) btn.textContent = "▶";
+    await playAIMp3(buf);
+  }catch(e){
+    if(btn) btn.textContent = "▶";
+    addAIBubble("sys", "I couldn't play that voice just now. Try another one!");
   }
 }
 
@@ -9634,6 +9789,7 @@ async function openAIChat(){
   document.body.classList.add("aichat-open");
   refreshAIMeta();
   setAISpeak(aiSpeakEnabled());
+  loadAIVoicePresets();
   requestGalleryPersist();
   const log = $("#aichatlog");
   if(log && !log.childElementCount){
@@ -9667,6 +9823,7 @@ async function openAIChat(){
 function closeAIChat(){
   document.body.classList.remove("aichat-open");
   const el = $("#aichat"); if(el) el.hidden = true;
+  closeAIVoices();
   setAITalkMode(false);
   stopAIMic();
   stopAIPlayback();
@@ -9747,7 +9904,7 @@ async function sendAIChat(text, opts){
     if(warn) addAIBubble("sys", warn);
   }
   setAIBusy(true);
-  const typing = addAIBubble("bot typing", wantPic ? "Drawing a picture for you..." : (photoData ? "Looking at your homework..." : "Thinking..."));
+  const typing = addAIBubble("bot typing", wantPic ? "Drawing a picture for you... this can take a little bit." : (photoData ? "Looking at your homework..." : "Thinking..."));
   let reply = "";
   let img = "";
   const textForModel = raw || "Please help me with this homework. Read the problem in the photo. Coach me one step at a time and ask me to try that step. Do not tell me the final answer or any last-step result until I have typed my own attempt, or I ask for the answer a second time.";
@@ -9769,6 +9926,7 @@ async function sendAIChat(text, opts){
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         newPhoto: newPhoto,
+        homework: !!(photoData || looksLikeHomeworkRequest(raw)),
         messages: _aiHistory.concat([{ role: "user", content: userContent }])
       })
     });
@@ -9790,16 +9948,20 @@ async function sendAIChat(text, opts){
     reply = String(data.text || "Hmm, I got a little stuck. Try asking me again!");
     if(data.photoDailyCap){ const n = parseInt(data.photoDailyCap, 10); if(n > 0) AI_PHOTO_CAP = n; }
     if(wantPic || data.draw){
-      if(typing) typing.textContent = "Drawing a picture for you...";
-      const ir = await fetch(aiEndpoint("/api/image"), {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: raw })
-      });
-      const idata = await ir.json().catch(()=>({}));
-      if(idata.image) img = String(idata.image);
-      else if(idata.error) reply = reply + (reply ? " " : "") + String(idata.error);
+      if(typing) typing.textContent = "Drawing a picture for you... this can take a little bit.";
+      try{
+        const ir = await fetch(aiEndpoint("/api/image"), {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: raw })
+        });
+        const idata = await ir.json().catch(()=>({}));
+        if(idata.image) img = String(idata.image);
+        else reply = (reply ? reply + " " : "") + String(idata.error || "I couldn't make that picture right now. Try again in a little bit!");
+      }catch(imgErr){
+        reply = (reply ? reply + " " : "") + "I couldn't make that picture right now. Try again in a little bit!";
+      }
     }
   }catch(e){
     reply = "I couldn't reach the AI right now. If this keeps happening, a grown-up may still need to finish setup.";
@@ -10212,6 +10374,8 @@ function wireAIChat(){
   $("#aichatclose").addEventListener("click", ()=>{ SFX.tap(); closeAIChat(); });
   $("#aichatspeak").addEventListener("click", ()=>{ SFX.tap(); setAISpeak(!aiSpeakEnabled()); });
   $("#aichattalk").addEventListener("click", ()=>{ SFX.tap(); setAITalkMode(!_aiTalkMode); });
+  $("#aichatvoice").addEventListener("click", ()=>{ SFX.tap(); openAIVoices(); });
+  $("#aivoicesclose").addEventListener("click", ()=>{ SFX.tap(); closeAIVoices(); });
   $("#aichatgallery").addEventListener("click", ()=>{ SFX.tap(); openGallery("ai"); });
   $("#aichatmic").addEventListener("click", ()=>{ SFX.tap(); toggleAIMic(); });
   $("#aichatcam").addEventListener("click", ()=>{
@@ -10262,7 +10426,7 @@ if("serviceWorker" in navigator){
     window.location.reload();
   });
   window.addEventListener("load", function(){
-    navigator.serviceWorker.register("sw.js?v=23").then(function(reg){
+    navigator.serviceWorker.register("sw.js?v=24").then(function(reg){
       try{ reg.update(); }catch(e){}
       document.addEventListener("visibilitychange", function(){
         if(document.visibilityState === "visible"){ try{ reg.update(); }catch(e){} }

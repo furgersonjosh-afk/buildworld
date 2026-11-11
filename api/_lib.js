@@ -68,9 +68,33 @@ function xaiCredentials(){
   };
 }
 
-// Pictures stay on AI Gateway (Seedream / Grok Imagine). Text prefers OpenAI.
+function openaiImageCredentials(){
+  if(!process.env.OPENAI_API_KEY) return null;
+  return {
+    kind: "openai",
+    key: process.env.OPENAI_API_KEY,
+    base: "https://api.openai.com/v1",
+    imageModel: process.env.OPENAI_IMAGE_MODEL || "gpt-image-1-mini",
+    imageQuality: process.env.OPENAI_IMAGE_QUALITY || "medium"
+  };
+}
+
+// Pictures: OpenAI first (fast and reliable), then AI Gateway quality models as backup.
 function imageCredentials(){
-  return gatewayCredentials();
+  return openaiImageCredentials() || gatewayCredentials();
+}
+function imageProviderChain(){
+  const list = [];
+  const o = openaiImageCredentials();
+  const g = gatewayCredentials();
+  if(o) list.push({ creds: o, model: o.imageModel, quality: o.imageQuality || "medium" });
+  if(g){
+    list.push({ creds: g, model: g.imageModel });
+    if(g.imageFallback && g.imageFallback !== g.imageModel){
+      list.push({ creds: g, model: g.imageFallback });
+    }
+  }
+  return list;
 }
 
 function textProviders(){
@@ -141,7 +165,7 @@ function corsHeaders(req){
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Credentials": "true",
-    "Access-Control-Expose-Headers": "X-BW-Text-Provider, X-BW-Speak-Remaining, X-BW-Transcribe-Remaining",
+    "Access-Control-Expose-Headers": "X-BW-Text-Provider, X-BW-Speak-Remaining, X-BW-Transcribe-Remaining, X-BW-Voice-Preset",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin"
   };
@@ -169,24 +193,15 @@ function readJson(req){
 const SYSTEM_PROMPT = `You are Jax's fun, natural, friendly conversation buddy inside his racing-and-building game, Build World.
 Jax is 11 years old. Talk like a warm older cousin or buddy hanging out — not a teacher, not a tutor, and not a quiz host.
 
-Default mode — normal conversation:
 - Carry a normal, easygoing chat about whatever Jax brings up: games, trucks, animals, jokes, his day, sports, space, how things work, the Build World game, or just messing around.
 - Be warm, enthusiastic, and genuinely interested in him. Remember what he said earlier and refer back to it when it helps.
-- Be knowledgeable and accurate at a 5th-6th grade level when he asks a curious question. Give a real answer with a clear fact or two, not a thin one-liner. Keep everyday replies to about 3-7 short sentences.
+- Be knowledgeable and accurate at a 5th-6th grade level. When he asks a curious question, give a direct, friendly answer with a clear fact or two. Do not coach him, do not quiz him, and do not ask him to try the answer first.
+- Everyday curious questions are NOT homework. Examples that must get a straight answer: "why is the sky blue", "what's 5 times 5" (tell him it's 25), "tell me about sharks", "how big is a blue whale", "how do monster truck shocks work".
 - Use short sentences and simple words, because reading and spelling are still hard for him. If he misspells a word, model the correct spelling naturally. Do not point it out or nag.
-- Do NOT steer the chat toward homework, school, spelling practice, quizzes, or "learning time." Do not turn a normal chat into a lesson. Do not quiz him.
-- Follow-up questions should feel natural, like a friend. Do not end every message with a question or a "want to know something cool?" hook. Sometimes just riff, laugh, or share a thought.
+- Do NOT steer the chat toward homework, school, spelling practice, quizzes, or "learning time." Do not turn a normal chat into a lesson.
+- Follow-up questions should feel natural, like a friend. Do not end every message with a question.
 - If he wants a picture, say you will make a fun kid-safe picture (the app handles the image).
-
-Homework mode — only when he clearly asks for homework help or sends a homework photo:
-- Switch into a patient tutor for that problem only. Do not stay in tutor mode after the homework chat naturally ends.
-- Read the problem carefully and say what kind of problem it is in simple words. Then coach ONE step at a time.
-- In each homework reply, talk about only the current step — do not list, preview, or work Step 2 or later until he has typed his work for the current step. Tell him only what this step is trying to do, give a small hint if needed, and ask him to do THAT step and type his work. Stop there and wait.
-- After he tries, check his work, be encouraging, and only then give the next single step. If he is wrong, give a hint and let him try that same step again.
-- NEVER state the final answer, the finished result, or a last-step result (for example, do not write the completed fraction, the boxed number, the finished sum or product, or a multiple-choice letter) until either (1) Jax has typed his own attempt at the answer, or (2) he has clearly asked you to tell him the answer a second time in this chat. The first time he asks you to just tell him, do not give it; encourage him to try the current step. Only if he asks again may you tell him the final answer.
-- Do not sneak the answer into an example, a "so then...", a worked equation, or by finishing the last calculation for him. Do not work the whole problem in one reply.
-- On homework, the follow-up should be asking him to try the current step, not a fun-fact hook.
-- If the photo is not homework, stay kid-safe and do not treat it as homework. Never ask to keep or re-upload the photo — you only see it for this chat.
+- Only use homework-tutor behavior when a later system note says this turn is homework help, or when he clearly asked for homework help or sent a homework photo. If you were helping with homework and he changes the subject, leave tutor mode immediately and chat normally.
 
 Safety (every time):
 - Never ask for or repeat personal information (full name, address, school, phone, email, passwords, or where he lives).
@@ -195,6 +210,17 @@ Safety (every time):
 - Do not pretend to be a real person or agree to meet anyone.
 - Do not make medical, legal, or financial advice.`;
 
+const HOMEWORK_TUTOR_PROMPT = `This turn is homework help (Jax asked for homework help or sent a homework photo). Switch into a patient tutor for this problem only.
+- Read the problem carefully and say what kind of problem it is in simple words. Then coach ONE step at a time.
+- In each homework reply, talk about only the current step — do not list, preview, or work Step 2 or later until he has typed his work for the current step. Tell him only what this step is trying to do, give a small hint if needed, and ask him to do THAT step and type his work. Stop there and wait.
+- After he tries, check his work, be encouraging, and only then give the next single step. If he is wrong, give a hint and let him try that same step again.
+- NEVER state the final answer, the finished result, or a last-step result (for example, do not write the completed fraction, the boxed number, the finished sum or product, or a multiple-choice letter) until either (1) Jax has typed his own attempt at the answer, or (2) he has clearly asked you to tell him the answer a second time in this chat. The first time he asks you to just tell him, do not give it; encourage him to try the current step. Only if he asks again may you tell him the final answer.
+- Do not sneak the answer into an example, a "so then...", a worked equation, or by finishing the last calculation for him. Do not work the whole problem in one reply.
+- On homework, the follow-up should be asking him to try the current step, not a fun-fact hook.
+- If the photo is not homework, stay kid-safe and do not treat it as homework. Never ask to keep or re-upload the photo — you only see it for this chat.
+- If Jax changes the subject to something that is not this homework problem, leave tutor mode and chat normally.`;
+
+
 const UNSAFE_RE = /\b(porn|porno|xxx|nude|nudes|naked photo|sex tape|onlyfans|suicide|kill myself|self[- ]?harm|how to make a bomb|build a bomb|cocaine|heroin|fentanyl|child porn|csam)\b/i;
 
 function isUnsafeText(text){
@@ -202,11 +228,22 @@ function isUnsafeText(text){
 }
 
 function looksLikeDraw(text){
+  const t = String(text || "").toLowerCase().trim();
+  if(!t) return false;
+  return /^(please\s+|can you\s+|could you\s+|will you\s+|would you\s+)?(draw|render|paint|sketch|generate|make|create)\b/.test(t)
+    || /\b(draw|render|paint|sketch|generate|create)\s+(me|us|a|an|the|my|one|this|that)\b/.test(t)
+    || /\b(make|get)\s+(me\s+)?(a|an)\s+(picture|image|drawing|painting|render|illustration)\b/.test(t)
+    || /\b(picture|image|illustration|drawing|painting|render)\s+of\b/.test(t)
+    || /\b(show|send)\s+(me|us)(\s+a|\s+an|\s+the)?\s*(picture|image|drawing|painting|render|illustration)\b/.test(t)
+    || /\bi want\s+(a|an|you to make\s+a|you to draw)\s+(picture|image|drawing|painting|render)\b/.test(t);
+}
+
+function looksLikeHomework(text, hasPhoto, flag){
+  if(flag || hasPhoto) return true;
   const t = String(text || "").toLowerCase();
-  return /^(please\s+)?(draw|render|paint|sketch|generate|make|create)\b/.test(t.trim())
-    || /\b(draw|render|paint|sketch)\s+(me|us|a|an|the|my)\b/.test(t)
-    || /\b(picture|image|illustration)\s+of\b/.test(t)
-    || /\bmake\s+(me\s+)?(a|an)\s+(picture|image|drawing|painting)\b/.test(t);
+  return /\b(homework|schoolwork|worksheet|assignment)\b/.test(t)
+    || /\bhelp\s+(me\s+)?((with|on)\s+)?((this|my)\s+)?(homework|schoolwork|worksheet|math problem)\b/.test(t)
+    || /\bhow\s+do\s+i\s+solve\b/.test(t);
 }
 
 const BRAND_RE = /\b(ford|chevrolet|chevy|gmc|dodge|toyota|honda|nissan|bmw|mercedes(?:-benz)?|ferrari|lamborghini|porsche|jeep|tesla|hyundai|kia|subaru|volkswagen|vw|audi|lexus|cadillac|buick|chrysler|lincoln|mazda|mitsubishi|volvo|jaguar|land rover|range rover|mini cooper|mustang|camaro|corvette|f-?150|raptor|bronco|wrangler|hummer|cybertruck|monster energy|hot wheels|matchbox)\b/gi;
@@ -236,15 +273,31 @@ function kidSafeImagePrompt(userText){
   ].join(" ");
 }
 
-async function postJson(url, key, body){
-  const r = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer " + key,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(body)
-  });
+async function postJson(url, key, body, opts){
+  const ms = (opts && opts.timeout) || 55000;
+  const ctl = new AbortController();
+  const timer = setTimeout(()=>ctl.abort(), ms);
+  let r;
+  try{
+    r = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + key,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body),
+      signal: ctl.signal
+    });
+  }catch(e){
+    clearTimeout(timer);
+    if(e && e.name === "AbortError"){
+      const err = new Error("timeout");
+      err.status = 504;
+      throw err;
+    }
+    throw e;
+  }
+  clearTimeout(timer);
   const text = await r.text();
   let data = null;
   try{ data = JSON.parse(text); }catch(e){ data = { raw: text.slice(0, 400) }; }
@@ -290,13 +343,14 @@ function extractImage(data){
   return null;
 }
 
-async function generateImage({ key, base, kind, model, prompt }){
+async function generateImage({ key, base, kind, model, prompt, quality, timeout }){
+  const tmo = timeout || (kind === "openai" ? 40000 : 35000);
   if(usesChatImage(model)){
     const data = await postJson(base + "/chat/completions", key, {
       model,
       messages: [{ role: "user", content: prompt }],
       modalities: ["text", "image"]
-    });
+    }, { timeout: tmo });
     const hit = extractImage(data);
     if(!hit) throw Object.assign(new Error("no image in chat response"), { status: 502, data });
     return hit;
@@ -305,13 +359,17 @@ async function generateImage({ key, base, kind, model, prompt }){
     model,
     prompt,
     n: 1,
-    size: "1024x1024",
-    response_format: "b64_json"
+    size: "1024x1024"
   };
+  if(kind === "openai" || /^gpt-image/.test(model)){
+    payload.quality = quality || "medium";
+  }else{
+    payload.response_format = "b64_json";
+  }
   if(kind === "gateway" && /^bfl\//.test(model)){
     payload.providerOptions = { blackForestLabs: { safetyTolerance: 1, outputFormat: "jpeg", resolution: "1k" } };
   }
-  const data = await postJson(base + "/images/generations", key, payload);
+  const data = await postJson(base + "/images/generations", key, payload, { timeout: tmo });
   const hit = extractImage(data);
   if(!hit) throw Object.assign(new Error("no image in response"), { status: 502, data });
   // Prefer jpeg data URLs when we asked for jpeg
@@ -357,15 +415,64 @@ function speakCookieHeader(req, count){ return countCookieHeader(req, "bw_speak_
 function parseTranscribeCookie(req){ return parseCountCookie(req, "bw_stt_cap"); }
 function transcribeCookieHeader(req, count){ return countCookieHeader(req, "bw_stt_cap", count); }
 
+
+const ALLOWED_TTS_VOICES = ["alloy","ash","ballad","coral","echo","fable","nova","onyx","sage","shimmer","verse","marin","cedar"];
+const TTS_KID = "Talk to an 11-year-old named Jax. Warm, friendly, clear words, not a teacher, not a news announcer, and not robotic. Relaxed pace, a little smile in your voice. ";
+const VOICE_PRESETS = [
+  { id: "british-gentleman", voice: "fable", group: "british", label: "British Gentleman", blurb: "A polite British guy, like a friendly gentleman.",
+    instructions: TTS_KID + "Speak with a clear, natural British English RP accent, like a friendly gentleman. Polite and easygoing, not stuffy." },
+  { id: "british-adventurer", voice: "echo", group: "british", label: "British Adventurer", blurb: "A bold British explorer telling stories.",
+    instructions: TTS_KID + "Speak with a natural British English accent, adventurous and bold, like a friendly explorer. Upbeat and clear." },
+  { id: "british-mate", voice: "verse", group: "british", label: "Cheeky British Mate", blurb: "A fun British buddy hanging out.",
+    instructions: TTS_KID + "Speak with a natural British London accent, like a cheeky, friendly mate hanging out. Casual and fun, not rude." },
+  { id: "coral", voice: "coral", group: "friends", label: "Coral Buddy", blurb: "Warm, upbeat, and friendly.",
+    instructions: TTS_KID + "Speak in your natural Coral voice, casual and kind." },
+  { id: "nova", voice: "nova", group: "friends", label: "Nova Spark", blurb: "Bright and energetic.",
+    instructions: TTS_KID + "Speak in a bright, energetic, friendly way." },
+  { id: "sage", voice: "sage", group: "friends", label: "Sage Calm", blurb: "Calm, clear, and kind.",
+    instructions: TTS_KID + "Speak calmly and clearly, warm and easy." },
+  { id: "shimmer", voice: "shimmer", group: "friends", label: "Shimmer", blurb: "Light and cheerful.",
+    instructions: TTS_KID + "Speak in a light, cheerful, friendly way." },
+  { id: "alloy", voice: "alloy", group: "friends", label: "Alloy", blurb: "A balanced, friendly voice.",
+    instructions: TTS_KID + "Speak in a natural, friendly way." },
+  { id: "ash", voice: "ash", group: "friends", label: "Ash", blurb: "A clear, steady guy.",
+    instructions: TTS_KID + "Speak in a clear, friendly, natural way." },
+  { id: "echo", voice: "echo", group: "friends", label: "Echo", blurb: "A strong, clear guy.",
+    instructions: TTS_KID + "Speak in a clear, friendly, natural way." },
+  { id: "onyx", voice: "onyx", group: "friends", label: "Onyx", blurb: "A deep, calm guy.",
+    instructions: TTS_KID + "Speak in a deep, calm, friendly way." },
+  { id: "fable", voice: "fable", group: "friends", label: "Fable", blurb: "A storyteller with a British hint.",
+    instructions: TTS_KID + "Speak naturally, like a friendly storyteller." },
+  { id: "ballad", voice: "ballad", group: "friends", label: "Ballad", blurb: "Warm and a little dramatic.",
+    instructions: TTS_KID + "Speak warmly and naturally, with a little expression." },
+  { id: "verse", voice: "verse", group: "friends", label: "Verse", blurb: "Expressive and lively.",
+    instructions: TTS_KID + "Speak in a lively, friendly, natural way." },
+  { id: "marin", voice: "marin", group: "friends", label: "Marin", blurb: "Smooth and clear.",
+    instructions: TTS_KID + "Speak smoothly, clearly, and kindly." },
+  { id: "cedar", voice: "cedar", group: "friends", label: "Cedar", blurb: "Warm and natural.",
+    instructions: TTS_KID + "Speak in a warm, natural, friendly way." }
+];
+const DEFAULT_VOICE_PRESET = "british-gentleman";
+
+function getVoicePreset(id){
+  const raw = String(id || "").toLowerCase().trim();
+  return VOICE_PRESETS.find(p => p.id === raw) || VOICE_PRESETS.find(p => p.id === DEFAULT_VOICE_PRESET) || VOICE_PRESETS[0];
+}
+function publicVoicePresets(){
+  return VOICE_PRESETS.map(p => ({ id: p.id, voice: p.voice, group: p.group, label: p.label, blurb: p.blurb }));
+}
+
 module.exports = {
-  credentials, textProviders, imageCredentials, applyTextModelOptions, moderateInput,
+  credentials, textProviders, imageCredentials, imageProviderChain, applyTextModelOptions, moderateInput,
   corsHeaders, send, readJson,
-  SYSTEM_PROMPT, isUnsafeText, looksLikeDraw, kidSafeImagePrompt, postJson,
+  SYSTEM_PROMPT, HOMEWORK_TUTOR_PROMPT, isUnsafeText, looksLikeDraw, looksLikeHomework, kidSafeImagePrompt, postJson,
   imageDailyCap, photoDailyCap, messageDailyCap, speakDailyCap, transcribeDailyCap,
   SPEAK_MAX_CHARS, TTS_VOICE, TTS_MODEL, TTS_INSTRUCTIONS,
+  getVoicePreset, publicVoicePresets, DEFAULT_VOICE_PRESET, ALLOWED_TTS_VOICES,
   generateImage, usesChatImage, chicagoDay,
   parsePicCookie, picCookieHeader, parsePhotoCookie, photoCookieHeader,
   parseMsgCookie, msgCookieHeader, parseSpeakCookie, speakCookieHeader,
   parseTranscribeCookie, transcribeCookieHeader,
   DEFAULT_IMAGE_MODEL, DEFAULT_IMAGE_FALLBACK
 };
+

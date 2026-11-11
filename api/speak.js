@@ -1,7 +1,7 @@
 const {
   corsHeaders, send, readJson, isUnsafeText, textProviders,
-  speakDailyCap, SPEAK_MAX_CHARS, TTS_VOICE, TTS_MODEL, TTS_INSTRUCTIONS,
-  parseSpeakCookie, speakCookieHeader
+  speakDailyCap, SPEAK_MAX_CHARS, TTS_MODEL,
+  parseSpeakCookie, speakCookieHeader, getVoicePreset, publicVoicePresets, DEFAULT_VOICE_PRESET
 } = require("./_lib");
 
 function openaiKey(){
@@ -23,7 +23,14 @@ module.exports = async function handler(req, res){
   const used = parseSpeakCookie(req);
   const remaining = Math.max(0, cap - used.count);
   if(req.method === "GET"){
-    return send(res, 200, { ok: true, setup: !!openaiKey(), speakDailyCap: cap, remaining }, req);
+    return send(res, 200, {
+      ok: true,
+      setup: !!openaiKey(),
+      speakDailyCap: cap,
+      remaining,
+      defaultPreset: DEFAULT_VOICE_PRESET,
+      presets: publicVoicePresets()
+    }, req);
   }
   if(req.method !== "POST") return send(res, 405, { error: "method not allowed" }, req);
   const creds = openaiKey();
@@ -44,6 +51,8 @@ module.exports = async function handler(req, res){
     }, req);
   }
 
+  const preset = getVoicePreset(body.preset || body.voice || DEFAULT_VOICE_PRESET);
+
   try{
     const r = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
@@ -53,9 +62,9 @@ module.exports = async function handler(req, res){
       },
       body: JSON.stringify({
         model: TTS_MODEL,
-        voice: TTS_VOICE,
+        voice: preset.voice,
         input: text,
-        instructions: TTS_INSTRUCTIONS,
+        instructions: preset.instructions,
         response_format: "mp3"
       })
     });
@@ -70,9 +79,10 @@ module.exports = async function handler(req, res){
       "Content-Type": "audio/mpeg",
       "Cache-Control": "no-store",
       "X-BW-Speak-Remaining": String(Math.max(0, cap - next)),
+      "X-BW-Voice-Preset": preset.id,
       "Set-Cookie": speakCookieHeader(req, next)
     }, corsHeaders(req));
-    console.log("bw-speak voice=" + TTS_VOICE + " bytes=" + buf.length);
+    console.log("bw-speak preset=" + preset.id + " voice=" + preset.voice + " bytes=" + buf.length);
     res.writeHead(200, headers);
     res.end(buf);
   }catch(e){

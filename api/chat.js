@@ -1,7 +1,7 @@
 const {
   textProviders, imageCredentials, applyTextModelOptions, moderateInput,
-  corsHeaders, send, readJson, SYSTEM_PROMPT, isUnsafeText,
-  looksLikeDraw, postJson, imageDailyCap, photoDailyCap, messageDailyCap, speakDailyCap, transcribeDailyCap,
+  corsHeaders, send, readJson, SYSTEM_PROMPT, HOMEWORK_TUTOR_PROMPT, isUnsafeText,
+  looksLikeDraw, looksLikeHomework, postJson, imageDailyCap, photoDailyCap, messageDailyCap, speakDailyCap, transcribeDailyCap,
   parsePhotoCookie, photoCookieHeader, parseMsgCookie, msgCookieHeader
 } = require("./_lib");
 
@@ -128,7 +128,10 @@ module.exports = async function handler(req, res){
     return { role: m.role, content: extractText(m.content).slice(0, 800) };
   });
 
-  const messages = [{ role: "system", content: SYSTEM_PROMPT }].concat(history);
+  const homework = looksLikeHomework(lastText, hasPhoto, !!body.homework);
+  const messages = [{ role: "system", content: SYSTEM_PROMPT }];
+  if(homework) messages.push({ role: "system", content: HOMEWORK_TUTOR_PROMPT });
+  messages.push(...history);
   let lastErr = null;
   for(const creds of providers){
     try{
