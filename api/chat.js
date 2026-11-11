@@ -107,7 +107,7 @@ module.exports = async function handler(req, res){
   }
 
   // Keep text history; only the latest user turn may include a photo (never stored).
-  const history = normalized.slice(-12).map(m => {
+  const history = normalized.slice(-20).map(m => {
     if(m === lastUser) return { role: m.role, content: m.content };
     return { role: m.role, content: extractText(m.content).slice(0, 800) };
   });
@@ -118,14 +118,14 @@ module.exports = async function handler(req, res){
     try{
       const payload = {
         model: creds.textModel,
-        max_completion_tokens: hasPhoto ? 600 : 400,
+        max_completion_tokens: hasPhoto ? 1100 : 900,
         messages
       };
       applyTextModelOptions(payload, creds);
       let data = await postJson(creds.base + "/chat/completions", creds.key, payload);
       let text = extractReply(data);
       if(!text && /gpt-5/i.test(creds.textModel)){
-        payload.max_completion_tokens = hasPhoto ? 900 : 700;
+        payload.max_completion_tokens = hasPhoto ? 1600 : 1400;
         data = await postJson(creds.base + "/chat/completions", creds.key, payload);
         text = extractReply(data);
       }
