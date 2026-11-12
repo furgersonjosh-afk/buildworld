@@ -200,7 +200,7 @@ Jax is 11 years old. Talk like a warm older cousin or buddy hanging out — not 
 - Use short sentences and simple words, because reading and spelling are still hard for him. If he misspells a word, model the correct spelling naturally. Do not point it out or nag.
 - Do NOT steer the chat toward homework, school, spelling practice, quizzes, or "learning time." Do not turn a normal chat into a lesson.
 - Follow-up questions should feel natural, like a friend. Do not end every message with a question.
-- If he wants a picture, say you will make a fun kid-safe picture (the app handles the image).
+- If he wants a picture, say you will make a fun kid-safe picture (the app handles the image). If he is asking you to draw, render, generate, or make a picture — even if he misspells it (reneder, drow, pitcher, genarate, creat) — start your reply with the exact token [[WANT_PICTURE]] then a short friendly line.
 - Only use homework-tutor behavior when a later system note says this turn is homework help, or when he clearly asked for homework help or sent a homework photo. If you were helping with homework and he changes the subject, leave tutor mode immediately and chat normally.
 
 Safety (every time):
@@ -227,15 +227,111 @@ function isUnsafeText(text){
   return UNSAFE_RE.test(String(text || ""));
 }
 
+const KID_SPELL_MAP = {
+  reneder: "render", rendr: "render", rendor: "render", redner: "render",
+  rendar: "render", rendur: "render",
+  drow: "draw", droaw: "draw",
+  pitcher: "picture", picher: "picture", picure: "picture", pictue: "picture",
+  genarate: "generate", genrate: "generate", generat: "generate",
+  creat: "create",
+  becuase: "because", becaus: "because", becuse: "because",
+  wat: "what", wut: "what",
+  ur: "your",
+  u: "you",
+  pls: "please", plz: "please",
+  monstor: "monster",
+  truk: "truck",
+  lamborgini: "lamborghini", lamborghni: "lamborghini"
+};
+const DRAW_VERBS = ["draw", "render", "paint", "sketch", "generate", "create", "make"];
+const DRAW_NOUNS = ["picture", "image", "drawing", "painting", "render", "illustration", "pic", "photo", "sketch"];
+const DRAW_LEAD_INS = { please:1, pls:1, plz:1, hey:1, yo:1, can:1, could:1, will:1, would:1, u:1, you:1, ya:1 };
+const MAKE_ME_SKIP = { joke:1, jokes:1, story:1, stories:1, song:1, songs:1, poem:1, poems:1, riddle:1, riddles:1, list:1, plan:1, promise:1, sandwich:1, homework:1, question:1, questions:1 };
+const WANT_PICTURE_RE = /\[\[\s*WANT_PICTURE\s*\]\]/ig;
+
+function autocorrectKidText(text){
+  return String(text || "").replace(/[A-Za-z']+/g, function(word){
+    const fix = KID_SPELL_MAP[word.toLowerCase()];
+    if(!fix) return word;
+    if(word[0] && word[0] === word[0].toUpperCase()) return fix.charAt(0).toUpperCase() + fix.slice(1);
+    return fix;
+  });
+}
+
+function damerau(a, b){
+  a = String(a); b = String(b);
+  const m = a.length, n = b.length;
+  if(Math.abs(m - n) > 2) return 99;
+  const dp = new Array(m + 1);
+  for(let i = 0; i <= m; i++){ dp[i] = new Array(n + 1); dp[i][0] = i; }
+  for(let j = 0; j <= n; j++) dp[0][j] = j;
+  for(let i = 1; i <= m; i++){
+    for(let j = 1; j <= n; j++){
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+      if(i > 1 && j > 1 && a.charCodeAt(i - 1) === b.charCodeAt(j - 2) && a.charCodeAt(i - 2) === b.charCodeAt(j - 1)){
+        dp[i][j] = Math.min(dp[i][j], dp[i - 2][j - 2] + cost);
+      }
+    }
+  }
+  return dp[m][n];
+}
+
+function fuzzyMatchWord(word, candidates){
+  const w = String(word || "").toLowerCase();
+  if(!w) return null;
+  if(KID_SPELL_MAP[w] && candidates.indexOf(KID_SPELL_MAP[w]) >= 0) return KID_SPELL_MAP[w];
+  let best = null, bestD = 99;
+  for(let i = 0; i < candidates.length; i++){
+    const c = candidates[i];
+    if(w === c) return c;
+    const maxD = c.length <= 5 ? 1 : 2;
+    if(Math.abs(c.length - w.length) > maxD) continue;
+    const d = damerau(w, c);
+    if(d <= maxD && d < bestD){ bestD = d; best = c; }
+  }
+  return best;
+}
+
 function looksLikeDraw(text){
-  const t = String(text || "").toLowerCase().trim();
+  const t = autocorrectKidText(text).toLowerCase().trim();
   if(!t) return false;
-  return /^(please\s+|can you\s+|could you\s+|will you\s+|would you\s+)?(draw|render|paint|sketch|generate|make|create)\b/.test(t)
-    || /\b(draw|render|paint|sketch|generate|create)\s+(me|us|a|an|the|my|one|this|that)\b/.test(t)
-    || /\b(make|get)\s+(me\s+)?(a|an)\s+(picture|image|drawing|painting|render|illustration)\b/.test(t)
-    || /\b(picture|image|illustration|drawing|painting|render)\s+of\b/.test(t)
-    || /\b(show|send)\s+(me|us)(\s+a|\s+an|\s+the)?\s*(picture|image|drawing|painting|render|illustration)\b/.test(t)
-    || /\bi want\s+(a|an|you to make\s+a|you to draw)\s+(picture|image|drawing|painting|render)\b/.test(t);
+  if(/\b(pic|picture|image|illustration|drawing|painting|render|photo|sketch)\s+of\b/.test(t)
+    || /\b(show|send)\s+(me|us)(\s+a|\s+an|\s+the)?\s*(picture|image|drawing|painting|render|illustration|pic|photo|sketch)\b/.test(t)
+    || /\bi want\s+(a|an|you to make\s+a|you to draw)\s+(picture|image|drawing|painting|render)\b/.test(t)
+    || /\bdrew\s+(me|us|a|an|the)\b/.test(t)) return true;
+
+  const words = t.replace(/[^a-z0-9'\s]+/g, " ").trim().split(/\s+/).filter(Boolean);
+  let i = 0;
+  while(i < words.length && DRAW_LEAD_INS[words[i]]) i++;
+  if(i >= words.length) return false;
+  const verb = fuzzyMatchWord(words[i], DRAW_VERBS) || (words[i] === "drew" ? "draw" : null);
+  const after = words.slice(i + 1);
+  const after0 = after[0] || "";
+  let nounHit = false;
+  for(let k = 0; k < words.length; k++){
+    if(fuzzyMatchWord(words[k], DRAW_NOUNS)) { nounHit = true; break; }
+  }
+  for(let k = 0; k < words.length - 1; k++){
+    if(fuzzyMatchWord(words[k], DRAW_NOUNS) && words[k + 1] === "of") return true;
+  }
+  if(!verb) return false;
+  if(verb === "make"){
+    if(nounHit) return true;
+    if(after0 === "me" || after0 === "us"){
+      const rest = (after[1] === "a" || after[1] === "an") ? (after[2] || "") : (after[1] || "");
+      return !MAKE_ME_SKIP[rest];
+    }
+    return false;
+  }
+  if(["me","us","a","an","the","my","one","this","that","of"].indexOf(after0) >= 0) return true;
+  return !!nounHit;
+}
+
+function stripWantPictureFlag(text){
+  const raw = String(text || "");
+  const draw = WANT_PICTURE_RE.test(raw);
+  return { draw: draw, text: raw.replace(WANT_PICTURE_RE, "").replace(/^[ \t\r\n]+/, "").trim() };
 }
 
 function looksLikeHomework(text, hasPhoto, flag){
@@ -465,7 +561,7 @@ function publicVoicePresets(){
 module.exports = {
   credentials, textProviders, imageCredentials, imageProviderChain, applyTextModelOptions, moderateInput,
   corsHeaders, send, readJson,
-  SYSTEM_PROMPT, HOMEWORK_TUTOR_PROMPT, isUnsafeText, looksLikeDraw, looksLikeHomework, kidSafeImagePrompt, postJson,
+  SYSTEM_PROMPT, HOMEWORK_TUTOR_PROMPT, isUnsafeText, looksLikeDraw, looksLikeHomework, autocorrectKidText, stripWantPictureFlag, kidSafeImagePrompt, postJson,
   imageDailyCap, photoDailyCap, messageDailyCap, speakDailyCap, transcribeDailyCap,
   SPEAK_MAX_CHARS, TTS_VOICE, TTS_MODEL, TTS_INSTRUCTIONS,
   getVoicePreset, publicVoicePresets, DEFAULT_VOICE_PRESET, ALLOWED_TTS_VOICES,

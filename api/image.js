@@ -44,29 +44,33 @@ module.exports = async function handler(req, res){
 
   const safePrompt = kidSafeImagePrompt(prompt);
   let lastErr = null;
-  for(const step of chain){
-    try{
-      const hit = await generateImage({
-        key: step.creds.key,
-        base: step.creds.base,
-        kind: step.creds.kind,
-        model: step.model,
-        quality: step.quality,
-        prompt: safePrompt
-      });
-      const next = used.count + 1;
-      console.log("bw-image ok provider=" + step.creds.kind + " model=" + step.model);
-      return send(res, 200, {
-        image: hit.image,
-        imageDailyCap: cap,
-        remaining: Math.max(0, cap - next),
-        provider: step.creds.kind
-      }, req, { "Set-Cookie": picCookieHeader(req, next) });
-    }catch(e){
-      lastErr = e;
-      const status = e && e.status;
-      const msg = String((e && e.message) || "fail").slice(0, 80);
-      console.log("bw-image fail provider=" + step.creds.kind + " model=" + step.model + " status=" + status + " msg=" + msg);
+  for(let s = 0; s < chain.length; s++){
+    const step = chain[s];
+    const attempts = (s === 0) ? 2 : 1; // retry the first provider once, then fall through
+    for(let attempt = 1; attempt <= attempts; attempt++){
+      try{
+        const hit = await generateImage({
+          key: step.creds.key,
+          base: step.creds.base,
+          kind: step.creds.kind,
+          model: step.model,
+          quality: step.quality,
+          prompt: safePrompt
+        });
+        const next = used.count + 1;
+        console.log("bw-image ok provider=" + step.creds.kind + " model=" + step.model + (attempt > 1 ? " retry" : ""));
+        return send(res, 200, {
+          image: hit.image,
+          imageDailyCap: cap,
+          remaining: Math.max(0, cap - next),
+          provider: step.creds.kind
+        }, req, { "Set-Cookie": picCookieHeader(req, next) });
+      }catch(e){
+        lastErr = e;
+        const status = e && e.status;
+        const msg = String((e && e.message) || "fail").slice(0, 80);
+        console.log("bw-image fail provider=" + step.creds.kind + " model=" + step.model + " attempt=" + attempt + " status=" + status + " msg=" + msg);
+      }
     }
   }
   return send(res, 502, { error: "I couldn't make that picture right now. Try again in a little bit!" }, req);

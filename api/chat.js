@@ -1,9 +1,32 @@
 const {
   textProviders, imageCredentials, applyTextModelOptions, moderateInput,
   corsHeaders, send, readJson, SYSTEM_PROMPT, HOMEWORK_TUTOR_PROMPT, isUnsafeText,
-  looksLikeDraw, looksLikeHomework, postJson, imageDailyCap, photoDailyCap, messageDailyCap, speakDailyCap, transcribeDailyCap,
+  looksLikeDraw, looksLikeHomework, autocorrectKidText, stripWantPictureFlag, postJson, imageDailyCap, photoDailyCap, messageDailyCap, speakDailyCap, transcribeDailyCap,
   parsePhotoCookie, photoCookieHeader, parseMsgCookie, msgCookieHeader
 } = require("./_lib");
+
+const PICTURE_TOOL = [{
+  type: "function",
+  function: {
+    name: "request_picture",
+    description: "Call this when the user wants a picture, drawing, or render of something, even if they misspelled words like reneder, drow, pitcher, or genarate. Do not call it for jokes, facts, or ordinary chat.",
+    parameters: {
+      type: "object",
+      properties: { prompt: { type: "string", description: "A short kid-safe description of the picture to make." } },
+      required: ["prompt"]
+    }
+  }
+}];
+
+function messageWantsPicture(data){
+  const msg = (((data.choices || [])[0] || {}).message) || {};
+  const calls = msg.tool_calls || [];
+  for(const tc of calls){
+    const name = (tc && tc.function && tc.function.name) || (tc && tc.name) || "";
+    if(name === "request_picture") return true;
+  }
+  return false;
+}
 
 function extractText(content){
   if(typeof content === "string") return content;
@@ -129,6 +152,7 @@ module.exports = async function handler(req, res){
   });
 
   const homework = looksLikeHomework(lastText, hasPhoto, !!body.homework);
+  const alreadyDraw = !hasPhoto && looksLikeDraw(lastText);
   const messages = [{ role: "system", content: SYSTEM_PROMPT }];
   if(homework) messages.push({ role: "system", content: HOMEWORK_TUTOR_PROMPT });
   messages.push(...history);
@@ -140,27 +164,40 @@ module.exports = async function handler(req, res){
         max_completion_tokens: hasPhoto ? 1100 : 900,
         messages
       };
+      // When the typo-tolerant detector already knows this is a picture request,
+      // skip tools so the model just writes a short friendly line.
+      if(!hasPhoto && !alreadyDraw && !homework){
+        payload.tools = PICTURE_TOOL;
+        payload.tool_choice = "auto";
+      }
       applyTextModelOptions(payload, creds);
       let data = await postJson(creds.base + "/chat/completions", creds.key, payload);
       let text = extractReply(data);
-      if(!text && /gpt-5/i.test(creds.textModel)){
+      let toolDraw = messageWantsPicture(data);
+      if(!text && !toolDraw && /gpt-5/i.test(creds.textModel)){
         payload.max_completion_tokens = hasPhoto ? 1600 : 1400;
         data = await postJson(creds.base + "/chat/completions", creds.key, payload);
         text = extractReply(data);
+        toolDraw = messageWantsPicture(data);
+      }
+      const flagged = stripWantPictureFlag(text || "");
+      text = flagged.text;
+      if(!text && (toolDraw || flagged.draw || alreadyDraw)){
+        text = "Awesome — I'll make a fun kid-safe picture for you!";
       }
       if(!text){
         lastErr = new Error("empty reply");
         continue;
       }
       // Provider name only — never log keys, prompts, or photos.
-      console.log("bw-chat provider=" + creds.kind);
+      console.log("bw-chat provider=" + creds.kind + (alreadyDraw || toolDraw || flagged.draw ? " draw=1" : ""));
       const cookies = [msgCookieHeader(req, usedMsgs.count + 1)];
       if(setPhotoCookie) cookies.push(setPhotoCookie);
       const extra = { "X-BW-Text-Provider": creds.kind, "Set-Cookie": cookies };
       return send(res, 200, {
         text: String(text).trim(),
         provider: creds.kind,
-        draw: !hasPhoto && looksLikeDraw(lastText),
+        draw: !hasPhoto && (alreadyDraw || toolDraw || flagged.draw),
         photoDailyCap: photoCap,
         photosRemaining: hasPhoto ? Math.max(0, photoCap - (usedPhotos.count + 1)) : Math.max(0, photoCap - usedPhotos.count),
         messageDailyCap: msgCap,

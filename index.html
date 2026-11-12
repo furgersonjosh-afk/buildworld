@@ -147,6 +147,9 @@
     color:var(--muted); font-size:13px; text-align:center; font-weight:700}
   .aibub img{display:block; width:100%; max-width:280px; max-height:200px; object-fit:contain; border-radius:12px; margin-top:8px; background:#0a1028}
   .aibub.typing{opacity:.8}
+  .aibub .aitry{display:inline-block; margin-top:8px; border:0; background:var(--good); color:#06210f;
+    font-weight:800; border-radius:999px; padding:8px 14px; font-size:14px; cursor:pointer}
+  .aibub .aitry:disabled{opacity:.45}
   #aichatmeta{padding:4px 14px 0; font-size:12px; font-weight:800; color:var(--muted); flex-shrink:0}
   #aichatform{display:flex; gap:8px; align-items:flex-end; padding:10px 12px calc(10px + env(safe-area-inset-bottom));
     border-top:2px solid var(--line); background:#10193c; flex-shrink:0}
@@ -369,10 +372,11 @@
   </div>
   <div id="aichatlog" role="log" aria-live="polite"></div>
   <div id="aichatmeta"></div>
-  <form id="aichatform" autocomplete="off">
+  <form id="aichatform" autocomplete="on">
     <button type="button" id="aichatmic" aria-label="Voice input">🎤</button>
     <button type="button" id="aichatcam" aria-label="Homework photo" title="Take or upload homework">📷</button>
-    <textarea id="aichatinput" rows="1" placeholder="Ask or draw me..." maxlength="500" enterkeyhint="send"></textarea>
+    <textarea id="aichatinput" rows="1" placeholder="Ask or draw me..." maxlength="500" enterkeyhint="send"
+      autocomplete="on" autocorrect="on" autocapitalize="sentences" spellcheck="true" lang="en" inputmode="text"></textarea>
     <button type="submit" id="aichatsend" aria-label="Send">➤</button>
     <input type="file" id="aichatphoto" accept="image/*" capture="environment">
   </form>
@@ -4666,7 +4670,7 @@ function renderBrainModal(){
         <div style="font-size:12.5px;color:var(--muted);font-style:italic">"${maskedSent}"</div>
         <div style="margin-top:8px;font-size:12px;color:#ffd14d">First letter: <b>${it.w[0].toUpperCase()}...${it.w[it.w.length-1].toUpperCase()}</b> (${it.w.length} letters)</div>
       </div>
-      <input id="brain_input" type="text" autocomplete="off" spellcheck="false" placeholder="Type the spelling here…"
+      <input id="brain_input" type="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="Type the spelling here…"
         style="width:100%;padding:12px;border-radius:12px;border:2px solid var(--accent);background:#0c1330;color:#fff;font-size:17px;font-weight:900;text-align:center;letter-spacing:1.5px"/>
     `;
   } else if(m==="memory"){
@@ -4694,9 +4698,9 @@ function renderBrainModal(){
           <div style="font-size:13.5px;color:#fff;line-height:1.45">${it.blankText.replace("[1]","<b style='color:#5bff9b'>[Word 1]</b>").replace("[2]","<b style='color:#ffd14d'>[Word 2]</b>")}</div>
         </div>
         <div class="row" style="gap:8px">
-          <input id="mem_in1" type="text" autocomplete="off" spellcheck="false" placeholder="Type Word [1]…"
+          <input id="mem_in1" type="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="Type Word [1]…"
             style="flex:1;padding:11px;border-radius:12px;border:2px solid #5bff9b;background:#0c1330;color:#fff;font-size:15px;font-weight:800;text-align:center"/>
-          <input id="mem_in2" type="text" autocomplete="off" spellcheck="false" placeholder="Type Word [2]…"
+          <input id="mem_in2" type="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="Type Word [2]…"
             style="flex:1;padding:11px;border-radius:12px;border:2px solid #ffd14d;background:#0c1330;color:#fff;font-size:15px;font-weight:800;text-align:center"/>
         </div>
       `;
@@ -4709,7 +4713,7 @@ function renderBrainModal(){
         <div style="background:#0c1330;padding:8px 10px;border-radius:8px;color:#ff8a8a;font-weight:800;font-size:13.5px;margin-bottom:6px">❌ "${it.wrong}"</div>
         <div style="font-size:13px;color:#fff">${it.question}</div>
       </div>
-      <input id="brain_input" type="text" autocomplete="off" spellcheck="false" placeholder="Type the corrected word…"
+      <input id="brain_input" type="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="Type the corrected word…"
         style="width:100%;padding:12px;border-radius:12px;border:2px solid var(--accent);background:#0c1330;color:#fff;font-size:17px;font-weight:900;text-align:center"/>
     `;
   } else {
@@ -4719,7 +4723,7 @@ function renderBrainModal(){
         <b style="color:#ffd14d;font-size:13px;display:block;margin-bottom:5px">⚡ Off-Road Garage Math Challenge</b>
         <div style="font-size:13.5px;color:#fff;line-height:1.45">${it.q}</div>
       </div>
-      <input id="brain_input" type="text" autocomplete="off" placeholder="Type your numeric answer…"
+      <input id="brain_input" type="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="Type your numeric answer…"
         style="width:100%;padding:12px;border-radius:12px;border:2px solid #ffd14d;background:#0c1330;color:#fff;font-size:18px;font-weight:900;text-align:center"/>
     `;
   }
@@ -9478,15 +9482,105 @@ function refreshAIMeta(){
   if(aiSpeakEnabled() && aiSpeakLeft() <= 40) parts.push(aiSpeakLeft() + " voice clips left today");
   el.textContent = parts.join(" · ");
 }
+const KID_SPELL_MAP = {
+  reneder: "render", rendr: "render", rendor: "render", redner: "render",
+  rendar: "render", rendur: "render",
+  drow: "draw", droaw: "draw",
+  pitcher: "picture", picher: "picture", picure: "picture", pictue: "picture",
+  genarate: "generate", genrate: "generate", generat: "generate",
+  creat: "create",
+  becuase: "because", becaus: "because", becuse: "because",
+  wat: "what", wut: "what",
+  ur: "your",
+  u: "you",
+  pls: "please", plz: "please",
+  monstor: "monster",
+  truk: "truck",
+  lamborgini: "lamborghini", lamborghni: "lamborghini"
+};
+const DRAW_VERBS = ["draw", "render", "paint", "sketch", "generate", "create", "make"];
+const DRAW_NOUNS = ["picture", "image", "drawing", "painting", "render", "illustration", "pic", "photo", "sketch"];
+const DRAW_LEAD_INS = { please:1, pls:1, plz:1, hey:1, yo:1, can:1, could:1, will:1, would:1, u:1, you:1, ya:1 };
+const MAKE_ME_SKIP = { joke:1, jokes:1, story:1, stories:1, song:1, songs:1, poem:1, poems:1, riddle:1, riddles:1, list:1, plan:1, promise:1, sandwich:1, homework:1, question:1, questions:1 };
+function autocorrectKidText(text){
+  return String(text || "").replace(/[A-Za-z']+/g, function(word){
+    const fix = KID_SPELL_MAP[word.toLowerCase()];
+    if(!fix) return word;
+    if(word[0] && word[0] === word[0].toUpperCase()) return fix.charAt(0).toUpperCase() + fix.slice(1);
+    return fix;
+  });
+}
+function damerau(a, b){
+  a = String(a); b = String(b);
+  const m = a.length, n = b.length;
+  if(Math.abs(m - n) > 2) return 99;
+  const dp = new Array(m + 1);
+  for(let i = 0; i <= m; i++){ dp[i] = new Array(n + 1); dp[i][0] = i; }
+  for(let j = 0; j <= n; j++) dp[0][j] = j;
+  for(let i = 1; i <= m; i++){
+    for(let j = 1; j <= n; j++){
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+      if(i > 1 && j > 1 && a.charCodeAt(i - 1) === b.charCodeAt(j - 2) && a.charCodeAt(i - 2) === b.charCodeAt(j - 1)){
+        dp[i][j] = Math.min(dp[i][j], dp[i - 2][j - 2] + cost);
+      }
+    }
+  }
+  return dp[m][n];
+}
+function fuzzyMatchWord(word, candidates){
+  const w = String(word || "").toLowerCase();
+  if(!w) return null;
+  if(KID_SPELL_MAP[w] && candidates.indexOf(KID_SPELL_MAP[w]) >= 0) return KID_SPELL_MAP[w];
+  let best = null, bestD = 99;
+  for(let i = 0; i < candidates.length; i++){
+    const c = candidates[i];
+    if(w === c) return c;
+    const maxD = c.length <= 5 ? 1 : 2;
+    if(Math.abs(c.length - w.length) > maxD) continue;
+    const d = damerau(w, c);
+    if(d <= maxD && d < bestD){ bestD = d; best = c; }
+  }
+  return best;
+}
 function looksLikeDrawRequest(text){
-  const t = String(text || "").toLowerCase().trim();
+  const t = autocorrectKidText(text).toLowerCase().trim();
   if(!t) return false;
-  return /^(please\s+|can you\s+|could you\s+|will you\s+|would you\s+)?(draw|render|paint|sketch|generate|make|create)\b/.test(t)
-    || /\b(draw|render|paint|sketch|generate|create)\s+(me|us|a|an|the|my|one|this|that)\b/.test(t)
-    || /\b(make|get)\s+(me\s+)?(a|an)\s+(picture|image|drawing|painting|render|illustration)\b/.test(t)
-    || /\b(picture|image|illustration|drawing|painting|render)\s+of\b/.test(t)
-    || /\b(show|send)\s+(me|us)(\s+a|\s+an|\s+the)?\s*(picture|image|drawing|painting|render|illustration)\b/.test(t)
-    || /\bi want\s+(a|an|you to make\s+a|you to draw)\s+(picture|image|drawing|painting|render)\b/.test(t);
+  if(/\b(pic|picture|image|illustration|drawing|painting|render|photo|sketch)\s+of\b/.test(t)
+    || /\b(show|send)\s+(me|us)(\s+a|\s+an|\s+the)?\s*(picture|image|drawing|painting|render|illustration|pic|photo|sketch)\b/.test(t)
+    || /\bi want\s+(a|an|you to make\s+a|you to draw)\s+(picture|image|drawing|painting|render)\b/.test(t)
+    || /\bdrew\s+(me|us|a|an|the)\b/.test(t)) return true;
+  const words = t.replace(/[^a-z0-9'\s]+/g, " ").trim().split(/\s+/).filter(Boolean);
+  let i = 0;
+  while(i < words.length && DRAW_LEAD_INS[words[i]]) i++;
+  if(i >= words.length) return false;
+  const verb = fuzzyMatchWord(words[i], DRAW_VERBS) || (words[i] === "drew" ? "draw" : null);
+  const after = words.slice(i + 1);
+  const after0 = after[0] || "";
+  let nounHit = false;
+  for(let k = 0; k < words.length; k++){
+    if(fuzzyMatchWord(words[k], DRAW_NOUNS)){ nounHit = true; break; }
+  }
+  for(let k = 0; k < words.length - 1; k++){
+    if(fuzzyMatchWord(words[k], DRAW_NOUNS) && words[k + 1] === "of") return true;
+  }
+  if(!verb) return false;
+  if(verb === "make"){
+    if(nounHit) return true;
+    if(after0 === "me" || after0 === "us"){
+      const rest = (after[1] === "a" || after[1] === "an") ? (after[2] || "") : (after[1] || "");
+      return !MAKE_ME_SKIP[rest];
+    }
+    return false;
+  }
+  if(["me","us","a","an","the","my","one","this","that","of"].indexOf(after0) >= 0) return true;
+  return !!nounHit;
+}
+function abortAfter(ms){
+  if(typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") return AbortSignal.timeout(ms);
+  const c = new AbortController();
+  setTimeout(function(){ try{ c.abort(); }catch(e){} }, ms);
+  return c.signal;
 }
 function looksLikeHomeworkRequest(text){
   const t = String(text || "").toLowerCase();
@@ -9500,6 +9594,7 @@ function clientUnsafe(text){
 
 let _aiSetup = null;
 let _aiBusy = false;
+let _lastAISend = null;
 let _aiRec = null;
 let _aiHistory = [];
 let _lastHomeworkDataUrl = null;
@@ -9746,6 +9841,44 @@ function addAIBubble(role, text, imgSrc){
   log.scrollTop = log.scrollHeight;
   return d;
 }
+function addAIRetryBubble(text, retry){
+  const d = addAIBubble("bot", text);
+  if(!d || !retry) return d;
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "aitry";
+  b.textContent = "Try again";
+  b.addEventListener("click", function(){
+    if(_aiBusy) return;
+    b.disabled = true;
+    retry();
+  });
+  d.appendChild(document.createElement("br"));
+  d.appendChild(b);
+  const log = $("#aichatlog"); if(log) log.scrollTop = log.scrollHeight;
+  return d;
+}
+async function fetchJsonAI(path, body, timeoutMs){
+  const r = await fetch(aiEndpoint(path), {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal: abortAfter(timeoutMs)
+  });
+  const data = await r.json().catch(function(){ return {}; });
+  return { r, data };
+}
+async function fetchAIImage(prompt){
+  const once = function(){ return fetchJsonAI("/api/image", { prompt: prompt }, 85000); };
+  let hit;
+  try{ hit = await once(); }
+  catch(e){ hit = null; }
+  if(hit && hit.data && hit.data.image) return hit;
+  if(hit && hit.r && hit.r.status === 429) return hit;
+  try{ return await once(); }
+  catch(e){ return { r: null, data: {}, error: e }; }
+}
 function setAIBusy(on){
   _aiBusy = !!on;
   const send = $("#aichatsend"), input = $("#aichatinput"), mic = $("#aichatmic"), cam = $("#aichatcam");
@@ -9873,7 +10006,8 @@ async function resizeImageBlob(blob, maxDim, mime, quality){
 
 async function sendAIChat(text, opts){
   opts = opts || {};
-  const raw = String(text || "").trim();
+  const typed = String(text || "").trim();
+  const raw = typed ? autocorrectKidText(typed) : "";
   const photoData = opts.imageDataUrl || null;
   if((!raw && !photoData) || _aiBusy) return;
   if(_aiSetup === false){ showAISetupState(); return; }
@@ -9883,6 +10017,7 @@ async function sendAIChat(text, opts){
     return;
   }
   const wantPic = !photoData && looksLikeDrawRequest(raw);
+  _lastAISend = { text: typed, opts: opts };
   if(aiMsgsLeft() <= 0){
     addAIBubble("sys", "That's all the chat messages for today. You can try again tomorrow!");
     return;
@@ -9919,18 +10054,15 @@ async function sendAIChat(text, opts){
   }else{
     userContent = raw;
   }
+  let needRetry = false;
+  let retryKind = "chat";
   try{
-    const r = await fetch(aiEndpoint("/api/chat"), {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        newPhoto: newPhoto,
-        homework: !!(photoData || looksLikeHomeworkRequest(raw)),
-        messages: _aiHistory.concat([{ role: "user", content: userContent }])
-      })
-    });
-    const data = await r.json().catch(()=>({}));
+    const chatHit = await fetchJsonAI("/api/chat", {
+      newPhoto: newPhoto,
+      homework: !!(photoData || looksLikeHomeworkRequest(raw)),
+      messages: _aiHistory.concat([{ role: "user", content: userContent }])
+    }, 70000);
+    const r = chatHit.r, data = chatHit.data || {};
     if(r.status === 503 || data.setup === false){
       _aiSetup = false;
       if(typing) typing.remove();
@@ -9940,7 +10072,7 @@ async function sendAIChat(text, opts){
     }
     if(r.status === 429){
       if(typing) typing.remove();
-      addAIBubble("bot", data.error || "That's all the homework photos for today.");
+      addAIBubble("bot", data.error || "That's all the chat messages for today.");
       setAIBusy(false);
       return;
     }
@@ -9949,25 +10081,33 @@ async function sendAIChat(text, opts){
     if(data.photoDailyCap){ const n = parseInt(data.photoDailyCap, 10); if(n > 0) AI_PHOTO_CAP = n; }
     if(wantPic || data.draw){
       if(typing) typing.textContent = "Drawing a picture for you... this can take a little bit.";
-      try{
-        const ir = await fetch(aiEndpoint("/api/image"), {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: raw })
-        });
-        const idata = await ir.json().catch(()=>({}));
-        if(idata.image) img = String(idata.image);
-        else reply = (reply ? reply + " " : "") + String(idata.error || "I couldn't make that picture right now. Try again in a little bit!");
-      }catch(imgErr){
-        reply = (reply ? reply + " " : "") + "I couldn't make that picture right now. Try again in a little bit!";
+      const imgHit = await fetchAIImage(raw);
+      const idata = (imgHit && imgHit.data) || {};
+      if(idata.image) img = String(idata.image);
+      else if(imgHit && imgHit.r && imgHit.r.status === 429){
+        reply = (reply ? reply + " " : "") + String(idata.error || "You've used all the pictures for today. Try a new one tomorrow!");
+      }else{
+        reply = "I couldn't make that picture just now. Want to try again?";
+        needRetry = true;
+        retryKind = "image";
       }
     }
   }catch(e){
-    reply = "I couldn't reach the AI right now. If this keeps happening, a grown-up may still need to finish setup.";
+    if(wantPic){
+      reply = "I couldn't make that picture just now. Want to try again?";
+      retryKind = "image";
+    }else{
+      reply = "I couldn't get a reply just now. Want to try again?";
+      retryKind = "chat";
+    }
+    needRetry = true;
   }
   if(typing) typing.remove();
-  addAIBubble("bot", reply, img || null);
+  if(needRetry && !img){
+    addAIRetryBubble(reply, function(){ sendAIChat((_lastAISend && _lastAISend.text) || raw, (_lastAISend && _lastAISend.opts) || opts); });
+  }else{
+    addAIBubble("bot", reply, img || null);
+  }
   _aiHistory.push({ role: "user", content: raw || "Homework photo" });
   _aiHistory.push({ role: "assistant", content: reply });
   if(_aiHistory.length > 20) _aiHistory = _aiHistory.slice(-20);
@@ -10426,7 +10566,7 @@ if("serviceWorker" in navigator){
     window.location.reload();
   });
   window.addEventListener("load", function(){
-    navigator.serviceWorker.register("sw.js?v=24").then(function(reg){
+    navigator.serviceWorker.register("sw.js?v=25", { updateViaCache: "none" }).then(function(reg){
       try{ reg.update(); }catch(e){}
       document.addEventListener("visibilitychange", function(){
         if(document.visibilityState === "visible"){ try{ reg.update(); }catch(e){} }
