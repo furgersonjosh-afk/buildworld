@@ -75,11 +75,11 @@ function openaiImageCredentials(){
     key: process.env.OPENAI_API_KEY,
     base: "https://api.openai.com/v1",
     imageModel: process.env.OPENAI_IMAGE_MODEL || "gpt-image-1-mini",
-    imageQuality: process.env.OPENAI_IMAGE_QUALITY || "medium"
+    imageQuality: process.env.OPENAI_IMAGE_QUALITY || "high"
   };
 }
 
-// Pictures: OpenAI first (fast and reliable), then AI Gateway quality models as backup.
+// Pictures: OpenAI gpt-image-1-mini high first (photoreal, typically under 30s), then AI Gateway quality models as backup.
 function imageCredentials(){
   return openaiImageCredentials() || gatewayCredentials();
 }
@@ -345,28 +345,50 @@ function looksLikeHomework(text, hasPhoto, flag){
 const BRAND_RE = /\b(ford|chevrolet|chevy|gmc|dodge|toyota|honda|nissan|bmw|mercedes(?:-benz)?|ferrari|lamborghini|porsche|jeep|tesla|hyundai|kia|subaru|volkswagen|vw|audi|lexus|cadillac|buick|chrysler|lincoln|mazda|mitsubishi|volvo|jaguar|land rover|range rover|mini cooper|mustang|camaro|corvette|f-?150|raptor|bronco|wrangler|hummer|cybertruck|monster energy|hot wheels|matchbox)\b/gi;
 
 function stripRealBrands(text){
-  return String(text || "").replace(BRAND_RE, "custom");
+  return String(text || "")
+    .replace(/\b(lambo|lamborghini)\b/gi, "angular wedge supercar")
+    .replace(BRAND_RE, "custom")
+    .replace(/\ba\s+([aeiou])/gi, "an $1");
 }
 
 function chicagoDay(){
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
 }
 
+function wantsIllustratedStyle(text){
+  const t = String(text || "").toLowerCase();
+  return /\b(cartoon|cartoony|anime|manga)\b/.test(t)
+    || /\b(coloring|colouring)\s+(page|book)\b/.test(t)
+    || /\b(as a drawing|a drawing of|pencil drawing|line art|lineart)\b/.test(t);
+}
+
 function kidSafeImagePrompt(userText){
-  const cleaned = stripRealBrands(String(userText || ""))
+  const raw = String(userText || "");
+  const illustrated = wantsIllustratedStyle(raw);
+  const cleaned = stripRealBrands(raw)
     .replace(/^(please\s+)?((can you|could you|will you)\s+)?(draw|render|paint|sketch|generate|make|create)(\s+me)?(\s+a|\s+an|\s+the)?\s*/i, "")
     .replace(/\b(picture|image|drawing|painting|illustration)\s+(of|with)?\s*/i, "")
+    .replace(/\s+/g, " ")
+    .replace(/\b(a|an)\s+(a|an)\b/ig, "$1")
     .slice(0, 400)
     .trim();
-  const scene = cleaned || "a giant custom monster truck kicking up dirt on a sunny track";
-  return [
-    "Create a vivid, highly detailed, colorful, high-quality image of the scene below.",
-    "Use sharp focus, dramatic cinematic lighting, rich textures, and intricate mechanical detail for any vehicles (tires, suspension, body panels, chrome, mud, reflections).",
-    "Style: high-quality digital art or a realistic cinematic render, whichever best fits the scene. Not a simple cartoon or clip-art.",
+  const scene = cleaned || "a cheerful outdoor scene in clear weather";
+  const style = illustrated
+    ? [
+        "Create a cheerful kid-friendly cartoon or hand-drawn style image of the scene below.",
+        "The user asked for a cartoon, drawing, anime, or coloring-page look, so use that illustrated style clearly."
+      ]
+    : [
+        "Create a photorealistic, real-life photograph of the scene below.",
+        "Style: photorealistic, real-life photograph, DSLR, natural lighting, sharp detail, realistic materials, real-world scale, not a cartoon, not an illustration, not a 3D-render or toy look.",
+        "If the subject is imaginary or fantastical, depict it as a realistic live-action cinematic film still or a real-life photograph of that subject, with believable lighting, texture, and camera depth of field.",
+        "Do not use cartoon, illustration, CGI-toy, or video-game styles."
+      ];
+  return style.concat([
     "Child-friendly and suitable for an 11-year-old: cheerful, non-violent, no gore, no blood, no sexual content, no realistic depictions of real people.",
-    "No text, no captions, no watermark, no brand logos, and no real brand names or trademarks.",
+    "No text, no captions, no watermark, no brand logos, no manufacturer emblems or badges, and no real brand names or trademarks. Logo-free and unbranded vehicles or products are fine.",
     "Scene: " + scene
-  ].join(" ");
+  ]).join(" ");
 }
 
 async function postJson(url, key, body, opts){
@@ -440,7 +462,7 @@ function extractImage(data){
 }
 
 async function generateImage({ key, base, kind, model, prompt, quality, timeout }){
-  const tmo = timeout || (kind === "openai" ? 40000 : 35000);
+  const tmo = timeout || (kind === "openai" ? 55000 : 35000);
   if(usesChatImage(model)){
     const data = await postJson(base + "/chat/completions", key, {
       model,

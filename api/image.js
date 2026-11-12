@@ -42,6 +42,7 @@ module.exports = async function handler(req, res){
     }, req);
   }
 
+  // Photoreal photograph by default for every subject; illustrated only if the user asked for cartoon/drawing/anime/coloring page.
   const safePrompt = kidSafeImagePrompt(prompt);
   let lastErr = null;
   for(let s = 0; s < chain.length; s++){
