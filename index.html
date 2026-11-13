@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
 <meta name="theme-color" content="#0e1630" />
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
@@ -128,8 +128,15 @@
   /* ---------- AI chat overlay (v21) ---------- */
   #aichat{position:fixed; inset:0; z-index:80; display:none; flex-direction:column;
     background:linear-gradient(180deg,#0a1028 0%,#121a3a 100%); color:var(--ink);
+    height:100dvh; max-height:100dvh;
     padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom)}
   body.aichat-open #aichat{display:flex}
+  body.aichat-kb #aichat{padding-bottom:0}
+  body.aichat-kb #aichatform{padding-bottom:8px}
+  #bw-sim-kb{position:fixed; left:0; right:0; bottom:0; z-index:90; pointer-events:none;
+    background:linear-gradient(#d5d8e0,#c5c9d4); border-top:1px solid #9aa0ad;
+    color:#222; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center;
+    letter-spacing:.02em}
   body.aichat-open #top, body.aichat-open #nav{display:none !important}
   .aichat-head{display:flex; align-items:center; gap:8px; padding:10px 12px;
     border-bottom:2px solid var(--line); background:#10193c; flex-shrink:0}
@@ -153,8 +160,9 @@
   #aichatmeta{padding:4px 14px 0; font-size:12px; font-weight:800; color:var(--muted); flex-shrink:0}
   #aichatform{display:flex; gap:8px; align-items:flex-end; padding:10px 12px calc(10px + env(safe-area-inset-bottom));
     border-top:2px solid var(--line); background:#10193c; flex-shrink:0}
-  #aichatinput{flex:1; min-height:44px; max-height:96px; resize:none; border-radius:14px; padding:10px 12px;
-    font:inherit; font-weight:700; font-size:16px; background:#0c1330; color:var(--ink); border:1px solid var(--line)}
+  #aichatinput{flex:1; min-height:44px; max-height:min(132px, 28dvh); resize:none; border-radius:14px; padding:10px 12px;
+    font:inherit; font-weight:700; font-size:16px; line-height:1.35; background:#0c1330; color:var(--ink);
+    border:1px solid var(--line); overflow-y:auto; overflow-wrap:anywhere; field-sizing:content}
   #aichatform button{width:46px; height:46px; border-radius:14px; background:var(--card); color:var(--ink);
     font-size:20px; display:grid; place-items:center; flex-shrink:0}
   #aichatmic.on{background:#c23b3b; color:#fff}
@@ -167,7 +175,7 @@
     #aichatlog{padding:8px 10px}
     .aibub{font-size:14px; padding:8px 10px}
     #aichatform{padding:6px 10px calc(6px + env(safe-area-inset-bottom))}
-    #aichatinput{min-height:38px; font-size:15px}
+    #aichatinput{min-height:38px; max-height:min(64px, 28dvh); font-size:15px}
     #aichatform button{width:40px; height:40px}
     #aichatmeta{font-size:11px}
   }
@@ -374,7 +382,7 @@
   <div id="aichatmeta"></div>
   <form id="aichatform" autocomplete="on">
     <button type="button" id="aichatmic" aria-label="Voice input">🎤</button>
-    <button type="button" id="aichatcam" aria-label="Homework photo" title="Take or upload homework">📷</button>
+    <button type="button" id="aichatcam" aria-label="Upload a photo" title="Take or upload a photo">📷</button>
     <textarea id="aichatinput" rows="1" placeholder="Ask or draw me..." maxlength="500" enterkeyhint="send"
       autocomplete="on" autocorrect="on" autocapitalize="sentences" spellcheck="true" lang="en" inputmode="text"></textarea>
     <button type="submit" id="aichatsend" aria-label="Send">➤</button>
@@ -9438,7 +9446,11 @@ window.addEventListener("orientationchange", function(){
 });
 if(window.visualViewport){
   window.visualViewport.addEventListener("resize", handleGlobalResizeAndOrientation);
+  window.visualViewport.addEventListener("resize", function(){ if(typeof layoutAIChatForKeyboard === "function") layoutAIChatForKeyboard(); });
+  window.visualViewport.addEventListener("scroll", function(){ if(typeof layoutAIChatForKeyboard === "function") layoutAIChatForKeyboard(); });
 }
+window.addEventListener("resize", function(){ if(typeof layoutAIChatForKeyboard === "function") layoutAIChatForKeyboard(); });
+
 
 
 /* ------------------------- AI CHAT + GALLERY (v22) ------------------------ */
@@ -9588,6 +9600,37 @@ function looksLikeHomeworkRequest(text){
     || /\bhelp\s+(me\s+)?((with|on)\s+)?((this|my)\s+)?(homework|schoolwork|worksheet|math problem)\b/.test(t)
     || /\bhow\s+do\s+i\s+solve\b/.test(t);
 }
+const EDIT_VERBS = ["make", "turn", "change", "render", "edit", "transform", "convert", "swap"];
+const EDIT_OBJS = { it:1, this:1, that:1, me:1, him:1, her:1, them:1, us:1, my:1, the:1 };
+const EDIT_PREPS = { into:1, as:1, to:1, a:1, an:1, like:1 };
+function looksLikeEditRequest(text){
+  const t = autocorrectKidText(text).toLowerCase().trim();
+  if(!t) return false;
+  if(/\b(make|turn|change|transform|convert|edit)\s+(it|this|that|the\s+(photo|picture|image|pic)|my\s+\w+)\s+(a|an|into|to|look\s+like)\b/.test(t)) return true;
+  if(/\b(make|turn|change|render|edit|transform|convert)\s+(me|him|her|them|us|my\s+\w+|this|that|it)\s+(into|as|to)\b/.test(t)) return true;
+  if(/\brender\s+(me|him|her|them|us|this|that|it)\s+as\b/.test(t)) return true;
+  if(/\b(edit|change|transform)\s+(this|the|my)\s+(photo|picture|image|pic)\b/.test(t)) return true;
+  if(/\b(put|dress)\s+me\s+(in|as|into)\b/.test(t)) return true;
+  if(/\bturn\s+into\b/.test(t)) return true;
+  const words = t.replace(/[^a-z0-9'\s]+/g, " ").trim().split(/\s+/).filter(Boolean);
+  for(let k = 0; k < words.length; k++){
+    const v = fuzzyMatchWord(words[k], EDIT_VERBS);
+    if(!v) continue;
+    const a = words[k + 1] || "";
+    const b = words[k + 2] || "";
+    const c = words[k + 3] || "";
+    const d = words[k + 4] || "";
+    if(EDIT_OBJS[a]){
+      if(EDIT_PREPS[b] || fuzzyMatchWord(b, ["into", "as", "like"])) return true;
+      if(a === "my" || a === "the"){
+        if(EDIT_PREPS[c] || fuzzyMatchWord(c, ["into", "as", "like"])) return true;
+        if(EDIT_PREPS[d] || fuzzyMatchWord(d, ["into", "as", "like"])) return true;
+      }
+    }
+    if(v === "edit" && (a === "this" || a === "the" || a === "my" || a === "it")) return true;
+  }
+  return false;
+}
 function clientUnsafe(text){
   return /\b(porn|porno|xxx|nude|nudes|suicide|kill myself|self[- ]?harm|how to make a bomb|cocaine|heroin|fentanyl)\b/i.test(String(text||""));
 }
@@ -9598,6 +9641,8 @@ let _lastAISend = null;
 let _aiRec = null;
 let _aiHistory = [];
 let _lastHomeworkDataUrl = null;
+let _lastUserPhoto = null;
+let _simKeyboardPx = 0;
 let _aiTalkMode = false;
 let _aiAudioCtx = null;
 let _aiSrc = null;
@@ -9826,19 +9871,96 @@ async function previewAIVoice(id, btn){
   }
 }
 
-function addAIBubble(role, text, imgSrc){
+function growAIChatInput(){
+  const input = $("#aichatinput");
+  if(!input) return;
+  const vvH = (window.visualViewport && window.visualViewport.height) || window.innerHeight || 800;
+  const landscape = (window.matchMedia && window.matchMedia("(orientation: landscape) and (max-height: 560px)").matches)
+    || (vvH <= 560 && (window.innerWidth || 0) > vvH);
+  const cap = landscape ? 64 : Math.min(132, Math.max(72, Math.floor(vvH * 0.28)));
+  const minH = landscape ? 38 : 44;
+  input.style.height = "auto";
+  const next = Math.max(minH, Math.min(input.scrollHeight, cap));
+  input.style.height = next + "px";
+  input.style.overflowY = input.scrollHeight > cap + 1 ? "auto" : "hidden";
+  try{ input.scrollTop = input.scrollHeight; }catch(e){}
+}
+function scrollAIChatToLatest(){
+  const log = $("#aichatlog");
+  if(log){
+    const last = log.lastElementChild;
+    if(last && typeof last.scrollIntoView === "function"){
+      try{ last.scrollIntoView({ block: "end", inline: "nearest" }); }catch(e){ log.scrollTop = log.scrollHeight; }
+    }else{
+      log.scrollTop = log.scrollHeight;
+    }
+  }
+  const input = $("#aichatinput");
+  if(input && document.activeElement === input){
+    try{ input.scrollIntoView({ block: "end", inline: "nearest" }); }catch(e){}
+  }
+}
+function layoutAIChatForKeyboard(){
+  const chat = $("#aichat");
+  if(!chat || chat.hidden || !document.body.classList.contains("aichat-open")){
+    document.body.classList.remove("aichat-kb");
+    return;
+  }
+  const vv = window.visualViewport;
+  let top = 0;
+  let height = window.innerHeight || document.documentElement.clientHeight || 0;
+  if(vv){
+    top = vv.offsetTop || 0;
+    height = vv.height || height;
+  }
+  if(_simKeyboardPx > 0) height = Math.max(140, height - _simKeyboardPx);
+  const covered = Math.max(0, (window.innerHeight || height) - height - top);
+  if(covered > 20 || _simKeyboardPx > 0){
+    chat.style.top = top + "px";
+    chat.style.height = height + "px";
+    chat.style.bottom = "auto";
+    chat.style.maxHeight = height + "px";
+    document.body.classList.add("aichat-kb");
+  }else{
+    chat.style.top = "";
+    chat.style.height = "";
+    chat.style.bottom = "";
+    chat.style.maxHeight = "";
+    document.body.classList.remove("aichat-kb");
+  }
+  growAIChatInput();
+  scrollAIChatToLatest();
+}
+window.__bwSimKeyboard = function(px){
+  _simKeyboardPx = Math.max(0, parseInt(px, 10) || 0);
+  let kb = document.getElementById("bw-sim-kb");
+  if(_simKeyboardPx > 0){
+    if(!kb){
+      kb = document.createElement("div");
+      kb.id = "bw-sim-kb";
+      kb.setAttribute("aria-hidden", "true");
+      document.body.appendChild(kb);
+    }
+    kb.style.height = _simKeyboardPx + "px";
+    kb.textContent = "keyboard";
+  }else if(kb){
+    kb.remove();
+  }
+  layoutAIChatForKeyboard();
+};
+function addAIBubble(role, text, imgSrc, imgAlt){
   const log = $("#aichatlog"); if(!log) return null;
   const d = document.createElement("div");
   d.className = "aibub " + role;
   if(text) d.appendChild(document.createTextNode(text));
   if(imgSrc){
     const img = document.createElement("img");
-    img.alt = role.indexOf("user") >= 0 ? "Homework photo" : "A picture made for Jax";
+    img.alt = imgAlt || (role.indexOf("user") >= 0 ? "Uploaded photo" : "A picture made for Jax");
     img.src = imgSrc;
     d.appendChild(img);
   }
   log.appendChild(d);
-  log.scrollTop = log.scrollHeight;
+  scrollAIChatToLatest();
   return d;
 }
 function addAIRetryBubble(text, retry){
@@ -9855,7 +9977,7 @@ function addAIRetryBubble(text, retry){
   });
   d.appendChild(document.createElement("br"));
   d.appendChild(b);
-  const log = $("#aichatlog"); if(log) log.scrollTop = log.scrollHeight;
+  scrollAIChatToLatest();
   return d;
 }
 async function fetchJsonAI(path, body, timeoutMs){
@@ -9869,8 +9991,10 @@ async function fetchJsonAI(path, body, timeoutMs){
   const data = await r.json().catch(function(){ return {}; });
   return { r, data };
 }
-async function fetchAIImage(prompt){
-  const once = function(){ return fetchJsonAI("/api/image", { prompt: prompt }, 85000); };
+async function fetchAIImage(prompt, imageDataUrl){
+  const body = { prompt: prompt };
+  if(imageDataUrl) body.image = imageDataUrl;
+  const once = function(){ return fetchJsonAI("/api/image", body, 85000); };
   let hit;
   try{ hit = await once(); }
   catch(e){ hit = null; }
@@ -9951,11 +10075,23 @@ async function openAIChat(){
   }else if(_aiSetup === false){
     showAISetupState();
   }
-  setTimeout(()=>{ try{ $("#aichatinput").focus(); }catch(e){} }, 50);
+  setTimeout(function(){
+    try{ $("#aichatinput").focus(); }catch(e){}
+    layoutAIChatForKeyboard();
+  }, 50);
 }
 function closeAIChat(){
   document.body.classList.remove("aichat-open");
-  const el = $("#aichat"); if(el) el.hidden = true;
+  document.body.classList.remove("aichat-kb");
+  if(typeof window.__bwSimKeyboard === "function") window.__bwSimKeyboard(0);
+  const el = $("#aichat");
+  if(el){
+    el.hidden = true;
+    el.style.top = "";
+    el.style.height = "";
+    el.style.bottom = "";
+    el.style.maxHeight = "";
+  }
   closeAIVoices();
   setAITalkMode(false);
   stopAIMic();
@@ -10016,14 +10152,21 @@ async function sendAIChat(text, opts){
     addAIBubble("bot", "I can't help with that. Let's talk about something fun instead — games, trucks, animals, or a joke!");
     return;
   }
-  const wantPic = !photoData && looksLikeDrawRequest(raw);
+  const homeworkAsk = looksLikeHomeworkRequest(raw);
+  const editAsk = looksLikeEditRequest(raw);
+  const drawAsk = looksLikeDrawRequest(raw);
+  const sourcePhoto = photoData || ((!homeworkAsk && (editAsk || drawAsk)) ? _lastUserPhoto : null);
+  if(photoData) _lastUserPhoto = photoData;
+  const wantEdit = !!sourcePhoto && !homeworkAsk && (editAsk || (!!photoData && drawAsk));
+  const wantPic = !wantEdit && !photoData && drawAsk;
+  const isHomework = !wantEdit && !!(photoData || homeworkAsk);
   _lastAISend = { text: typed, opts: opts };
   if(aiMsgsLeft() <= 0){
     addAIBubble("sys", "That's all the chat messages for today. You can try again tomorrow!");
     return;
   }
-  if(wantPic && aiPicsLeft() <= 0){
-    addAIBubble("user", raw);
+  if((wantPic || wantEdit) && aiPicsLeft() <= 0){
+    addAIBubble("user", raw || "Photo");
     addAIBubble("bot", "You've used all " + AI_PIC_CAP + " pictures for today. We can still chat, or try a new picture tomorrow!");
     const u = aiUsage(); u.msgs += 1; saveAIUsage(u); refreshAIMeta();
     return;
@@ -10032,20 +10175,23 @@ async function sendAIChat(text, opts){
     addAIBubble("sys", "You've used all " + AI_PHOTO_CAP + " homework photos for today. You can type your question, or try a new photo tomorrow!");
     return;
   }
-  addAIBubble("user", raw || "Homework photo", opts.previewUrl || photoData || null);
-  $("#aichatinput").value = "";
-  if(opts.originalBlob){
+  addAIBubble("user", raw || (wantEdit ? "Photo" : "Homework photo"), opts.previewUrl || photoData || (wantEdit ? sourcePhoto : null), wantEdit || photoData ? "Uploaded photo" : null);
+  const inputEl = $("#aichatinput");
+  if(inputEl){ inputEl.value = ""; inputEl.style.height = ""; }
+  growAIChatInput();
+  if(opts.originalBlob && isHomework){
     const warn = await saveGalleryItem({ kind: "homework", prompt: raw || "Homework photo", original: opts.originalBlob });
     if(warn) addAIBubble("sys", warn);
   }
   setAIBusy(true);
-  const typing = addAIBubble("bot typing", wantPic ? "Drawing a picture for you... this can take a little bit." : (photoData ? "Looking at your homework..." : "Thinking..."));
+  const typing = addAIBubble("bot typing", wantEdit ? "Editing your picture... this can take a little bit." : (wantPic ? "Drawing a picture for you... this can take a little bit." : (photoData ? "Looking at your homework..." : "Thinking...")));
+  layoutAIChatForKeyboard();
   let reply = "";
   let img = "";
   const textForModel = raw || "Please help me with this homework. Read the problem in the photo. Coach me one step at a time and ask me to try that step. Do not tell me the final answer or any last-step result until I have typed my own attempt, or I ask for the answer a second time.";
   let userContent;
   let newPhoto = !!opts.newPhoto;
-  if(photoData){
+  if(photoData && !wantEdit){
     userContent = [
       { type: "text", text: textForModel },
       { type: "image_url", image_url: { url: photoData } }
@@ -10057,9 +10203,28 @@ async function sendAIChat(text, opts){
   let needRetry = false;
   let retryKind = "chat";
   try{
+    if(wantEdit){
+      if(typing) typing.textContent = "Editing your picture... this can take a little bit.";
+      const imgHit = await fetchAIImage(raw || "edit this photo", sourcePhoto);
+      const idata = (imgHit && imgHit.data) || {};
+      if(idata.image){
+        img = String(idata.image);
+        reply = "Here's your picture, edited from the photo you sent!";
+      }else if(imgHit && imgHit.r && imgHit.r.status === 429){
+        reply = String(idata.error || "You've used all the pictures for today. Try a new one tomorrow!");
+      }else if(idata.error){
+        reply = String(idata.error);
+        needRetry = true;
+        retryKind = "edit";
+      }else{
+        reply = "I couldn't edit that picture just now. Want to try again?";
+        needRetry = true;
+        retryKind = "edit";
+      }
+    }else{
     const chatHit = await fetchJsonAI("/api/chat", {
       newPhoto: newPhoto,
-      homework: !!(photoData || looksLikeHomeworkRequest(raw)),
+      homework: isHomework,
       messages: _aiHistory.concat([{ role: "user", content: userContent }])
     }, 70000);
     const r = chatHit.r, data = chatHit.data || {};
@@ -10079,7 +10244,7 @@ async function sendAIChat(text, opts){
     if(!r.ok) throw new Error(data.error || "chat failed");
     reply = String(data.text || "Hmm, I got a little stuck. Try asking me again!");
     if(data.photoDailyCap){ const n = parseInt(data.photoDailyCap, 10); if(n > 0) AI_PHOTO_CAP = n; }
-    if(wantPic || data.draw){
+    if(!photoData && (wantPic || data.draw)){
       if(typing) typing.textContent = "Drawing a picture for you... this can take a little bit.";
       const imgHit = await fetchAIImage(raw);
       const idata = (imgHit && imgHit.data) || {};
@@ -10092,8 +10257,12 @@ async function sendAIChat(text, opts){
         retryKind = "image";
       }
     }
+    }
   }catch(e){
-    if(wantPic){
+    if(wantEdit){
+      reply = "I couldn't edit that picture just now. Want to try again?";
+      retryKind = "edit";
+    }else if(wantPic){
       reply = "I couldn't make that picture just now. Want to try again?";
       retryKind = "image";
     }else{
@@ -10125,6 +10294,7 @@ async function sendAIChat(text, opts){
   saveAIUsage(u);
   refreshAIMeta();
   setAIBusy(false);
+  layoutAIChatForKeyboard();
   try{ await speakAIReply(reply); }catch(e){}
 }
 
@@ -10532,8 +10702,20 @@ function wireAIChat(){
     e.preventDefault();
     sendAIChat($("#aichatinput").value);
   });
-  $("#aichatinput").addEventListener("keydown", e=>{
-    if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); sendAIChat($("#aichatinput").value); }
+  const aiInput = $("#aichatinput");
+  if(aiInput){
+    aiInput.addEventListener("keydown", e=>{
+      if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); sendAIChat(aiInput.value); }
+    });
+    aiInput.addEventListener("input", function(){ growAIChatInput(); scrollAIChatToLatest(); });
+    aiInput.addEventListener("focus", function(){
+      growAIChatInput();
+      setTimeout(layoutAIChatForKeyboard, 50);
+      setTimeout(layoutAIChatForKeyboard, 300);
+    });
+  }
+  window.addEventListener("focusin", function(e){
+    if(e.target && e.target.id === "aichatinput") setTimeout(layoutAIChatForKeyboard, 60);
   });
   $("#galleryclose").addEventListener("click", ()=>{ SFX.tap(); closeGallery(); });
   document.querySelectorAll(".gal-tab").forEach(t=>{
@@ -10566,7 +10748,7 @@ if("serviceWorker" in navigator){
     window.location.reload();
   });
   window.addEventListener("load", function(){
-    navigator.serviceWorker.register("sw.js?v=25", { updateViaCache: "none" }).then(function(reg){
+    navigator.serviceWorker.register("sw.js?v=27", { updateViaCache: "none" }).then(function(reg){
       try{ reg.update(); }catch(e){}
       document.addEventListener("visibilitychange", function(){
         if(document.visibilityState === "visible"){ try{ reg.update(); }catch(e){} }

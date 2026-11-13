@@ -342,6 +342,39 @@ function looksLikeHomework(text, hasPhoto, flag){
     || /\bhow\s+do\s+i\s+solve\b/.test(t);
 }
 
+const EDIT_VERBS = ["make", "turn", "change", "render", "edit", "transform", "convert", "swap"];
+const EDIT_OBJS = { it:1, this:1, that:1, me:1, him:1, her:1, them:1, us:1, my:1, the:1 };
+const EDIT_PREPS = { into:1, as:1, to:1, a:1, an:1, like:1 };
+
+function looksLikeEdit(text){
+  const t = autocorrectKidText(text).toLowerCase().trim();
+  if(!t) return false;
+  if(/\b(make|turn|change|transform|convert|edit)\s+(it|this|that|the\s+(photo|picture|image|pic)|my\s+\w+)\s+(a|an|into|to|look\s+like)\b/.test(t)) return true;
+  if(/\b(make|turn|change|render|edit|transform|convert)\s+(me|him|her|them|us|my\s+\w+|this|that|it)\s+(into|as|to)\b/.test(t)) return true;
+  if(/\brender\s+(me|him|her|them|us|this|that|it)\s+as\b/.test(t)) return true;
+  if(/\b(edit|change|transform)\s+(this|the|my)\s+(photo|picture|image|pic)\b/.test(t)) return true;
+  if(/\b(put|dress)\s+me\s+(in|as|into)\b/.test(t)) return true;
+  if(/\bturn\s+into\b/.test(t)) return true;
+  const words = t.replace(/[^a-z0-9'\s]+/g, " ").trim().split(/\s+/).filter(Boolean);
+  for(let k = 0; k < words.length; k++){
+    const v = fuzzyMatchWord(words[k], EDIT_VERBS);
+    if(!v) continue;
+    const a = words[k + 1] || "";
+    const b = words[k + 2] || "";
+    const c = words[k + 3] || "";
+    const d = words[k + 4] || "";
+    if(EDIT_OBJS[a]){
+      if(EDIT_PREPS[b] || fuzzyMatchWord(b, ["into", "as", "like"])) return true;
+      if(a === "my" || a === "the"){
+        if(EDIT_PREPS[c] || fuzzyMatchWord(c, ["into", "as", "like"])) return true;
+        if(EDIT_PREPS[d] || fuzzyMatchWord(d, ["into", "as", "like"])) return true;
+      }
+    }
+    if(v === "edit" && (a === "this" || a === "the" || a === "my" || a === "it")) return true;
+  }
+  return false;
+}
+
 const BRAND_RE = /\b(ford|chevrolet|chevy|gmc|dodge|toyota|honda|nissan|bmw|mercedes(?:-benz)?|ferrari|lamborghini|porsche|jeep|tesla|hyundai|kia|subaru|volkswagen|vw|audi|lexus|cadillac|buick|chrysler|lincoln|mazda|mitsubishi|volvo|jaguar|land rover|range rover|mini cooper|mustang|camaro|corvette|f-?150|raptor|bronco|wrangler|hummer|cybertruck|monster energy|hot wheels|matchbox)\b/gi;
 
 function stripRealBrands(text){
@@ -388,6 +421,34 @@ function kidSafeImagePrompt(userText){
     "Child-friendly and suitable for an 11-year-old: cheerful, non-violent, no gore, no blood, no sexual content, no realistic depictions of real people.",
     "No text, no captions, no watermark, no brand logos, no manufacturer emblems or badges, and no real brand names or trademarks. Logo-free and unbranded vehicles or products are fine.",
     "Scene: " + scene
+  ]).join(" ");
+}
+
+function kidSafeEditPrompt(userText){
+  const raw = String(userText || "");
+  const illustrated = wantsIllustratedStyle(raw);
+  const cleaned = stripRealBrands(raw)
+    .replace(/^(please\s+)?((can you|could you|will you)\s+)?/i, "")
+    .replace(/\s+/g, " ")
+    .slice(0, 400)
+    .trim();
+  const request = cleaned || "a playful kid-safe transformation of the subject in the photo";
+  const style = illustrated
+    ? [
+        "Apply a cheerful kid-friendly cartoon or hand-drawn look if the user asked for a cartoon, drawing, anime, or coloring-page style."
+      ]
+    : [
+        "Keep the result a photorealistic, real-life photograph: DSLR, natural lighting, sharp detail, realistic materials, real-world scale, not a cartoon, not an illustration, not a 3D-render or toy look, unless the user clearly asked for a cartoon or drawing.",
+        "If the request is imaginary or fantastical, depict it as a realistic live-action cinematic film still or a real-life photograph, with believable lighting, texture, and camera depth of field."
+      ];
+  return [
+    "Edit the uploaded photograph. Keep the same subject, person or object, pose, framing, clothing, and identity unless the request clearly changes that part.",
+    "Transform the existing photo according to the request. Do not replace the subject with a brand-new unrelated picture, and do not invent a different character or object from scratch.",
+    "Preserve recognizable features of the original subject so it is clearly an edited version of this photo."
+  ].concat(style).concat([
+    "Child-friendly and suitable for an 11-year-old: cheerful, non-violent, no gore, no blood, no sexual content.",
+    "No text, no captions, no watermark, no brand logos, no manufacturer emblems or badges, and no real brand names or trademarks.",
+    "Request: " + request
   ]).join(" ");
 }
 
@@ -497,6 +558,116 @@ async function generateImage({ key, base, kind, model, prompt, quality, timeout 
   return hit;
 }
 
+function parseDataUrl(dataUrl){
+  const m = /^data:(image\/(?:png|jpe?g|webp|gif));base64,([A-Za-z0-9+/=\s]+)$/i.exec(String(dataUrl || ""));
+  if(!m) return null;
+  const mime = m[1].toLowerCase().replace("image/jpg", "image/jpeg");
+  const buf = Buffer.from(m[2].replace(/\s+/g, ""), "base64");
+  if(!buf.length || buf.length > 15 * 1024 * 1024) return null;
+  const ext = /png/.test(mime) ? "png" : /webp/.test(mime) ? "webp" : /gif/.test(mime) ? "gif" : "jpg";
+  return { mime, buf, filename: "photo." + ext };
+}
+
+async function postForm(url, key, form, timeout){
+  const ms = timeout || 55000;
+  const ctl = new AbortController();
+  const timer = setTimeout(()=>ctl.abort(), ms);
+  let r;
+  try{
+    r = await fetch(url, {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + key },
+      body: form,
+      signal: ctl.signal
+    });
+  }catch(e){
+    clearTimeout(timer);
+    if(e && e.name === "AbortError"){
+      const err = new Error("timeout");
+      err.status = 504;
+      throw err;
+    }
+    throw e;
+  }
+  clearTimeout(timer);
+  const text = await r.text();
+  let data = null;
+  try{ data = JSON.parse(text); }catch(e){ data = { raw: text.slice(0, 400) }; }
+  if(!r.ok){
+    const err = new Error("upstream " + r.status);
+    err.status = r.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+function editProviderChain(){
+  const list = [];
+  const o = openaiImageCredentials();
+  const g = gatewayCredentials();
+  if(o){
+    list.push({ creds: o, model: o.imageModel, quality: o.imageQuality || "high" });
+    if(o.imageModel !== "gpt-image-2"){
+      list.push({ creds: o, model: "gpt-image-2", quality: "medium" });
+    }
+  }
+  if(g){
+    list.push({ creds: g, model: g.imageModel });
+    if(g.imageFallback && g.imageFallback !== g.imageModel){
+      list.push({ creds: g, model: g.imageFallback });
+    }
+  }
+  return list;
+}
+
+function editInputFidelity(model){
+  const m = String(model || "");
+  if(/gpt-image-1-mini/.test(m)) return "low";
+  if(/gpt-image-1\.5/.test(m)) return "high";
+  return null;
+}
+
+async function editImage({ key, base, kind, model, prompt, quality, imageDataUrl, timeout }){
+  const tmo = timeout || (kind === "openai" ? 55000 : 35000);
+  const canChatEdit = usesChatImage(model) || (kind === "gateway" && !/^gpt-image/.test(String(model || "")));
+  if(canChatEdit){
+    const data = await postJson(base + "/chat/completions", key, {
+      model,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "text", text: prompt },
+          { type: "image_url", image_url: { url: imageDataUrl } }
+        ]
+      }],
+      modalities: ["text", "image"]
+    }, { timeout: tmo });
+    const hit = extractImage(data);
+    if(!hit) throw Object.assign(new Error("no image in chat edit response"), { status: 502, data });
+    return hit;
+  }
+  const parsed = parseDataUrl(imageDataUrl);
+  if(!parsed){
+    const err = new Error("bad image");
+    err.status = 400;
+    throw err;
+  }
+  const form = new FormData();
+  form.append("image", new Blob([new Uint8Array(parsed.buf)], { type: parsed.mime }), parsed.filename);
+  form.append("prompt", prompt);
+  form.append("model", model);
+  form.append("n", "1");
+  form.append("size", "1024x1024");
+  if(quality && /^gpt-image/.test(String(model || ""))) form.append("quality", quality);
+  const fidelity = editInputFidelity(model);
+  if(fidelity) form.append("input_fidelity", fidelity);
+  const data = await postForm(base + "/images/edits", key, form, tmo);
+  const hit = extractImage(data);
+  if(!hit) throw Object.assign(new Error("no image in edit response"), { status: 502, data });
+  return hit;
+}
+
 function readCookie(req, name){
   const raw = String((req.headers && (req.headers.cookie || req.headers.Cookie)) || "");
   const parts = raw.split(/;\s*/);
@@ -583,11 +754,11 @@ function publicVoicePresets(){
 module.exports = {
   credentials, textProviders, imageCredentials, imageProviderChain, applyTextModelOptions, moderateInput,
   corsHeaders, send, readJson,
-  SYSTEM_PROMPT, HOMEWORK_TUTOR_PROMPT, isUnsafeText, looksLikeDraw, looksLikeHomework, autocorrectKidText, stripWantPictureFlag, kidSafeImagePrompt, postJson,
+  SYSTEM_PROMPT, HOMEWORK_TUTOR_PROMPT, isUnsafeText, looksLikeDraw, looksLikeHomework, looksLikeEdit, autocorrectKidText, stripWantPictureFlag, kidSafeImagePrompt, kidSafeEditPrompt, postJson,
   imageDailyCap, photoDailyCap, messageDailyCap, speakDailyCap, transcribeDailyCap,
   SPEAK_MAX_CHARS, TTS_VOICE, TTS_MODEL, TTS_INSTRUCTIONS,
   getVoicePreset, publicVoicePresets, DEFAULT_VOICE_PRESET, ALLOWED_TTS_VOICES,
-  generateImage, usesChatImage, chicagoDay,
+  generateImage, editImage, editProviderChain, parseDataUrl, usesChatImage, chicagoDay,
   parsePicCookie, picCookieHeader, parsePhotoCookie, photoCookieHeader,
   parseMsgCookie, msgCookieHeader, parseSpeakCookie, speakCookieHeader,
   parseTranscribeCookie, transcribeCookieHeader,
