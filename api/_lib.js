@@ -442,9 +442,11 @@ function kidSafeEditPrompt(userText){
         "If the request is imaginary or fantastical, depict it as a realistic live-action cinematic film still or a real-life photograph, with believable lighting, texture, and camera depth of field."
       ];
   return [
-    "Edit the uploaded photograph. Keep the same subject, person or object, pose, framing, clothing, and identity unless the request clearly changes that part.",
-    "Transform the existing photo according to the request. Do not replace the subject with a brand-new unrelated picture, and do not invent a different character or object from scratch.",
-    "Preserve recognizable features of the original subject so it is clearly an edited version of this photo."
+    "Edit the uploaded photograph in place. Keep the same camera angle, framing, lighting, background, and setting.",
+    "If the request says to make, turn, change, or render the subject into something else (for example 'make it a rabbit' or 'render me as a superhero'), transform the main subject in the photo into that thing.",
+    "The original subject should become the new thing, with a similar pose and placement. Do not leave the original subject unchanged, and do not add a new character or object standing beside an unedited original.",
+    "Do not invent a brand-new unrelated scene from scratch. It must still be clearly an edited version of this same photo.",
+    "If the subject is a person, keep their identity, face, hair, and clothing style as much as the transformation allows."
   ].concat(style).concat([
     "Child-friendly and suitable for an 11-year-old: cheerful, non-violent, no gore, no blood, no sexual content.",
     "No text, no captions, no watermark, no brand logos, no manufacturer emblems or badges, and no real brand names or trademarks.",
