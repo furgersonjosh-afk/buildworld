@@ -578,7 +578,8 @@ function load(){
     const raw = localStorage.getItem("buildworld");
     if(raw){
       const st = Object.assign(structuredClone(DEFAULT_STATE), JSON.parse(raw));
-      if(Array.isArray(st.owned)){ ["crawler","bouncer","classic70","outlaw69","lmp1"].forEach(k=>{ if(!st.owned.includes(k)) st.owned.push(k); }); }
+      if(!Array.isArray(st.owned)) st.owned = ["car"];
+      ["crawler","bouncer","classic70","outlaw69","lmp1","car"].forEach(k=>{ if(!st.owned.includes(k)) st.owned.push(k); });
       return st;
     }
   }catch(e){}
@@ -622,6 +623,97 @@ function cfg(type){
   if(!state.brainSolved) state.brainSolved=0;
   return c;
 }
+
+const STARTER_VEHICLES = ["crawler","bouncer","classic70","outlaw69","lmp1","car"];
+function isKnownVehicle(k){ return !!(k && VEHICLES[k]); }
+function isMotoType(k){ return k==="moto" || k==="dirtbike" || k==="sportbike" || k==="chopper"; }
+function isQuadType(k){ return k==="atv"; }
+function grantVehicle(k, opts){
+  if(!isKnownVehicle(k)) return false;
+  if(!Array.isArray(state.owned)) state.owned = [];
+  let changed = false;
+  if(!state.owned.includes(k)){ state.owned.push(k); changed = true; }
+  const c = cfg(k);
+  if(c && !c._earned){ c._earned = 1; changed = true; }
+  if(opts && opts.select) state.current = k;
+  return changed;
+}
+function normalizeOwnedVehicles(){
+  if(!Array.isArray(state.owned)) state.owned = [];
+  state.owned = state.owned.filter(isKnownVehicle);
+  STARTER_VEHICLES.forEach(k => grantVehicle(k));
+  if((state.barnStep || 0) > 4) grantVehicle("barn72");
+  if(Array.isArray(state.unlockedDealerIds)){
+    state.unlockedDealerIds.forEach(id=>{
+      let key = null;
+      if(typeof DEALERSHIP_CATALOG !== "undefined"){
+        const it = DEALERSHIP_CATALOG.find(x => x.id === id);
+        if(it) key = it.vKey;
+      }
+      if(!key && typeof RACE_CAR_SPECS !== "undefined" && RACE_CAR_SPECS[id]) key = id;
+      if(key) grantVehicle(key);
+    });
+  }
+  if(isKnownVehicle(state.current)) grantVehicle(state.current);
+  Object.keys(state.configs || {}).forEach(k=>{
+    if(!isKnownVehicle(k)) return;
+    const c = state.configs[k];
+    if(c && (c._earned || isMotoType(k) || isQuadType(k))) grantVehicle(k);
+  });
+  if(!isKnownVehicle(state.current) || !state.owned.includes(state.current)){
+    state.current = state.owned.includes("crawler") ? "crawler" : (state.owned[0] || "car");
+  }
+  return state.owned.slice();
+}
+function ownedVehicleKeys(){
+  normalizeOwnedVehicles();
+  return Object.keys(VEHICLES).filter(k => state.owned.includes(k));
+}
+function garageVehicleKeys(){
+  normalizeOwnedVehicles();
+  const keys = Object.keys(VEHICLES);
+  const rank = k => {
+    if(k === state.current) return 0;
+    if(state.owned.includes(k) && (isMotoType(k) || isQuadType(k))) return 1;
+    if(state.owned.includes(k)) return 2;
+    if(state.level >= (VEHICLES[k].level || 1)) return 3;
+    return 4;
+  };
+  return keys.slice().sort((a,b)=>{
+    const d = rank(a) - rank(b);
+    return d || keys.indexOf(a) - keys.indexOf(b);
+  });
+}
+function openOwnedVehiclePicker(onPick){
+  const keys = ownedVehicleKeys().slice().sort((a,b)=>{
+    const rank = k => k===state.current ? 0 : ((isMotoType(k)||isQuadType(k)) ? 1 : 2);
+    const d = rank(a) - rank(b);
+    return d || 0;
+  });
+  const tiles = keys.map(k=>{
+    const vv = VEHICLES[k], sel = k === state.current;
+    const tag = isMotoType(k) ? "Bike" : (isQuadType(k) ? "ATV" : (k==="tractor"||k==="bigrig"||k==="dump"||k==="fire"||k==="monster"||k==="truck"||k==="crawler"||k==="bouncer"||k==="classic70"||k==="outlaw69"||k==="barn72"||k==="armored" ? "Truck" : "Car"));
+    return `<button type="button" class="tile ${sel?"sel ":""}owned" data-pick-vehicle="${k}"><span class="emoji">${vv.emoji}</span>${vv.name}<div class="price">${tag}${sel?" · IN USE":""}</div></button>`;
+  }).join("");
+  showModal(`
+    <h3 style="margin-bottom:6px">Choose your ride</h3>
+    <p class="sub">Every vehicle you've unlocked is here — cars, trucks, and bikes.</p>
+    <div class="grid g3" id="ridepicker" style="max-height:min(55vh,420px);overflow-y:auto;margin:8px 0">${tiles || '<div class="sub">No rides yet.</div>'}</div>
+    <button class="btn gray" onclick="closeModal()">Close</button>
+  `);
+  document.querySelectorAll("[data-pick-vehicle]").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      const k = b.getAttribute("data-pick-vehicle");
+      closeModal();
+      if(typeof onPick === "function") onPick(k);
+      else { grantVehicle(k, {select:true}); save(); render(); }
+    });
+  });
+}
+window.grantVehicle = grantVehicle;
+window.normalizeOwnedVehicles = normalizeOwnedVehicles;
+window.ownedVehicleKeys = ownedVehicleKeys;
+window.openOwnedVehiclePicker = openOwnedVehiclePicker;
 
 // Build stats from body + engine + wheels + extras. Drives the stat bars AND
 // how the car performs in Test Drive (see startDrive).
@@ -753,7 +845,7 @@ function onLevelUp(){
   showModal(`
     <div class="big-emoji">🎉</div>
     <h3>Level ${state.level}!</h3>
-    <p>${unlocks.length ? "You just unlocked:<br><b>"+unlocks.join(" · ")+"</b>" : "Keep building to unlock more!"}</p>
+    <p>${unlocks.length ? "You can now buy these in the garage:<br><b>"+unlocks.join(" · ")+"</b>" : "Keep building to unlock more!"}</p>
     <button class="btn green" onclick="closeModal()">Awesome!</button>
   `);
 }
@@ -887,20 +979,26 @@ function vehicleSVG(type, c){
     if(has("trailer")) extras+=`<rect x="264" y="${ground-16}" width="84" height="26" rx="4" fill="#7a5230" stroke="#5a3d22"/>${wheelSVG(312,ground+4,15,"steel",wheel)}`;
     if(has("lights")) extras+=`<circle cx="256" cy="100" r="5" fill="#ffe27a"/>`;
   }
-  else if(type==="moto"){
-    const wr=30*tscale;
-    wheels=wheelSVG(118,ground,wr,rim,wheel)+wheelSVG(244,ground,wr,rim,wheel);
-    const fr=ground-46;
+  else if(type==="moto" || type==="dirtbike" || type==="sportbike" || type==="chopper"){
+    const dirt=type==="dirtbike", sport=type==="sportbike", chop=type==="chopper";
+    const wr=(dirt?34:sport?26:30)*tscale;
+    const rearR=(chop?wr*1.12:wr);
+    const fx=chop?100:118, rx=chop?268:244;
+    wheels=wheelSVG(fx,ground,wr,dirt?"offroad":rim,wheel)+wheelSVG(rx,ground,rearR,dirt?"offroad":rim,wheel);
+    const fr=ground-(dirt?54:sport?40:46);
+    const tankY=fr-(dirt?14:sport?10:18);
     body=`<g>
-      <path d="M118 ${ground} L150 ${fr} L210 ${fr} L244 ${ground}" stroke="${dk}" stroke-width="12" fill="none" stroke-linecap="round"/>
-      <path d="M118 ${ground} L150 ${fr} L210 ${fr} L244 ${ground}" stroke="${fill}" stroke-width="8" fill="none" stroke-linecap="round"/>
-      <path d="M150 ${fr} L166 ${fr-18} L202 ${fr-18} L210 ${fr} Z" fill="${fill}" stroke="${dk}" stroke-width="2"/>
-      <rect x="160" y="${fr-26} " width="42" height="12" rx="6" fill="#222"/>
-      <line x1="210" y1="${fr}" x2="248" y2="${fr-24}" stroke="#444" stroke-width="6" stroke-linecap="round"/>
-      <circle cx="250" cy="${fr-24}" r="6" fill="#fff3b0" stroke="#d9b94a"/>
+      <path d="M${fx} ${ground} L${fx+32} ${fr} L${rx-34} ${fr} L${rx} ${ground}" stroke="${dk}" stroke-width="12" fill="none" stroke-linecap="round"/>
+      <path d="M${fx} ${ground} L${fx+32} ${fr} L${rx-34} ${fr} L${rx} ${ground}" stroke="${fill}" stroke-width="8" fill="none" stroke-linecap="round"/>
+      <path d="M${fx+32} ${fr} L${fx+48} ${tankY} L${rx-42} ${tankY} L${rx-34} ${fr} Z" fill="${fill}" stroke="${dk}" stroke-width="2"/>
+      <rect x="${fx+42}" y="${tankY-10}" width="${sport?36:42}" height="12" rx="6" fill="#222"/>
+      <line x1="${rx-34}" y1="${fr}" x2="${rx+18}" y2="${fr-(chop?18:24)}" stroke="#555" stroke-width="${chop?8:6}" stroke-linecap="round"/>
+      <circle cx="${rx+20}" cy="${fr-(dirt?20:24)}" r="${dirt?7:6}" fill="#fff3b0" stroke="#d9b94a"/>
+      <circle cx="${fx+40}" cy="${tankY-22}" r="8" fill="#f1c8a0"/>
+      <path d="M${fx+30} ${tankY-8} L${fx+48} ${tankY-28} L${fx+62} ${tankY-8}" fill="${shade(paint,-0.15)}" stroke="${dk}" stroke-width="1.5"/>
     </g>`;
-    if(has("saddlebags")) extras+=`<rect x="196" y="${ground-30}" width="36" height="26" rx="6" fill="#5a3b22" stroke="#3e2815"/>`;
-    if(has("windshield")) extras+=`<path d="M250 ${fr-26} Q268 ${fr-44} 258 ${fr-6}" stroke="${G}" stroke-width="6" fill="none"/>`;
+    if(has("saddlebags")) extras+=`<rect x="${rx-48}" y="${ground-30}" width="36" height="26" rx="6" fill="#5a3b22" stroke="#3e2815"/>`;
+    if(has("windshield") || sport) extras+=`<path d="M${rx+16} ${fr-26} Q${rx+34} ${fr-44} ${rx+24} ${fr-6}" stroke="${G}" stroke-width="6" fill="none"/>`;
   }
   else if(type==="bigrig"){
     const wr=24*tscale;
@@ -2566,6 +2664,7 @@ function placeModel(g,type,c,scene){
 }
 function loadCarModel(g,type,c,url){
   if(isRaceCarType(type)){ buildRaceCar3D(g,type,c); return; }
+  if(!url){ buildProceduralCar(g,type,c); return; }
   try{
     if(gltfCache[url]){ placeModel(g,type,c,gltfCache[url]); return; }
     new THREE.GLTFLoader().load(url, function(gltf){
@@ -2573,6 +2672,119 @@ function loadCarModel(g,type,c,url){
       placeModel(g,type,c,gltf.scene);
     }, undefined, function(){ buildProceduralCar(g,type,c); });
   }catch(e){ buildProceduralCar(g,type,c); }
+}
+
+
+function buildProceduralBike(g, type, c, s, wr, lift, paint){
+  const dirt = type === "dirtbike";
+  const sport = type === "sportbike";
+  const chop = type === "chopper";
+  const wb = s.axleF - s.axleR, midX = (s.axleF + s.axleR) / 2;
+  const y0 = wr + lift;
+  const metal = new THREE.MeshStandardMaterial({color:0x2a2d34, metalness:0.82, roughness:0.28, envMapIntensity:1.0});
+  const chrome = new THREE.MeshStandardMaterial({color:0xd7dbe3, metalness:1.0, roughness:0.12, envMapIntensity:1.3});
+  const rubber = new THREE.MeshStandardMaterial({color:0x1a1c22, roughness:0.85});
+  const seatMat = new THREE.MeshStandardMaterial({color: dirt ? 0x1f2933 : (chop ? 0x4a2c1a : 0x111318), roughness:0.7});
+  const lightMat = new THREE.MeshStandardMaterial({color:0xfff3b0, emissive:0xffe27a, emissiveIntensity:0.7});
+  const add = (mesh, x, y, z, rx, ry, rz)=>{
+    mesh.position.set(x, y, z||0);
+    if(rx) mesh.rotation.x = rx; if(ry) mesh.rotation.y = ry; if(rz) mesh.rotation.z = rz;
+    mesh.castShadow = true; g.add(mesh); return mesh;
+  };
+
+  // Frame spine
+  add(new THREE.Mesh(new THREE.RoundedBoxGeometry(wb*0.88, 0.09, dirt?0.16:0.13, 3, 0.03), metal), midX, y0 + s.bodyH*0.42, 0);
+  add(new THREE.Mesh(new THREE.RoundedBoxGeometry(wb*0.55, 0.08, 0.11, 2, 0.03), metal), midX - wb*0.08, y0 + s.bodyH*0.18, 0);
+
+  // Engine / cases
+  add(new THREE.Mesh(new THREE.RoundedBoxGeometry(dirt?0.42:0.38, dirt?0.28:0.24, 0.28, 3, 0.05), metal), midX - 0.02, y0 + s.bodyH*0.22, 0);
+  add(new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.22, 10), chrome), midX + 0.04, y0 + s.bodyH*0.18, 0, 0, 0, Math.PI/2);
+
+  // Fuel tank — shape differs by bike
+  const tankL = sport ? wb*0.62 : (chop ? wb*0.38 : wb*0.50);
+  const tankH = sport ? s.bodyH*0.85 : (dirt ? s.bodyH*0.95 : s.bodyH*1.05);
+  const tankW = sport ? 0.30 : (dirt ? 0.32 : 0.34);
+  add(new THREE.Mesh(new THREE.RoundedBoxGeometry(tankL, tankH, tankW, 5, 0.12), paint), midX + (sport?0.08:-0.04), y0 + s.bodyH*0.95, 0);
+
+  // Seat
+  const seatL = chop ? 0.55 : (dirt ? 0.62 : 0.48);
+  add(new THREE.Mesh(new THREE.RoundedBoxGeometry(seatL, 0.10, 0.22, 3, 0.04), seatMat), midX - wb*(chop?0.12:0.18), y0 + s.bodyH*1.12, 0);
+
+  // Rear fender / hugger
+  const fend = new THREE.Mesh(new THREE.CylinderGeometry(wr*0.95, wr*0.95, dirt?0.16:0.12, 12, 1, false, 0, Math.PI), paint);
+  fend.rotation.x = Math.PI/2; fend.rotation.z = Math.PI;
+  add(fend, s.axleR + (dirt?0.02:0), y0 + wr*0.15, 0);
+
+  // Front fork
+  const forkLen = chop ? wr + s.bodyH*1.35 : wr + s.bodyH*(dirt?1.15:0.95);
+  const forkLean = chop ? 0.52 : (sport ? 0.18 : 0.28);
+  const forkY = y0 + (chop ? s.bodyH*0.70 : s.bodyH*0.50);
+  [-0.07, 0.07].forEach(z=>{
+    add(new THREE.Mesh(new THREE.CylinderGeometry(chop?0.035:0.028, chop?0.04:0.032, forkLen, 8), chrome), s.axleF - (chop?0.18:0.04), forkY, z, 0, 0, forkLean);
+  });
+
+  // Handlebars
+  const barW = dirt ? 0.62 : (chop ? 0.70 : (sport ? 0.42 : 0.50));
+  const barY = y0 + s.bodyH*(sport ? 1.05 : (dirt ? 1.45 : 1.32));
+  const barX = s.axleF - (sport ? 0.28 : (chop ? 0.36 : 0.18));
+  add(new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, barW, 8), metal), barX, barY, 0, Math.PI/2, 0, 0);
+  [-1,1].forEach(sd=>{
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.02, 0.08, 8), rubber), barX, barY, sd*(barW/2-0.02), Math.PI/2, 0, 0);
+  });
+
+  // Headlight
+  if(dirt){
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.16), lightMat), s.axleF + 0.02, y0 + s.bodyH*1.15, 0);
+  } else {
+    add(new THREE.Mesh(new THREE.SphereGeometry(sport?0.07:0.09, 10, 8), lightMat), s.axleF + (chop?-0.06:0.02), y0 + s.bodyH*(sport?0.95:1.08), 0);
+  }
+  // Tail light
+  add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.04, 0.10), new THREE.MeshStandardMaterial({color:0xe23b3b, emissive:0x7a1010, emissiveIntensity:0.5})), s.axleR - 0.08, y0 + s.bodyH*0.95, 0);
+
+  // Exhaust
+  const ex = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, dirt?0.7:0.85, 8), chrome);
+  add(ex, midX - (dirt?0.05:0.15), y0 + s.bodyH*(dirt?0.55:0.35), dirt?0.12:0.14, 0, 0, dirt?0.35:-0.15);
+
+  if((c.parts||[]).includes("windshield") || sport){
+    const wind = new THREE.Mesh(new THREE.BoxGeometry(0.04, sport?0.22:0.16, sport?0.28:0.24),
+      new THREE.MeshPhysicalMaterial({color:0x8fd3ff, transparent:true, opacity:0.35, roughness:0.08, metalness:0.1}));
+    add(wind, s.axleF - 0.10, y0 + s.bodyH*(sport?1.28:1.42), 0, 0, 0, 0.35);
+  }
+  if((c.parts||[]).includes("saddlebags")){
+    [-1,1].forEach(sd=>{
+      add(new THREE.Mesh(new THREE.RoundedBoxGeometry(0.28, 0.18, 0.14, 2, 0.04), new THREE.MeshStandardMaterial({color:0x5a3b22, roughness:0.7})), midX - wb*0.22, y0 + s.bodyH*0.7, sd*0.22);
+    });
+  }
+  if((c.parts||[]).includes("lights") && dirt){
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, 0.28), lightMat), midX, y0 + s.bodyH*1.35, 0);
+  }
+
+  // Rider (helmet + body) so it looks rideable, not a bare stand-in
+  const skin = new THREE.MeshStandardMaterial({color:0xf1c8a0, roughness:0.7});
+  const suit = new THREE.MeshStandardMaterial({color: dirt ? 0x1d4ed8 : (sport ? 0x111827 : 0x1f2937), roughness:0.55});
+  const helm = new THREE.MeshStandardMaterial({color: paint.color, metalness:0.35, roughness:0.35});
+  const riderX = midX - (sport?0.10:0.16);
+  const riderLean = sport ? 0.55 : (dirt ? 0.12 : (chop ? -0.05 : 0.22));
+  const torsoH = 0.42;
+  const torso = new THREE.Mesh(new THREE.RoundedBoxGeometry(0.28, torsoH, 0.28, 3, 0.08), suit);
+  add(torso, riderX, y0 + s.bodyH*1.35 + torsoH*0.25, 0, 0, 0, riderLean);
+  add(new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 10), helm), riderX + Math.cos(riderLean)*0.02, y0 + s.bodyH*1.35 + torsoH*0.72, 0);
+  add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), skin), riderX + 0.08, y0 + s.bodyH*1.35 + torsoH*0.62, 0);
+  // Arms to bars
+  [-1,1].forEach(sd=>{
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.42, 8), suit);
+    const ax = (riderX + barX)/2, ay = (y0 + s.bodyH*1.35 + torsoH*0.4 + barY)/2;
+    add(arm, ax, ay, sd*0.14, Math.PI/2 * 0.15, 0, Math.atan2(barY - ay, barX - ax));
+  });
+  // Legs
+  [-1,1].forEach(sd=>{
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.04, 0.38, 8), suit), riderX - 0.06, y0 + s.bodyH*0.85, sd*0.12, 0, 0, 0.55);
+  });
+
+  const frontR = sport ? wr*0.95 : wr;
+  const rearR = chop ? wr*1.12 : (dirt ? wr : wr);
+  g.add(makeWheel3D(s.axleF, 0, frontR, c));
+  g.add(makeWheel3D(s.axleR, 0, rearR, c));
 }
 
 function buildProceduralCar(g,type,c){
@@ -2587,20 +2799,7 @@ function buildProceduralCar(g,type,c){
   const wr=s.wheelR*(c.lift?1.12:1);
 
   if(s.moto){
-    const wb=s.axleF-s.axleR, midX=(s.axleF+s.axleR)/2;
-    const metal=new THREE.MeshStandardMaterial({color:0x2a2d34, metalness:0.75, roughness:0.35, envMapIntensity:0.9});
-    const frame=new THREE.Mesh(new THREE.RoundedBoxGeometry(wb*0.85,0.14,0.22,3,0.06), metal);
-    frame.position.set(midX, wr+s.bodyH*0.55+lift, 0); g.add(frame);
-    const tank=new THREE.Mesh(new THREE.RoundedBoxGeometry(wb*0.55, s.bodyH*1.1, 0.34, 4, 0.1), paint);
-    tank.position.set(midX-wb*0.05, wr+s.bodyH+lift, 0); tank.castShadow=true; g.add(tank);
-    const fork=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045, wr+s.bodyH*0.9, 8), metal);
-    fork.position.set(s.axleF-0.04, wr+s.bodyH*0.45+lift, 0); fork.rotation.z=0.28; g.add(fork);
-    const bar=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.42,8), metal);
-    bar.rotation.x=Math.PI/2; bar.position.set(s.axleF-0.16, wr+s.bodyH*1.35+lift, 0); g.add(bar);
-    const hl=new THREE.Mesh(new THREE.SphereGeometry(0.09,10,8),
-      new THREE.MeshStandardMaterial({color:0xfff3b0, emissive:0xffe27a, emissiveIntensity:0.5}));
-    hl.position.set(s.axleF-0.02, wr+s.bodyH*1.1+lift, 0); g.add(hl);
-    g.add(makeWheel3D(s.axleF,0,wr,c)); g.add(makeWheel3D(s.axleR,0,wr,c));
+    buildProceduralBike(g, type, c, s, wr, lift, paint);
   } else if(s.quad){
     const metal=new THREE.MeshStandardMaterial({color:0x2a2d34, metalness:0.7, roughness:0.4, envMapIntensity:0.9});
     const chassis=new THREE.Mesh(new THREE.RoundedBoxGeometry(s.len*0.82, s.bodyH, s.wid*0.62, 4, 0.1), paint);
@@ -2789,11 +2988,12 @@ function render(){
 /* ---- GARAGE ---- */
 function garageScreen(){
   const type = state.current, c = cfg(type), v = VEHICLES[type];
-  const vtiles = Object.keys(VEHICLES).map(k=>{
+  const vtiles = garageVehicleKeys().map(k=>{
     const vv=VEHICLES[k], owned=state.owned.includes(k), locked=state.level<vv.level;
-    const is3D = (k==="crawler"||k==="bouncer"||k==="classic70"||k==="outlaw69"||k==="barn72"||isRaceCarType(k));
+    const is3D = true;
     const cls = "tile "+(k===type?"sel ":"")+(owned?"owned ":"")+(locked?"locked":"");
-    const badge3d = is3D ? `<div style="font-size:9px;background:#1f9e69;color:#fff;border-radius:6px;padding:1px 5px;display:inline-block;margin-top:2px">3D RIGGED</div>` : "";
+    const kind = isMotoType(k) ? "BIKE" : (isQuadType(k) ? "ATV" : "3D");
+    const badge3d = owned ? `<div style="font-size:9px;background:#1f9e69;color:#fff;border-radius:6px;padding:1px 5px;display:inline-block;margin-top:2px">${kind}</div>` : "";
     const foot = owned ? badge3d : (locked ? `<div class="lock">🔒 Lv${vv.level}</div>` : `<div class="price">🪙${vv.cost}</div>`);
     return `<button class="${cls}" data-vehicle="${k}"><span class="emoji">${vv.emoji}</span>${vv.name}${foot}</button>`;
   }).join("");
@@ -3185,8 +3385,7 @@ function completeBarnStep(){
   state.previewBarnWreck = true;
   addXP(35); SFX.level(); confettiBurst();
   if(state.barnStep > 4){
-    if(!state.owned.includes("barn72")) state.owned.push("barn72");
-    state.current = "barn72";
+    grantVehicle("barn72", {select:true});
     const bc = cfg("barn72");
     bc.paint = "#ff6b00"; bc.decal = "flames"; bc.lift = true; bc.suspTravel = 0.28;
     bc.tireRadius = 1.22; bc.tireWidth = 1.32; bc.axleWidth = 0.18;
@@ -3373,8 +3572,7 @@ window.openDealershipModal = function(selId){
 window.equipDealerCar = function(id, goCity){
   const it = DEALERSHIP_CATALOG.find(x=>x.id===id);
   if(!it) return;
-  if(!state.owned.includes(it.vKey)) state.owned.push(it.vKey);
-  state.current = it.vKey;
+  grantVehicle(it.vKey, {select:true});
   const c = cfg(it.vKey);
   c.paint = it.col;
   save(); closeModal(); SFX.buy();
@@ -3393,8 +3591,7 @@ window.unlockDealerCar = function(id, useBrain){
   const finishUnlock = ()=>{
     if(!state.unlockedDealerIds) state.unlockedDealerIds = [];
     if(!state.unlockedDealerIds.includes(it.id)) state.unlockedDealerIds.push(it.id);
-    if(!state.owned.includes(it.vKey)) state.owned.push(it.vKey);
-    state.current = it.vKey;
+    grantVehicle(it.vKey, {select:true});
     cfg(it.vKey).paint = it.col;
     save(); SFX.level(); confettiBurst();
     toast(`🎉 UNLOCKED ${it.name} (PP ${it.pp})!`);
@@ -3448,7 +3645,8 @@ function selectEngine(k){
 
 function selectVehicle(k){
   const v=VEHICLES[k];
-  if(state.owned.includes(k)){ state.current=k; save(); render(); return; }
+  if(!v) return;
+  if(state.owned.includes(k)){ grantVehicle(k, {select:true}); save(); render(); return; }
   if(state.level < v.level){ toast(`🔒 Reach level ${v.level} to unlock the ${v.name}`); return; }
   if(state.coins < v.cost){
     toast(`Need 🪙${v.cost} — solve a Brain Boost to earn coins!`);
@@ -3457,7 +3655,7 @@ function selectVehicle(k){
   }
   openBrainBoostGate(`Unlock ${v.emoji} ${v.name}`, ()=>{
     addCoins(-v.cost);
-    state.owned.push(k); state.current=k; cfg(k); save(); SFX.buy();
+    grantVehicle(k, {select:true}); save(); SFX.buy();
     toast(`🎉 Bought the ${v.name}!`); render();
   });
 }
@@ -3665,6 +3863,7 @@ function deserialize(code){
     state.owned=p.o??["car"]; state.current=p.cur??"car"; state.configs=p.cf??{};
     state.ownedParts=p.p??[]; state.ownedEngines=p.en??["stock"];
     state.build=p.b??{}; state.gridW=p.gw??6; state.gridH=p.gh??5; state.records=p.rec??{};
+    normalizeOwnedVehicles();
     cfg(state.current); save(); return true;
   }catch(e){ return false; }
 }
@@ -3948,6 +4147,8 @@ function driveScreen(){
         <button class="btn sm gray" data-track="night">🌃 Night City</button>
       </div>
       <div id="trkname" style="color:#ffd14d;font-weight:800;font-size:13px">Off-Road</div>
+      <button class="btn sm" id="dchooseride" style="margin-top:8px;background:linear-gradient(180deg,#9b5bff,#6d28d9)">🏍️ Choose ride</button>
+      <div id="dcurrentride" style="color:#ffd14d;font-weight:800;font-size:13px;margin-top:4px"></div>
       <div style="font-weight:900;font-size:18px;margin-top:8px">Hold ▶ to drive!</div>
       <div style="color:#dbeaff;font-size:12px;max-width:270px">Race tracks are 3 laps to the finish! Hit ramps &amp; flip (▶ back, ◀ forward), grab coins, land on your wheels.</div>
       <button class="btn sm" id="chapters3dbtn" style="margin-top:10px;background:linear-gradient(180deg,#36c98a,#1f9e69);font-size:14px;padding:10px 16px">🏔️ 3D Off-Road Outlaws (6 Chapters)</button>
@@ -3989,6 +4190,25 @@ function startDrive(){
     });
     const bb=$("#battlebtn"); if(bb) bb.onclick=()=>{ SFX.tap(); startBattle(); };
     const c3b=$("#chapters3dbtn"); if(c3b) c3b.onclick=()=>{ SFX.tap(); start3DChapterMode(); };
+    const refreshRideLabel=()=>{
+      const vv=VEHICLES[state.current];
+      const el=$("#dcurrentride");
+      if(el && vv) el.textContent = vv.emoji+" "+vv.name+" ready";
+    };
+    refreshRideLabel();
+    const cr=$("#dchooseride");
+    if(cr) cr.onclick=()=>{
+      SFX.tap();
+      openOwnedVehiclePicker(k=>{
+        grantVehicle(k, {select:true}); save();
+        const cc=cfg(k);
+        car.type=k; car.paint=cc.paint; car.wheel=cc.wheel; car.rim=cc.rim; car.lift=cc.lift; car.tint=cc.tint;
+        const st2=carStats(k,cc);
+        driveTune={ accel: 540 + st2.power*3.0, maxs: 380 + st2.speed*2.2, land: 1.02 + st2.grip*0.006 };
+        refreshRideLabel();
+        toast(`${VEHICLES[k].emoji} ${VEHICLES[k].name} ready to drive!`);
+      });
+    };
     draf=requestAnimationFrame(driveFrame);
   });
 }
@@ -4318,14 +4538,21 @@ function drawCar(sx, sy){
   roundRectPath(-d.bw/2, top, d.bw, d.bh, 8);
   ctx.fillStyle=grad; ctx.fill();
   ctx.lineWidth=2; ctx.strokeStyle=shade(car.paint,-0.4); ctx.stroke();
-  if(car.type!=="moto"){
+  const bike2d = isMotoType(car.type);
+  if(!bike2d){
     roundRectPath(-d.bw*0.16, top-12, d.bw*0.5, 13, 4);
     ctx.fillStyle=car.tint?"#33414f":"#bfe6ff"; ctx.fill();
+  } else {
+    // slim tank already drawn as the body; add a crouched rider
+    ctx.beginPath(); ctx.arc(-d.bw*0.06, top-10, 6.5, 0, 7); ctx.fillStyle="#f1c8a0"; ctx.fill();
+    ctx.beginPath(); ctx.arc(-d.bw*0.06, top-12, 7.2, Math.PI, 2*Math.PI); ctx.fillStyle=shade(car.paint,-0.1); ctx.fill();
   }
   ctx.beginPath(); ctx.arc(d.bw*0.5-3, by, 3, 0, 7); ctx.fillStyle="#fff3b0"; ctx.fill();
   ctx.beginPath(); ctx.arc(-d.bw*0.5+3, by, 2.5, 0, 7); ctx.fillStyle="#e23b3b"; ctx.fill();
-  ctx.beginPath(); ctx.arc(-d.bw*0.08, top-16, 6.5, 0, 7); ctx.fillStyle="#f1c8a0"; ctx.fill();
-  ctx.beginPath(); ctx.arc(-d.bw*0.08, top-18, 7.5, Math.PI, 2*Math.PI); ctx.fillStyle=shade(car.paint,-0.1); ctx.fill();
+  if(!bike2d){
+    ctx.beginPath(); ctx.arc(-d.bw*0.08, top-16, 6.5, 0, 7); ctx.fillStyle="#f1c8a0"; ctx.fill();
+    ctx.beginPath(); ctx.arc(-d.bw*0.08, top-18, 7.5, Math.PI, 2*Math.PI); ctx.fillStyle=shade(car.paint,-0.1); ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -5577,7 +5804,7 @@ function chapter3DScreen(){
           <button class="dchip" id="btn_hitch" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 7px;background:rgba(0,229,255,.90);color:#091024;font-weight:900">🪝 Hitch Load</button>
           <button class="dchip" id="btn_worldlaws" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 7px;background:rgba(56,189,248,.92);color:#091024;font-weight:900">⚖️ Laws</button>
           <button class="dchip" id="btn_mapbuilder" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 7px;background:rgba(255,140,26,.9)">🛠️ Map</button>
-          <button class="dchip" id="ch3drigswap" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 7px;background:rgba(155,91,255,.9)">🛻 Rig</button>
+          <button class="dchip" id="ch3drigswap" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 7px;background:rgba(155,91,255,.9)">🏍️ Rides</button>
           <button class="dchip" id="btn_zoom_out" title="Zoom Out to Total Field & Track Overview" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 7px;background:rgba(14,165,233,.92)">🔍 Field View</button>
           <button class="dchip" id="btn_ch3d_fs" title="Toggle Full Screen" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 7px;background:rgba(59,130,246,.92)">⛶ Full</button>
           <button class="dchip" id="ch3dexit" style="pointer-events:auto;cursor:pointer;font-size:10.5px;padding:3px 7px;background:rgba(226,59,59,.88)">✕</button>
@@ -5946,7 +6173,8 @@ function start3DChapterMode(initialIdx, initialContract){
   winchLine.visible = false;
   scene.add(winchLine);
 
-  const vType = STAR_RIGS.includes(state.current) || CAR_MODELS[state.current] ? state.current : "crawler";
+  normalizeOwnedVehicles();
+  const vType = (isKnownVehicle(state.current) && state.owned.includes(state.current)) ? state.current : (ownedVehicleKeys()[0] || "crawler");
   const vCfg = Object.assign({}, cfg(vType));
   if(vCfg.lift===undefined) vCfg.lift = true;
 
@@ -6207,6 +6435,7 @@ window.updateTruckVisualMud = function(carHolder, mudLevel){
 }
 
   const mountActiveRig = (rType)=>{
+    if(!isKnownVehicle(rType)) rType = ownedVehicleKeys()[0] || "crawler";
     while(carHolder.children.length) carHolder.remove(carHolder.children[0]);
     carHolder.userData.jbeamGrp = null;
     carHolder.userData.xrayGrp = null;
@@ -6214,31 +6443,32 @@ window.updateTruckVisualMud = function(carHolder, mudLevel){
     carHolder.userData.mudPaintMats = null;
     const rc = Object.assign({}, cfg(rType));
     if(CH3D){ CH3D.vType = rType; CH3D.vCfg = rc; }
+    const finishMount = ()=>{
+      buildXRayAndJBeamOverlays(carHolder, rType);
+      applyXRayAndJBeamState();
+      ensureTruckMudSystem(carHolder, rType);
+      updateTruckVisualMud(carHolder, rc.mudLevel || 0);
+    };
     if(isRaceCarType(rType)){
       buildRaceCar3D(carHolder, rType, rc);
-      buildXRayAndJBeamOverlays(carHolder, rType);
-      applyXRayAndJBeamState();
-      ensureTruckMudSystem(carHolder, rType);
-      updateTruckVisualMud(carHolder, rc.mudLevel || 0);
-    } else if(gltfCache[CAR_MODELS[rType]]){
-      placeModel(carHolder, rType, rc, gltfCache[CAR_MODELS[rType]]);
-      buildXRayAndJBeamOverlays(carHolder, rType);
-      applyXRayAndJBeamState();
-      ensureTruckMudSystem(carHolder, rType);
-      updateTruckVisualMud(carHolder, rc.mudLevel || 0);
+      finishMount();
+    } else if(CAR_MODELS[rType] && window.THREE && THREE.GLTFLoader){
+      if(gltfCache[CAR_MODELS[rType]]){
+        placeModel(carHolder, rType, rc, gltfCache[CAR_MODELS[rType]]);
+        finishMount();
+      } else {
+        loadCarModel(carHolder, rType, rc, CAR_MODELS[rType]);
+        setTimeout(finishMount, 180);
+      }
     } else {
-      loadCarModel(carHolder, rType, rc, CAR_MODELS[rType]);
-      setTimeout(()=>{
-        buildXRayAndJBeamOverlays(carHolder, rType);
-        applyXRayAndJBeamState();
-        ensureTruckMudSystem(carHolder, rType);
-        updateTruckVisualMud(carHolder, rc.mudLevel || 0);
-      }, 180);
+      buildProceduralCar(carHolder, rType, rc);
+      finishMount();
     }
   };
   mountActiveRig(vType);
 
   CH3D = {
+    mountActiveRig,
     renderer, scene, camera, envGroup, parkGroup, carHolder, arrowGrp, winchLine, vType, vCfg,
     chIdx: initialIdx || 0,
     x: 0, z: 0, y: 0.2, vy: 0, mudSink: 0, airborne: false, jumpStartPos: null, bestAirFt: 0,
@@ -8104,13 +8334,13 @@ window.updateTruckVisualMud = function(carHolder, mudLevel){
 
   const bSwap = $("#ch3drigswap");
   if(bSwap) bSwap.onclick = ()=>{
-    const avail = STAR_RIGS.filter(k=>state.owned.includes(k));
-    const curIdx = avail.indexOf(CH3D.vType);
-    const nextRig = avail[(curIdx + 1) % avail.length] || "crawler";
-    state.current = nextRig; save(); SFX.buy();
-    mountActiveRig(nextRig);
-    const vObj = VEHICLES[nextRig];
-    showMsg(`${vObj.emoji} ${vObj.name} Deployed!`, 1000);
+    SFX.tap();
+    openOwnedVehiclePicker(k=>{
+      grantVehicle(k, {select:true}); save();
+      mountActiveRig(k);
+      const vObj = VEHICLES[k];
+      showMsg(`${vObj.emoji} ${vObj.name} Deployed!`, 1000);
+    });
   };
 
   const liftBtn = $("#ch3dlift");
@@ -8626,8 +8856,9 @@ function step3DChapterFrame(now){
   const fourMult   = CH3D.fourWD  ? 1.28 : 0.92;
   const diffMult   = CH3D.diffLock? 1.22 : 1.0;
 
-  const maxSpd = (16.5 + st.speed * 0.075) * lowMultSpd * nitroMult * mudDrag * towSpdMult * (laws.speedMult||1.0);
-  const accel  = (18.5 + st.power * 0.095) * lowMultAcc * fourMult * diffMult * nitroMult * towAccMult * (laws.speedMult||1.0);
+  const bikeSpdBoost = isMotoType(CH3D.vType) ? 1.12 : (isQuadType(CH3D.vType) ? 1.04 : 1);
+  const maxSpd = (16.5 + st.speed * 0.075) * lowMultSpd * nitroMult * mudDrag * towSpdMult * (laws.speedMult||1.0) * bikeSpdBoost;
+  const accel  = (18.5 + st.power * 0.095) * lowMultAcc * fourMult * diffMult * nitroMult * towAccMult * (laws.speedMult||1.0) * (isMotoType(CH3D.vType) ? 1.18 : 1);
 
   if(inp.gas || CH3D.cruiseGas || inp.nitro) CH3D.speed += accel * dt;
   else if(inp.rev) CH3D.speed -= accel * 0.88 * dt;
@@ -8662,12 +8893,15 @@ function step3DChapterFrame(now){
     gearEl.textContent = gNum;
   }
 
-  const steerLimit = CH3D.diffLock ? 0.44 : 0.58;
+  const rideNow = carSpec3D(CH3D.vType);
+  const isBikeNow = !!(rideNow && rideNow.moto);
+  const steerLimit = isBikeNow ? 0.78 : (CH3D.diffLock ? 0.44 : 0.58);
   const targetSteer = (inp.left ? steerLimit : 0) + (inp.right ? -steerLimit : 0);
-  CH3D.steer += (targetSteer - CH3D.steer) * Math.min(1, dt * 10);
+  CH3D.steer += (targetSteer - CH3D.steer) * Math.min(1, dt * (isBikeNow ? 14 : 10));
 
   if(Math.abs(CH3D.speed) > 0.15){
-    CH3D.heading += CH3D.steer * (CH3D.speed / Math.max(8, maxSpd)) * 2.2 * dt;
+    const turnRate = isBikeNow ? 3.15 : 2.2;
+    CH3D.heading += CH3D.steer * (CH3D.speed / Math.max(isBikeNow ? 5.5 : 8, maxSpd)) * turnRate * dt;
   }
 
   const prevY = CH3D.y;
@@ -8704,7 +8938,8 @@ function step3DChapterFrame(now){
     }
 
     // 2. SOLID FENCES, POSTS, ROCKS, BOULDERS & VIADUCT COLUMNS
-    const truckR = 1.45;
+    const vSpecCol = carSpec3D(CH3D.vType);
+    const truckR = (vSpecCol && vSpecCol.moto) ? 0.72 : ((vSpecCol && vSpecCol.quad) ? 1.05 : 1.45);
     for(const ob of CH3D.obstacleColliders){
       const dx = nextX - ob.x, dz = nextZ - ob.z;
       const dist = Math.hypot(dx, dz), minD = truckR + ob.r;
@@ -8730,7 +8965,8 @@ function step3DChapterFrame(now){
         const dx = nextX - bc.cx, dz = nextZ - bc.cz;
         const lx =  dx * bc.cos - dz * bc.sin;
         const lz =  dx * bc.sin + dz * bc.cos;
-        const padX = bc.hx + 1.35, padZ = bc.hz + 1.35;
+        const boxPad = (vSpecCol && vSpecCol.moto) ? 0.62 : ((vSpecCol && vSpecCol.quad) ? 0.95 : 1.35);
+        const padX = bc.hx + boxPad, padZ = bc.hz + boxPad;
         if(Math.abs(lx) < padX && Math.abs(lz) < padZ){
           const penX = padX - Math.abs(lx);
           const penZ = padZ - Math.abs(lz);
@@ -8863,8 +9099,12 @@ function step3DChapterFrame(now){
   CH3D.onRampThisFrame = false;
   const chCos = Math.cos(CH3D.heading), chSin = Math.sin(CH3D.heading);
   const wWorld = (lx, lz)=>[CH3D.x + lx*chCos + lz*chSin, CH3D.z - lx*chSin + lz*chCos];
-  const pFL = wWorld( 1.42, -0.98), pFR = wWorld( 1.42,  0.98);
-  const pRL = wWorld(-1.42, -0.98), pRR = wWorld(-1.42,  0.98);
+  const rideSpec = carSpec3D(CH3D.vType);
+  const axF = (rideSpec && rideSpec.axleF != null) ? rideSpec.axleF : 1.42;
+  const axR = (rideSpec && rideSpec.axleR != null) ? rideSpec.axleR : -1.42;
+  const halfT = (rideSpec && rideSpec.moto) ? 0.05 : ((rideSpec && rideSpec.wid) ? rideSpec.wid * 0.42 : 0.98);
+  const pFL = wWorld( axF, -halfT), pFR = wWorld( axF,  halfT);
+  const pRL = wWorld( axR, -halfT), pRR = wWorld( axR,  halfT);
   const hFL = sampleWheelHeight3D(ch.mode, pFL[0], pFL[1]);
   const hFR = sampleWheelHeight3D(ch.mode, pFR[0], pFR[1]);
   const hRL = sampleWheelHeight3D(ch.mode, pRL[0], pRL[1]);
@@ -8873,12 +9113,14 @@ function step3DChapterFrame(now){
 
   const wheelAvgH = (hFL + hFR + hRL + hRR) * 0.25;
   const groundH = Math.max(wheelAvgH, hCenter - 0.02) + (CH3D.mudSink || 0);
-  const rawPitch = Math.atan2(((hFL+hFR)*0.5) - ((hRL+hRR)*0.5), 2.84);
+  const wheelbase = Math.max(1.2, axF - axR);
+  const rawPitch = Math.atan2(((hFL+hFR)*0.5) - ((hRL+hRR)*0.5), wheelbase);
   // Correct right-hand-rule roll sign around local +X: positive rotation.x lifts -Z (Left) and lowers +Z (Right),
   // so rawRoll MUST be atan2(hLeft - hRight, trackWidth) so the car tilts WITH the ground slope instead of opposite!
-  const rawRoll  = Math.atan2(((hFL+hRL)*0.5) - ((hFR+hRR)*0.5), 1.96);
+  const rawRoll  = Math.atan2(((hFL+hRL)*0.5) - ((hFR+hRR)*0.5), Math.max(0.2, halfT * 2));
+  const bikeLean = (rideSpec && rideSpec.moto) ? CH3D.steer * Math.min(1, Math.abs(CH3D.speed) / 10) * 0.48 : 0;
   const targetPitch = CH3D.onRampThisFrame ? Math.max(-0.42, Math.min(0.42, rawPitch)) : Math.max(-0.18, Math.min(0.18, rawPitch * 0.75));
-  const targetRoll  = CH3D.onRampThisFrame ? Math.max(-0.28, Math.min(0.28, rawRoll))  : Math.max(-0.10, Math.min(0.10, rawRoll  * 0.50));
+  const targetRoll  = ((CH3D.onRampThisFrame ? Math.max(-0.28, Math.min(0.28, rawRoll))  : Math.max(-0.10, Math.min(0.10, rawRoll  * 0.50))) + bikeLean);
 
   if(!CH3D.airborne){
     if(CH3D.wasOnRamp && !CH3D.onRampThisFrame && Math.abs(CH3D.speed) > 7.5){
@@ -9407,6 +9649,9 @@ function boot(){
   if(state.musicReset!==1){ state.music=false; state.musicReset=1; MUSIC.stop(); save(); }
   // v23: force music off once more so returning players aren't stuck with the old chiptune on.
   if(state.musicOffV23!==1){ state.music=false; state.musicOffV23=1; MUSIC.stop(); save(); }
+  const beforeOwned = (state.owned||[]).join(",");
+  normalizeOwnedVehicles();
+  if((state.owned||[]).join(",") !== beforeOwned) save();
   refreshTop();
   if(state.music) MUSIC.start();          // only if the player opted in
   setScreen("garage");
@@ -10748,7 +10993,7 @@ if("serviceWorker" in navigator){
     window.location.reload();
   });
   window.addEventListener("load", function(){
-    navigator.serviceWorker.register("sw.js?v=27", { updateViaCache: "none" }).then(function(reg){
+    navigator.serviceWorker.register("sw.js?v=28", { updateViaCache: "none" }).then(function(reg){
       try{ reg.update(); }catch(e){}
       document.addEventListener("visibilitychange", function(){
         if(document.visibilityState === "visible"){ try{ reg.update(); }catch(e){} }
